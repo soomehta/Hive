@@ -1,0 +1,19 @@
+# Hive — Project Intelligence
+
+## Source of Truth
+- **hive-prd.md** is the single source of truth for product requirements, technical stack, database schema (Drizzle + PostgreSQL), API routes, env vars, build/run commands, and **implementation order**. Do not deviate from the PRD without explicit user approval.
+
+## Memory Bank
+- At the start of every task, read the Memory Bank in `memory-bank/`: projectbrief.md, productContext.md, activeContext.md, systemPatterns.md, techContext.md, progress.md. These summarize the PRD and current state. When you discover new patterns or complete significant work, update the relevant Memory Bank files (especially activeContext.md and progress.md).
+
+## Implementation Order (PRD)
+Build in this exact sequence. Complete and test each phase before starting the next.
+1. **Phase 1 – Foundation:** Next.js + Clerk + Drizzle + PostgreSQL; Organizations, Projects, Tasks, Messages, Activity Log, Notifications; all frontend pages and CRUD; e2e test via UI.
+2. **Phase 2 – Voice + PA Core:** Voice recording, Deepgram/Gladia, intent classifier, PA chat (text then voice), action registry/executor, approval UI.
+3. **Phase 3 – Integrations:** Google/Microsoft/Slack OAuth and APIs; calendar, mail, Slack action handlers.
+4. **Phase 4 – Reporting + Proactive:** Report engine, reports page, morning briefing, weekly digest, cron jobs, PA profile learning, embeddings/RAG.
+
+## Conventions
+- **API routes:** Always call `auth()` from Clerk; validate org membership (e.g. `x-org-id`); use `hasPermission()` from `src/lib/auth/permissions.ts` where needed.
+- **Schema:** Use the Drizzle schema in the PRD (§3); UUIDs for PKs, UTC for timestamps; run the extra SQL for pgvector and `updated_at` triggers.
+- **Naming:** Follow the PRD folder and file structure under `src/app/`, `src/lib/`, `src/components/` exactly.
