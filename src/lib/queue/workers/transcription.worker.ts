@@ -3,14 +3,19 @@ import { createWorker, QUEUE_NAMES, getAIProcessingQueue } from "@/lib/queue";
 import type { TranscriptionJob, AIProcessingJob } from "@/lib/queue/jobs";
 import { transcribeAudio } from "@/lib/voice/deepgram";
 import { createVoiceTranscript } from "@/lib/db/queries/pa-actions";
+import { createLogger } from "@/lib/logger";
+import * as Sentry from "@sentry/nextjs";
+
+const log = createLogger("transcription");
 
 const worker = createWorker<TranscriptionJob>(
   QUEUE_NAMES.TRANSCRIPTION,
   async (job: Job<TranscriptionJob>) => {
     const { audioUrl, userId, orgId, format } = job.data;
 
-    console.log(
-      `[transcription] Processing job ${job.id} for user=${userId} org=${orgId}`
+    log.info(
+      { jobId: job.id, userId, orgId },
+      "Processing transcription job"
     );
 
     // 1. Fetch the audio from the URL
@@ -29,8 +34,9 @@ const worker = createWorker<TranscriptionJob>(
       mimeType: format,
     });
 
-    console.log(
-      `[transcription] Transcribed ${audioBuffer.length} bytes, confidence=${result.confidence.toFixed(2)}`
+    log.info(
+      { jobId: job.id, bytes: audioBuffer.length, confidence: result.confidence.toFixed(2) },
+      "Transcription complete"
     );
 
     // 3. Store the transcript in the database
@@ -58,8 +64,9 @@ const worker = createWorker<TranscriptionJob>(
       priority: 1,
     });
 
-    console.log(
-      `[transcription] Completed job ${job.id}, enqueued AI processing for transcript=${transcript.id}`
+    log.info(
+      { jobId: job.id, transcriptId: transcript.id },
+      "Completed, enqueued AI processing"
     );
 
     return { transcriptId: transcript.id, text: result.transcript };
@@ -70,14 +77,12 @@ const worker = createWorker<TranscriptionJob>(
 );
 
 worker.on("completed", (job) => {
-  console.log(`[transcription] Job ${job.id} completed successfully`);
+  log.info({ jobId: job.id }, "Job completed successfully");
 });
 
 worker.on("failed", (job, err) => {
-  console.error(
-    `[transcription] Job ${job?.id} failed: ${err.message}`,
-    err.stack
-  );
+  log.error({ jobId: job?.id, err }, "Job failed");
+  Sentry.captureException(err);
 });
 
 export { worker as transcriptionWorker };

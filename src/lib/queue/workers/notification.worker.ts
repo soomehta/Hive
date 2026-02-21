@@ -3,14 +3,16 @@ import { createWorker, QUEUE_NAMES } from "@/lib/queue";
 import type { NotificationJob } from "@/lib/queue/jobs";
 import { createNotification } from "@/lib/notifications/in-app";
 import type { Resend } from "resend";
+import { createLogger } from "@/lib/logger";
+import * as Sentry from "@sentry/nextjs";
+
+const log = createLogger("notification");
 
 // ─── Lazy SDK Initialization ────────────────────────────
 
 let _resend: Resend | null = null;
 function getResend(): Resend {
   if (!_resend) {
-    // Dynamic import is not practical here since it's a class constructor;
-    // the package is already installed, so require is fine for lazy init.
     const { Resend: ResendClient } = require("resend") as typeof import("resend");
     _resend = new ResendClient(process.env.RESEND_API_KEY!);
   }
@@ -32,8 +34,9 @@ const worker = createWorker<NotificationJob>(
       metadata,
     } = job.data;
 
-    console.log(
-      `[notification] Processing job ${job.id}: channel=${channel} type=${type} user=${userId}`
+    log.info(
+      { jobId: job.id, channel, type, userId },
+      "Processing notification"
     );
 
     // Always create an in-app notification as the baseline record
@@ -53,8 +56,9 @@ const worker = createWorker<NotificationJob>(
       await sendSlackNotification(userId, orgId, title, body);
     }
 
-    console.log(
-      `[notification] Completed job ${job.id}: notification=${notification.id} channel=${channel}`
+    log.info(
+      { jobId: job.id, notificationId: notification.id, channel },
+      "Notification delivered"
     );
 
     return { notificationId: notification.id, channel };
@@ -76,22 +80,16 @@ async function sendEmailNotification(
     const fromEmail =
       process.env.EMAIL_FROM ?? "Hive PA <notifications@hive.app>";
 
-    // In production, resolve userId to email via Clerk.
-    // For now we construct a placeholder — the cron/API caller should
-    // pass the user's email in job metadata if available.
     await resend.emails.send({
       from: fromEmail,
-      to: userId, // Caller should provide email; falls back to userId
+      to: userId,
       subject: title,
       text: body ?? title,
     });
 
-    console.log(`[notification] Email sent to ${userId}: "${title}"`);
+    log.info({ userId, title }, "Email sent");
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`[notification] Failed to send email: ${message}`);
-    // Do not rethrow — in-app notification was already created.
-    // Email failure should not fail the entire job.
+    log.error({ err, userId }, "Failed to send email");
   }
 }
 
@@ -113,25 +111,21 @@ async function sendSlackNotification(
       text,
     });
 
-    console.log(`[notification] Slack message sent to user=${userId}`);
+    log.info({ userId }, "Slack message sent");
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`[notification] Failed to send Slack message: ${message}`);
-    // Do not rethrow — in-app notification was already created.
+    log.error({ err, userId }, "Failed to send Slack message");
   }
 }
 
 // ─── Events ─────────────────────────────────────────────
 
 worker.on("completed", (job) => {
-  console.log(`[notification] Job ${job.id} completed successfully`);
+  log.info({ jobId: job.id }, "Job completed successfully");
 });
 
 worker.on("failed", (job, err) => {
-  console.error(
-    `[notification] Job ${job?.id} failed: ${err.message}`,
-    err.stack
-  );
+  log.error({ jobId: job?.id, err }, "Job failed");
+  Sentry.captureException(err);
 });
 
 export { worker as notificationWorker };

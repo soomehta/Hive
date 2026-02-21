@@ -54,6 +54,19 @@ function loadEnv() {
 
     // Cron
     CRON_SECRET: optional("CRON_SECRET"),
+
+    // Sentry
+    NEXT_PUBLIC_SENTRY_DSN: optional("NEXT_PUBLIC_SENTRY_DSN"),
+    SENTRY_AUTH_TOKEN: optional("SENTRY_AUTH_TOKEN"),
+    SENTRY_ORG: optional("SENTRY_ORG"),
+    SENTRY_PROJECT: optional("SENTRY_PROJECT"),
+
+    // Logging
+    LOG_LEVEL: optional("LOG_LEVEL"),
+
+    // Upstash Redis (rate limiting)
+    UPSTASH_REDIS_REST_URL: optional("UPSTASH_REDIS_REST_URL"),
+    UPSTASH_REDIS_REST_TOKEN: optional("UPSTASH_REDIS_REST_TOKEN"),
   };
 }
 

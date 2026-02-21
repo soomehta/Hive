@@ -9,6 +9,10 @@ import { resolveActionTier } from "@/lib/actions/registry";
 import { db } from "@/lib/db";
 import { projects, tasks, organizationMembers } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
+import { createLogger } from "@/lib/logger";
+import * as Sentry from "@sentry/nextjs";
+
+const log = createLogger("ai-processing");
 
 /**
  * Builds the classification context required by classifyIntent.
@@ -61,8 +65,9 @@ const worker = createWorker<AIProcessingJob>(
   async (job: Job<AIProcessingJob>) => {
     const { transcript, userId, orgId, voiceTranscriptId } = job.data;
 
-    console.log(
-      `[ai-processing] Processing job ${job.id} for user=${userId} org=${orgId}`
+    log.info(
+      { jobId: job.id, userId, orgId },
+      "Processing AI job"
     );
 
     // 1. Get or create the user's PA profile
@@ -74,8 +79,9 @@ const worker = createWorker<AIProcessingJob>(
     // 3. Classify the intent using GPT-4o-mini
     const classification = await classifyIntent(transcript, classificationCtx);
 
-    console.log(
-      `[ai-processing] Intent: ${classification.intent} (confidence=${classification.confidence.toFixed(2)})`
+    log.info(
+      { intent: classification.intent, confidence: classification.confidence.toFixed(2) },
+      "Intent classified"
     );
 
     // 4. Plan the action using Claude Sonnet
@@ -92,8 +98,9 @@ const worker = createWorker<AIProcessingJob>(
       userId,
     });
 
-    console.log(
-      `[ai-processing] Planned action: tier=${resolvedTier} (plan.tier=${plan.tier}), payload keys=${Object.keys(plan.payload).join(", ")}`
+    log.info(
+      { tier: resolvedTier, planTier: plan.tier, payloadKeys: Object.keys(plan.payload).join(", ") },
+      "Action planned"
     );
 
     // 5. Create the PA action record
@@ -122,13 +129,15 @@ const worker = createWorker<AIProcessingJob>(
         priority: 1,
       });
 
-      console.log(
-        `[ai-processing] Auto-execute tier: enqueued action ${action.id} for execution`
+      log.info(
+        { actionId: action.id },
+        "Auto-execute tier: enqueued for execution"
       );
     }
 
-    console.log(
-      `[ai-processing] Completed job ${job.id}, action=${action.id} tier=${resolvedTier}`
+    log.info(
+      { jobId: job.id, actionId: action.id, tier: resolvedTier },
+      "Completed AI processing"
     );
 
     return {
@@ -143,14 +152,12 @@ const worker = createWorker<AIProcessingJob>(
 );
 
 worker.on("completed", (job) => {
-  console.log(`[ai-processing] Job ${job.id} completed successfully`);
+  log.info({ jobId: job.id }, "Job completed successfully");
 });
 
 worker.on("failed", (job, err) => {
-  console.error(
-    `[ai-processing] Job ${job?.id} failed: ${err.message}`,
-    err.stack
-  );
+  log.error({ jobId: job?.id, err }, "Job failed");
+  Sentry.captureException(err);
 });
 
 export { worker as aiProcessingWorker };

@@ -84,23 +84,19 @@ const steps = [
 ];
 
 const teamFeatures = [
-  "Up to 5 projects",
-  "Task & message boards",
-  "Activity feed & notifications",
-  "Basic PA chat",
-  "Voice commands",
-  "Team collaboration",
+  "Up to 3 projects",
+  "AI summaries (read-only)",
+  "Basic team collaboration",
 ];
 
 const proFeatures = [
-  "Unlimited projects",
-  "Full PA autonomy modes",
+  "Unlimited projects & workspaces",
+  "Full PA with tool use & actions",
+  "Voice commands",
   "Google, Outlook & Slack",
   "Morning briefings & digests",
   "Conversational reports",
   "PA learning & corrections",
-  "Priority support",
-  "Custom action overrides",
 ];
 
 export function LandingPage() {
@@ -314,10 +310,10 @@ export function LandingPage() {
             </p>
           </div>
           <div className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-2">
-            {/* Team Plan */}
+            {/* Free Plan */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-xl">Team</CardTitle>
+                <CardTitle className="text-xl">Free</CardTitle>
                 <CardDescription>
                   For small teams getting started
                 </CardDescription>
@@ -357,7 +353,7 @@ export function LandingPage() {
                   Full PA experience for growing teams
                 </CardDescription>
                 <div className="pt-2">
-                  <span className="text-3xl font-bold">$12</span>
+                  <span className="text-3xl font-bold">$3</span>
                   <span className="text-muted-foreground">
                     /user/month
                   </span>

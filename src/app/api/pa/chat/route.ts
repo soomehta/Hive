@@ -21,7 +21,7 @@ import { eq } from "drizzle-orm";
 export async function POST(req: NextRequest) {
   try {
     const auth = await authenticateRequest(req);
-    const rl = rateLimit(`pa:${auth.userId}`, 20, 60_000);
+    const rl = await rateLimit(`pa:${auth.userId}`, 20, 60_000);
     if (!rl.success) return rateLimitResponse(rl);
 
     const body = await req.json();

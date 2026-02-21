@@ -483,6 +483,7 @@ export const notifications = pgTable(
   (table) => [
     index("notifications_user_idx").on(table.userId),
     index("notifications_is_read_idx").on(table.isRead),
+    index("notifications_created_at_idx").on(table.createdAt),
   ]
 );
 
@@ -670,24 +671,30 @@ export const paCorrectionsRelations = relations(paCorrections, ({ one }) => ({
 
 // ─── Voice Transcripts ──────────────────────────────────
 
-export const voiceTranscripts = pgTable("voice_transcripts", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: varchar("user_id", { length: 255 }).notNull(),
-  orgId: uuid("org_id")
-    .references(() => organizations.id, { onDelete: "cascade" })
-    .notNull(),
-  audioUrl: text("audio_url"),
-  audioFormat: varchar("audio_format", { length: 20 }),
-  durationMs: integer("duration_ms"),
-  transcript: text("transcript").notNull(),
-  language: varchar("language", { length: 10 }),
-  confidence: real("confidence"),
-  provider: varchar("provider", { length: 50 }).notNull(),
-  rawResponse: jsonb("raw_response"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
+export const voiceTranscripts = pgTable(
+  "voice_transcripts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: varchar("user_id", { length: 255 }).notNull(),
+    orgId: uuid("org_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    audioUrl: text("audio_url"),
+    audioFormat: varchar("audio_format", { length: 20 }),
+    durationMs: integer("duration_ms"),
+    transcript: text("transcript").notNull(),
+    language: varchar("language", { length: 10 }),
+    confidence: real("confidence"),
+    provider: varchar("provider", { length: 50 }).notNull(),
+    rawResponse: jsonb("raw_response"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("voice_transcripts_user_created_idx").on(table.userId, table.createdAt),
+  ]
+);
 
 // ─── Integrations (OAuth Tokens) ───────────────────────
 

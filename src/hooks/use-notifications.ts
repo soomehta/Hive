@@ -1,68 +1,55 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, useRef } from "react";
 import { useOrg } from "./use-org";
+import { createClient } from "@/lib/supabase/client";
 import type { Notification } from "@/types";
-
-const MAX_RETRIES = 5;
 
 export function useNotifications() {
   const { orgId } = useOrg();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const eventSourceRef = useRef<EventSource | null>(null);
-  const reconnectRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const retriesRef = useRef(0);
-  const orgIdRef = useRef(orgId);
-
-  // Keep orgIdRef in sync so the closure inside onerror can see the latest value
-  useEffect(() => {
-    orgIdRef.current = orgId;
-  }, [orgId]);
-
-  const connectRef = useRef<(() => void) | undefined>(undefined);
-
-  connectRef.current = () => {
-    const currentOrgId = orgIdRef.current;
-    if (!currentOrgId) return;
-
-    const es = new EventSource(
-      `/api/notifications/sse?orgId=${encodeURIComponent(currentOrgId)}`
-    );
-
-    es.addEventListener("notification", (event) => {
-      const notification = JSON.parse(event.data) as Notification;
-      setNotifications((prev) => [notification, ...prev]);
-      setUnreadCount((prev) => prev + 1);
-    });
-
-    es.onopen = () => {
-      retriesRef.current = 0;
-    };
-
-    es.onerror = () => {
-      es.close();
-      if (retriesRef.current < MAX_RETRIES) {
-        const delay = Math.min(1000 * Math.pow(2, retriesRef.current), 30000);
-        retriesRef.current++;
-        reconnectRef.current = setTimeout(() => {
-          connectRef.current?.();
-        }, delay);
-      }
-    };
-
-    eventSourceRef.current = es;
-  };
+  const supabaseRef = useRef(createClient());
 
   useEffect(() => {
     if (!orgId) return;
 
-    retriesRef.current = 0;
-    connectRef.current?.();
+    const supabase = supabaseRef.current;
+
+    // Get the current user to build the per-user channel
+    let userChannel: ReturnType<typeof supabase.channel> | null = null;
+    let orgChannel: ReturnType<typeof supabase.channel> | null = null;
+
+    async function subscribe() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Subscribe to user-specific notifications
+      userChannel = supabase
+        .channel(`notifications:${orgId}:${user.id}`)
+        .on("broadcast", { event: "notification" }, ({ payload }) => {
+          const notification = payload as unknown as Notification;
+          setNotifications((prev) => [notification, ...prev]);
+          setUnreadCount((prev) => prev + 1);
+        })
+        .subscribe();
+
+      // Subscribe to org-wide notifications
+      orgChannel = supabase
+        .channel(`notifications:${orgId}`)
+        .on("broadcast", { event: "notification" }, ({ payload }) => {
+          const notification = payload as unknown as Notification;
+          setNotifications((prev) => [notification, ...prev]);
+          setUnreadCount((prev) => prev + 1);
+        })
+        .subscribe();
+    }
+
+    subscribe();
 
     return () => {
-      eventSourceRef.current?.close();
-      clearTimeout(reconnectRef.current);
+      if (userChannel) supabase.removeChannel(userChannel);
+      if (orgChannel) supabase.removeChannel(orgChannel);
     };
   }, [orgId]);
 

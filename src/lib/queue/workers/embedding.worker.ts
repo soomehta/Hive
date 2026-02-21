@@ -2,21 +2,24 @@ import { Job } from "bullmq";
 import { createWorker, QUEUE_NAMES } from "@/lib/queue";
 import type { EmbeddingJob } from "@/lib/queue/jobs";
 import { storeEmbedding } from "@/lib/ai/embeddings";
+import { createLogger } from "@/lib/logger";
+import * as Sentry from "@sentry/nextjs";
+
+const log = createLogger("embedding");
 
 const worker = createWorker<EmbeddingJob>(
   QUEUE_NAMES.EMBEDDING,
   async (job: Job<EmbeddingJob>) => {
     const { orgId, sourceType, sourceId, content } = job.data;
 
-    console.log(
-      `[embedding] Processing job ${job.id}: source=${sourceType}/${sourceId} org=${orgId}`
+    log.info(
+      { jobId: job.id, sourceType, sourceId, orgId },
+      "Processing embedding job"
     );
 
     // Validate content is non-empty before generating embeddings
     if (!content || content.trim().length === 0) {
-      console.log(
-        `[embedding] Skipping job ${job.id}: empty content`
-      );
+      log.info({ jobId: job.id }, "Skipping: empty content");
       return { skipped: true, reason: "Empty content" };
     }
 
@@ -27,8 +30,9 @@ const worker = createWorker<EmbeddingJob>(
 
     await storeEmbedding(orgId, sourceType, sourceId, truncatedContent);
 
-    console.log(
-      `[embedding] Completed job ${job.id}: stored embedding for ${sourceType}/${sourceId}`
+    log.info(
+      { jobId: job.id, sourceType, sourceId },
+      "Stored embedding"
     );
 
     return { sourceType, sourceId };
@@ -39,14 +43,12 @@ const worker = createWorker<EmbeddingJob>(
 );
 
 worker.on("completed", (job) => {
-  console.log(`[embedding] Job ${job.id} completed successfully`);
+  log.info({ jobId: job.id }, "Job completed successfully");
 });
 
 worker.on("failed", (job, err) => {
-  console.error(
-    `[embedding] Job ${job?.id} failed: ${err.message}`,
-    err.stack
-  );
+  log.error({ jobId: job?.id, err }, "Job failed");
+  Sentry.captureException(err);
 });
 
 export { worker as embeddingWorker };

@@ -1,56 +1,58 @@
 import "dotenv/config";
+import pino from "pino";
+
+const log = pino({
+  level: process.env.LOG_LEVEL ?? "info",
+  timestamp: pino.stdTimeFunctions.isoTime,
+}).child({ context: "worker" });
 
 async function startWorker() {
-  console.log("[worker] BullMQ worker process starting...");
-  console.log(`[worker] NODE_ENV=${process.env.NODE_ENV ?? "development"}`);
-  console.log(`[worker] Redis URL configured: ${process.env.REDIS_URL ? "yes" : "NO — set REDIS_URL"}`);
-
-  // Import all workers — each module registers itself with BullMQ on import.
-  // Failures during import are fatal and will be caught by the outer catch.
+  log.info("BullMQ worker process starting...");
+  log.info({ NODE_ENV: process.env.NODE_ENV ?? "development" }, "Environment");
+  log.info({ redisConfigured: !!process.env.REDIS_URL }, "Redis URL configured");
 
   const { transcriptionWorker } = await import(
     "../src/lib/queue/workers/transcription.worker"
   );
-  console.log("[worker] Registered: transcription");
+  log.info("Registered: transcription");
 
   const { aiProcessingWorker } = await import(
     "../src/lib/queue/workers/ai-processing.worker"
   );
-  console.log("[worker] Registered: ai-processing");
+  log.info("Registered: ai-processing");
 
   const { actionExecutionWorker } = await import(
     "../src/lib/queue/workers/action-execution.worker"
   );
-  console.log("[worker] Registered: action-execution");
+  log.info("Registered: action-execution");
 
   const { embeddingWorker } = await import(
     "../src/lib/queue/workers/embedding.worker"
   );
-  console.log("[worker] Registered: embedding");
+  log.info("Registered: embedding");
 
   const { notificationWorker } = await import(
     "../src/lib/queue/workers/notification.worker"
   );
-  console.log("[worker] Registered: notification");
+  log.info("Registered: notification");
 
   const { morningBriefingWorker } = await import(
     "../src/lib/queue/workers/morning-briefing.worker"
   );
-  console.log("[worker] Registered: morning-briefing");
+  log.info("Registered: morning-briefing");
 
   const { weeklyDigestWorker } = await import(
     "../src/lib/queue/workers/weekly-digest.worker"
   );
-  console.log("[worker] Registered: weekly-digest");
+  log.info("Registered: weekly-digest");
 
   const { profileLearningWorker } = await import(
     "../src/lib/queue/workers/profile-learning.worker"
   );
-  console.log("[worker] Registered: profile-learning");
+  log.info("Registered: profile-learning");
 
-  console.log("[worker] All 8 workers registered. Waiting for jobs...");
+  log.info("All 8 workers registered. Waiting for jobs...");
 
-  // Collect all workers for graceful shutdown
   const workers = [
     transcriptionWorker,
     aiProcessingWorker,
@@ -62,14 +64,13 @@ async function startWorker() {
     profileLearningWorker,
   ];
 
-  // Graceful shutdown handler
   async function shutdown(signal: string) {
-    console.log(`[worker] Received ${signal}, shutting down gracefully...`);
+    log.info({ signal }, "Received signal, shutting down gracefully...");
     try {
       await Promise.all(workers.map((w) => w.close()));
-      console.log("[worker] All workers closed. Exiting.");
+      log.info("All workers closed. Exiting.");
     } catch (err) {
-      console.error("[worker] Error during shutdown:", err);
+      log.error({ err }, "Error during shutdown");
     }
     process.exit(0);
   }
@@ -79,6 +80,6 @@ async function startWorker() {
 }
 
 startWorker().catch((err) => {
-  console.error("[worker] Fatal error during startup:", err);
+  log.fatal({ err }, "Fatal error during startup");
   process.exit(1);
 });

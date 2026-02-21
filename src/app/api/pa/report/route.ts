@@ -12,7 +12,7 @@ import { eq, and, gte, lt, sql } from "drizzle-orm";
 export async function POST(req: NextRequest) {
   try {
     const auth = await authenticateRequest(req);
-    const rl = rateLimit(`report:${auth.userId}`, 10, 60_000);
+    const rl = await rateLimit(`report:${auth.userId}`, 10, 60_000);
     if (!rl.success) return rateLimitResponse(rl);
 
     const body = await req.json();

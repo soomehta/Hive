@@ -1,54 +1,40 @@
-type SSEClient = {
-  controller: ReadableStreamDefaultController;
-  userId: string;
-  orgId: string;
-};
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
-class SSEManager {
-  private clients = new Map<string, SSEClient>();
-
-  addClient(
-    clientId: string,
-    controller: ReadableStreamDefaultController,
-    userId: string,
-    orgId: string
-  ) {
-    this.clients.set(clientId, { controller, userId, orgId });
-  }
-
-  removeClient(clientId: string) {
-    this.clients.delete(clientId);
-  }
-
-  sendToUser(userId: string, orgId: string, event: string, data: unknown) {
-    const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-    const encoder = new TextEncoder();
-
-    for (const [, client] of this.clients) {
-      if (client.userId === userId && client.orgId === orgId) {
-        try {
-          client.controller.enqueue(encoder.encode(message));
-        } catch {
-          // Client disconnected
-        }
-      }
-    }
-  }
-
-  sendToOrg(orgId: string, event: string, data: unknown) {
-    const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-    const encoder = new TextEncoder();
-
-    for (const [, client] of this.clients) {
-      if (client.orgId === orgId) {
-        try {
-          client.controller.enqueue(encoder.encode(message));
-        } catch {
-          // Client disconnected
-        }
-      }
-    }
-  }
+export async function broadcastToUser(
+  userId: string,
+  orgId: string,
+  event: string,
+  data: unknown
+) {
+  const channel = supabaseAdmin.channel(`notifications:${orgId}:${userId}`);
+  await channel.send({
+    type: "broadcast",
+    event,
+    payload: data as Record<string, unknown>,
+  });
+  await supabaseAdmin.removeChannel(channel);
 }
 
-export const sseManager = new SSEManager();
+export async function broadcastToOrg(
+  orgId: string,
+  event: string,
+  data: unknown
+) {
+  const channel = supabaseAdmin.channel(`notifications:${orgId}`);
+  await channel.send({
+    type: "broadcast",
+    event,
+    payload: data as Record<string, unknown>,
+  });
+  await supabaseAdmin.removeChannel(channel);
+}
+
+// Backward-compat shim for callers that still import sseManager
+export const sseManager = {
+  sendToUser: (userId: string, orgId: string, event: string, data: unknown) => {
+    broadcastToUser(userId, orgId, event, data).catch(() => {});
+  },
+  sendToOrg: (orgId: string, event: string, data: unknown) => {
+    broadcastToOrg(orgId, event, data).catch(() => {});
+  },
+};

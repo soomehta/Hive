@@ -108,9 +108,11 @@ test.describe("Landing Page", () => {
   test("philosophy bar shows 'Voice-First' and 'Zero Dashboards' and 'Graduated Autonomy'", async ({
     page,
   }) => {
-    await expect(page.getByText("Voice-First")).toBeVisible();
-    await expect(page.getByText("Zero Dashboards")).toBeVisible();
-    await expect(page.getByText("Graduated Autonomy")).toBeVisible();
+    // Scope to the philosophy bar section (between hero and #features)
+    const philBar = page.locator("section.border-y");
+    await expect(philBar.getByText("Voice-First")).toBeVisible();
+    await expect(philBar.getByText("Zero Dashboards")).toBeVisible();
+    await expect(philBar.getByText("Graduated Autonomy")).toBeVisible();
   });
 
   // ── Features Section ──────────────────────────────────────────────────────
@@ -173,22 +175,22 @@ test.describe("Landing Page", () => {
     ).toBeVisible();
   });
 
-  test("pricing section shows Team and Pro plan headings", async ({ page }) => {
+  test("pricing section shows Free and Pro plan titles", async ({ page }) => {
     const pricingSection = page.locator("#pricing");
 
     await expect(
-      pricingSection.getByRole("heading", { name: "Team" })
+      pricingSection.getByText("Free", { exact: true })
     ).toBeVisible();
     await expect(
-      pricingSection.getByRole("heading", { name: "Pro" })
+      pricingSection.getByText("Pro", { exact: true })
     ).toBeVisible();
   });
 
-  test("pricing section shows $0 and $12 price amounts", async ({ page }) => {
+  test("pricing section shows $0 and $3 price amounts", async ({ page }) => {
     const pricingSection = page.locator("#pricing");
 
     await expect(pricingSection.getByText("$0")).toBeVisible();
-    await expect(pricingSection.getByText("$12")).toBeVisible();
+    await expect(pricingSection.getByText("$3")).toBeVisible();
   });
 
   test("pricing Team card has 'Get Started Free' CTA linking to /sign-up", async ({
@@ -229,7 +231,7 @@ test.describe("Landing Page", () => {
 
   test("footer contains Hive branding and nav links", async ({ page }) => {
     const footer = page.locator("footer");
-    await expect(footer.getByText("Hive")).toBeVisible();
+    await expect(footer.getByText("Hive", { exact: true })).toBeVisible();
     await expect(footer.getByRole("link", { name: "Sign In" })).toBeVisible();
     await expect(footer.getByRole("link", { name: "Sign Up" })).toBeVisible();
   });

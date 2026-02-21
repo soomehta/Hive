@@ -14,14 +14,19 @@ import { executeAction } from "@/lib/actions/executor";
 import { getPaAction, updatePaAction } from "@/lib/db/queries/pa-actions";
 import { logActivity } from "@/lib/db/queries/activity";
 import type { PAAction } from "@/types/pa";
+import { createLogger } from "@/lib/logger";
+import * as Sentry from "@sentry/nextjs";
+
+const log = createLogger("action-execution");
 
 const worker = createWorker<ActionExecutionJob>(
   QUEUE_NAMES.ACTION_EXECUTION,
   async (job: Job<ActionExecutionJob>) => {
     const { actionId, userId, orgId } = job.data;
 
-    console.log(
-      `[action-execution] Processing job ${job.id}: action=${actionId} user=${userId}`
+    log.info(
+      { jobId: job.id, actionId, userId },
+      "Processing action execution"
     );
 
     // 1. Fetch the action record
@@ -32,8 +37,9 @@ const worker = createWorker<ActionExecutionJob>(
 
     // 2. Verify the action is in an executable state
     if (action.status !== "pending" && action.status !== "approved") {
-      console.log(
-        `[action-execution] Skipping action ${actionId}: status=${action.status}`
+      log.info(
+        { actionId, status: action.status },
+        "Skipping action: not in executable state"
       );
       return { skipped: true, reason: `Action status is ${action.status}` };
     }
@@ -90,9 +96,7 @@ const worker = createWorker<ActionExecutionJob>(
 
       await getLearningQueue().add("learn-from-action", learningJob);
 
-      console.log(
-        `[action-execution] Action ${actionId} executed successfully`
-      );
+      log.info({ actionId }, "Action executed successfully");
 
       return { success: true, actionId, result: result.result };
     } else {
@@ -102,9 +106,7 @@ const worker = createWorker<ActionExecutionJob>(
         executionResult: { error: result.error },
       });
 
-      console.error(
-        `[action-execution] Action ${actionId} failed: ${result.error}`
-      );
+      log.error({ actionId, error: result.error }, "Action execution failed");
 
       return { success: false, actionId, error: result.error };
     }
@@ -115,14 +117,12 @@ const worker = createWorker<ActionExecutionJob>(
 );
 
 worker.on("completed", (job) => {
-  console.log(`[action-execution] Job ${job.id} completed successfully`);
+  log.info({ jobId: job.id }, "Job completed successfully");
 });
 
 worker.on("failed", (job, err) => {
-  console.error(
-    `[action-execution] Job ${job?.id} failed: ${err.message}`,
-    err.stack
-  );
+  log.error({ jobId: job?.id, err }, "Job failed");
+  Sentry.captureException(err);
 });
 
 export { worker as actionExecutionWorker };

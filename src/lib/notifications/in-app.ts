@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { notifications } from "@/lib/db/schema";
 import { eq, and, desc, inArray, count } from "drizzle-orm";
-import { sseManager } from "./sse";
+import { broadcastToUser } from "./sse";
 
 interface CreateNotificationParams {
   userId: string;
@@ -25,8 +25,8 @@ export async function createNotification(params: CreateNotificationParams) {
     })
     .returning();
 
-  // Push via SSE
-  sseManager.sendToUser(params.userId, params.orgId, "notification", notification);
+  // Push via Supabase Realtime
+  await broadcastToUser(params.userId, params.orgId, "notification", notification);
 
   return notification;
 }

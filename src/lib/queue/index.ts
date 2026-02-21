@@ -1,6 +1,9 @@
 import { Queue, Worker, type Processor, type WorkerOptions } from "bullmq";
 import type { ConnectionOptions } from "bullmq";
 import IORedis from "ioredis";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("bullmq");
 
 // ─── Lazy Redis Connection ──────────────────────────────
 
@@ -18,11 +21,11 @@ function getConnection(): IORedis {
     });
 
     _connection.on("error", (err) => {
-      console.error("[BullMQ] Redis connection error:", err.message);
+      log.error({ err }, "Redis connection error");
     });
 
     _connection.on("connect", () => {
-      console.log("[BullMQ] Redis connected");
+      log.info("Redis connected");
     });
   }
   return _connection;

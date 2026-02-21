@@ -7,15 +7,20 @@ import { getOrCreatePaProfile } from "@/lib/db/queries/pa-profiles";
 import { getActivityFeed } from "@/lib/db/queries/activity";
 import { db } from "@/lib/db";
 import { tasks } from "@/lib/db/schema";
-import { eq, and, gte, lte, sql } from "drizzle-orm";
+import { eq, and, gte, lte } from "drizzle-orm";
+import { createLogger } from "@/lib/logger";
+import * as Sentry from "@sentry/nextjs";
+
+const log = createLogger("weekly-digest");
 
 const worker = createWorker<DigestJob>(
   QUEUE_NAMES.DIGEST,
   async (job: Job<DigestJob>) => {
     const { userId, orgId } = job.data;
 
-    console.log(
-      `[weekly-digest] Processing job ${job.id} for user=${userId} org=${orgId}`
+    log.info(
+      { jobId: job.id, userId, orgId },
+      "Processing weekly digest"
     );
 
     // 1. Fetch user's PA profile for preferences
@@ -159,8 +164,9 @@ const worker = createWorker<DigestJob>(
 
     await getNotificationQueue().add("weekly-digest", notificationJob);
 
-    console.log(
-      `[weekly-digest] Completed job ${job.id}: digest generated (${digestResult.narrative.length} chars), velocity=${velocity}`
+    log.info(
+      { jobId: job.id, digestLength: digestResult.narrative.length, velocity },
+      "Digest generated"
     );
 
     return {
@@ -183,14 +189,12 @@ const worker = createWorker<DigestJob>(
 );
 
 worker.on("completed", (job) => {
-  console.log(`[weekly-digest] Job ${job.id} completed successfully`);
+  log.info({ jobId: job.id }, "Job completed successfully");
 });
 
 worker.on("failed", (job, err) => {
-  console.error(
-    `[weekly-digest] Job ${job?.id} failed: ${err.message}`,
-    err.stack
-  );
+  log.error({ jobId: job?.id, err }, "Job failed");
+  Sentry.captureException(err);
 });
 
 export { worker as weeklyDigestWorker };

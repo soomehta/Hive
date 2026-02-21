@@ -5,14 +5,19 @@ import { generateBriefing, type BriefingContext } from "@/lib/ai/briefing-genera
 import { getTasks } from "@/lib/db/queries/tasks";
 import { getOrCreatePaProfile } from "@/lib/db/queries/pa-profiles";
 import { getActivityFeed } from "@/lib/db/queries/activity";
+import { createLogger } from "@/lib/logger";
+import * as Sentry from "@sentry/nextjs";
+
+const log = createLogger("morning-briefing");
 
 const worker = createWorker<BriefingJob>(
   QUEUE_NAMES.BRIEFING,
   async (job: Job<BriefingJob>) => {
     const { userId, orgId } = job.data;
 
-    console.log(
-      `[morning-briefing] Processing job ${job.id} for user=${userId} org=${orgId}`
+    log.info(
+      { jobId: job.id, userId, orgId },
+      "Processing morning briefing"
     );
 
     // 1. Fetch user's PA profile for preferences
@@ -120,8 +125,9 @@ const worker = createWorker<BriefingJob>(
 
     await getNotificationQueue().add("morning-briefing", notificationJob);
 
-    console.log(
-      `[morning-briefing] Completed job ${job.id}: briefing generated (${briefingResult.briefing.length} chars)`
+    log.info(
+      { jobId: job.id, briefingLength: briefingResult.briefing.length },
+      "Briefing generated"
     );
 
     return {
@@ -142,14 +148,12 @@ const worker = createWorker<BriefingJob>(
 );
 
 worker.on("completed", (job) => {
-  console.log(`[morning-briefing] Job ${job.id} completed successfully`);
+  log.info({ jobId: job.id }, "Job completed successfully");
 });
 
 worker.on("failed", (job, err) => {
-  console.error(
-    `[morning-briefing] Job ${job?.id} failed: ${err.message}`,
-    err.stack
-  );
+  log.error({ jobId: job?.id, err }, "Job failed");
+  Sentry.captureException(err);
 });
 
 export { worker as morningBriefingWorker };

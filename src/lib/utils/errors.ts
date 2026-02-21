@@ -1,3 +1,8 @@
+import { createLogger } from "@/lib/logger";
+import * as Sentry from "@sentry/nextjs";
+
+const log = createLogger("errors");
+
 export class AppError extends Error {
   constructor(
     message: string,
@@ -43,7 +48,10 @@ export function errorResponse(error: unknown) {
       { status: error.statusCode }
     );
   }
-  console.error("Unhandled error:", error);
+
+  log.error({ err: error }, "Unhandled error");
+  Sentry.captureException(error);
+
   return Response.json(
     { error: "Internal server error" },
     { status: 500 }

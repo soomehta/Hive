@@ -10,7 +10,7 @@ import { nanoid } from "nanoid";
 export async function POST(req: NextRequest) {
   try {
     const auth = await authenticateRequest(req);
-    const rl = rateLimit(`voice:${auth.userId}`, 10, 60_000);
+    const rl = await rateLimit(`voice:${auth.userId}`, 10, 60_000);
     if (!rl.success) return rateLimitResponse(rl);
 
     const formData = await req.formData();
