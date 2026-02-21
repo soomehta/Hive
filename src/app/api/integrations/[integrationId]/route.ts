@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
 import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
 import { deleteIntegration } from "@/lib/db/queries/integrations";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("integrations");
 
 export async function DELETE(
   req: NextRequest,
@@ -19,7 +22,7 @@ export async function DELETE(
     if (error instanceof AuthError) {
       return Response.json({ error: error.message }, { status: error.statusCode });
     }
-    console.error("Integration delete error:", error);
+    log.error({ err: error }, "Integration delete error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }

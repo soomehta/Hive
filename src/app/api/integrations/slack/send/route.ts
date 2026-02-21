@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
 import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
 import { sendMessage } from "@/lib/integrations/slack";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("slack-send");
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,7 +15,7 @@ export async function POST(req: NextRequest) {
     if (error instanceof AuthError) {
       return Response.json({ error: error.message }, { status: error.statusCode });
     }
-    console.error("Slack send error:", error);
+    log.error({ err: error }, "Slack send error");
     const message = error instanceof Error ? error.message : "Internal server error";
     return Response.json({ error: message }, { status: 500 });
   }

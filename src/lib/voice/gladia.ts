@@ -49,6 +49,18 @@ export async function transcribeAudio(
 
   const { id, result_url } = await transcribeRes.json();
 
+  // Validate result_url to prevent SSRF — must be a Gladia API URL
+  const ALLOWED_GLADIA_ORIGINS = ["https://api.gladia.io"];
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(result_url);
+  } catch {
+    throw new Error("Gladia returned an invalid result URL");
+  }
+  if (!ALLOWED_GLADIA_ORIGINS.some((origin) => parsedUrl.origin === origin)) {
+    throw new Error(`Gladia result_url has unexpected origin: ${parsedUrl.origin}`);
+  }
+
   // Poll for result
   let result;
   for (let i = 0; i < 60; i++) {

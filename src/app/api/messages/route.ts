@@ -4,6 +4,9 @@ import { createMessageSchema } from "@/lib/utils/validation";
 import { getMessages, createMessage } from "@/lib/db/queries/messages";
 import { getProject } from "@/lib/db/queries/projects";
 import { logActivity } from "@/lib/db/queries/activity";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("messages");
 
 export async function GET(req: NextRequest) {
   try {
@@ -36,7 +39,7 @@ export async function GET(req: NextRequest) {
         { status: error.statusCode }
       );
     }
-    console.error("GET /api/messages error:", error);
+    log.error({ err: error }, "GET /api/messages error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -88,7 +91,7 @@ export async function POST(req: NextRequest) {
         { status: error.statusCode }
       );
     }
-    console.error("POST /api/messages error:", error);
+    log.error({ err: error }, "POST /api/messages error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }

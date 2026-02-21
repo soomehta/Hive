@@ -8,6 +8,9 @@ import { generateReport, type ReportData } from "@/lib/ai/report-generator";
 import { db } from "@/lib/db";
 import { tasks } from "@/lib/db/schema";
 import { eq, and, gte, lt, sql } from "drizzle-orm";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("pa-report");
 
 export async function POST(req: NextRequest) {
   try {
@@ -203,7 +206,7 @@ export async function POST(req: NextRequest) {
         { status: error.statusCode }
       );
     }
-    console.error("PA report error:", error);
+    log.error({ err: error }, "PA report error");
     return Response.json(
       { error: "Internal server error" },
       { status: 500 }

@@ -5,6 +5,9 @@ import { createProjectSchema } from "@/lib/utils/validation";
 import { getProjects, createProject } from "@/lib/db/queries/projects";
 import { logActivity } from "@/lib/db/queries/activity";
 import { createNotification } from "@/lib/notifications/in-app";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("projects");
 
 export async function GET(req: NextRequest) {
   try {
@@ -19,7 +22,7 @@ export async function GET(req: NextRequest) {
         { status: error.statusCode }
       );
     }
-    console.error("GET /api/projects error:", error);
+    log.error({ err: error }, "GET /api/projects error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -87,7 +90,7 @@ export async function POST(req: NextRequest) {
         { status: error.statusCode }
       );
     }
-    console.error("POST /api/projects error:", error);
+    log.error({ err: error }, "POST /api/projects error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
 import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
 import { getUnreadEmails, sendEmail } from "@/lib/integrations/microsoft-mail";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("microsoft-mail");
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,7 +17,7 @@ export async function GET(req: NextRequest) {
     if (error instanceof AuthError) {
       return Response.json({ error: error.message }, { status: error.statusCode });
     }
-    console.error("Microsoft mail error:", error);
+    log.error({ err: error }, "Microsoft mail error");
     const message = error instanceof Error ? error.message : "Internal server error";
     return Response.json({ error: message }, { status: 500 });
   }
@@ -30,7 +33,7 @@ export async function POST(req: NextRequest) {
     if (error instanceof AuthError) {
       return Response.json({ error: error.message }, { status: error.statusCode });
     }
-    console.error("Microsoft mail send error:", error);
+    log.error({ err: error }, "Microsoft mail send error");
     const message = error instanceof Error ? error.message : "Internal server error";
     return Response.json({ error: message }, { status: 500 });
   }

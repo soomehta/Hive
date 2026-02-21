@@ -6,6 +6,9 @@ import {
   updateMessage,
   deleteMessage,
 } from "@/lib/db/queries/messages";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("messages");
 
 interface RouteParams {
   params: Promise<{ messageId: string }>;
@@ -33,7 +36,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         { status: error.statusCode }
       );
     }
-    console.error("GET /api/messages/[messageId] error:", error);
+    log.error({ err: error }, "GET /api/messages/[messageId] error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -91,7 +94,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         { status: error.statusCode }
       );
     }
-    console.error("PATCH /api/messages/[messageId] error:", error);
+    log.error({ err: error }, "PATCH /api/messages/[messageId] error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -139,7 +142,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         { status: error.statusCode }
       );
     }
-    console.error("DELETE /api/messages/[messageId] error:", error);
+    log.error({ err: error }, "DELETE /api/messages/[messageId] error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }

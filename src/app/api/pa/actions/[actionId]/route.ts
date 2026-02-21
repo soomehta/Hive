@@ -3,6 +3,9 @@ import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
 import { actionDecisionSchema } from "@/lib/utils/validation";
 import { getPaAction, updatePaAction, createPaCorrection } from "@/lib/db/queries/pa-actions";
 import { executeAction } from "@/lib/actions/executor";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("pa-actions");
 
 interface RouteParams {
   params: Promise<{ actionId: string }>;
@@ -83,7 +86,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     if (error instanceof AuthError) {
       return Response.json({ error: error.message }, { status: error.statusCode });
     }
-    console.error("PA action decision error:", error);
+    log.error({ err: error }, "PA action decision error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }

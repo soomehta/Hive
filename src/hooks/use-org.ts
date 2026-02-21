@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 
 interface OrgState {
   orgId: string | null;
@@ -20,6 +20,7 @@ export const useOrg = create<OrgState>()(
     }),
     {
       name: "hive-org",
+      storage: createJSONStorage(() => sessionStorage),
     }
   )
 );

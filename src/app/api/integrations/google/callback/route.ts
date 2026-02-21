@@ -1,6 +1,10 @@
 import { NextRequest } from "next/server";
+import { createLogger } from "@/lib/logger";
 import { createIntegration } from "@/lib/db/queries/integrations";
 import { verifyOAuthState } from "@/lib/integrations/oauth-state";
+import { createServerClient } from "@supabase/ssr";
+
+const log = createLogger("google-callback");
 
 export async function GET(req: NextRequest) {
   try {
@@ -21,6 +25,17 @@ export async function GET(req: NextRequest) {
       state = verifyOAuthState(stateStr);
     } catch {
       return Response.redirect(new URL("/dashboard/integrations?error=invalid_state", req.url));
+    }
+
+    // Verify the current session user matches the state user
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { cookies: { getAll: () => req.cookies.getAll(), setAll: () => {} } }
+    );
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user && user.id !== state.userId) {
+      return Response.redirect(new URL("/dashboard/integrations?error=user_mismatch", req.url));
     }
 
     // Exchange code for tokens
@@ -62,7 +77,7 @@ export async function GET(req: NextRequest) {
 
     return Response.redirect(new URL("/dashboard/integrations?connected=google", req.url));
   } catch (error) {
-    console.error("Google callback error:", error);
+    log.error({ err: error }, "Google callback error");
     return Response.redirect(new URL("/dashboard/integrations?error=callback_failed", req.url));
   }
 }

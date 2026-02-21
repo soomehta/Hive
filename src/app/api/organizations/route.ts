@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createLogger } from "@/lib/logger";
 import { createOrgSchema } from "@/lib/utils/validation";
 import {
   getUserOrganizations,
@@ -7,6 +8,8 @@ import {
 } from "@/lib/db/queries/organizations";
 import { AuthError } from "@/lib/auth/api-auth";
 import { logActivity } from "@/lib/db/queries/activity";
+
+const log = createLogger("organizations");
 
 export async function GET() {
   try {
@@ -29,7 +32,7 @@ export async function GET() {
         { status: error.statusCode }
       );
     }
-    console.error("GET /api/organizations error:", error);
+    log.error({ err: error }, "GET /api/organizations error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -76,7 +79,7 @@ export async function POST(req: NextRequest) {
         { status: error.statusCode }
       );
     }
-    console.error("POST /api/organizations error:", error);
+    log.error({ err: error }, "POST /api/organizations error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }

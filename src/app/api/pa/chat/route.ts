@@ -17,6 +17,9 @@ import { getTasks } from "@/lib/db/queries/tasks";
 import { db } from "@/lib/db";
 import { projects, organizationMembers } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("pa-chat");
 
 export async function POST(req: NextRequest) {
   try {
@@ -145,7 +148,7 @@ export async function POST(req: NextRequest) {
     if (error instanceof AuthError) {
       return Response.json({ error: error.message }, { status: error.statusCode });
     }
-    console.error("PA chat error:", error);
+    log.error({ err: error }, "PA chat error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -7,6 +7,9 @@ import {
   generateBriefing,
   type BriefingContext,
 } from "@/lib/ai/briefing-generator";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("pa-briefing");
 
 export async function GET(req: NextRequest) {
   try {
@@ -153,7 +156,7 @@ export async function GET(req: NextRequest) {
         { status: error.statusCode }
       );
     }
-    console.error("PA briefing error:", error);
+    log.error({ err: error }, "PA briefing error");
     return Response.json(
       { error: "Internal server error" },
       { status: 500 }

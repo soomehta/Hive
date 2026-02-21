@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { createLogger } from "@/lib/logger";
 import { db } from "@/lib/db";
 import { paProfiles, notifications } from "@/lib/db/schema";
 import { eq, and, gte, desc } from "drizzle-orm";
@@ -9,11 +10,12 @@ import {
   generateBriefing,
   type BriefingContext,
 } from "@/lib/ai/briefing-generator";
+import { verifyCronSecret } from "@/lib/auth/cron-auth";
+
+const log = createLogger("morning-briefing");
 
 export async function POST(req: NextRequest) {
-  // ── Verify CRON_SECRET ───────────────────────────────
-  const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!verifyCronSecret(req)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -223,7 +225,7 @@ export async function POST(req: NextRequest) {
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error) {
-    console.error("Morning briefing cron error:", error);
+    log.error({ err: error }, "Morning briefing cron error");
     return Response.json(
       { error: "Internal server error" },
       { status: 500 }

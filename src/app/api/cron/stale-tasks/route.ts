@@ -1,13 +1,15 @@
 import { NextRequest } from "next/server";
+import { createLogger } from "@/lib/logger";
 import { db } from "@/lib/db";
 import { tasks, notifications } from "@/lib/db/schema";
 import { and, lt, eq, gte, desc } from "drizzle-orm";
 import { createNotification } from "@/lib/notifications/in-app";
+import { verifyCronSecret } from "@/lib/auth/cron-auth";
+
+const log = createLogger("stale-tasks");
 
 export async function POST(req: NextRequest) {
-  // ── Verify CRON_SECRET ───────────────────────────────
-  const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!verifyCronSecret(req)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -103,7 +105,7 @@ export async function POST(req: NextRequest) {
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error) {
-    console.error("Stale tasks cron error:", error);
+    log.error({ err: error }, "Stale tasks cron error");
     return Response.json(
       { error: "Internal server error" },
       { status: 500 }

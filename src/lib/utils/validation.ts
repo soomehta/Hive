@@ -99,6 +99,7 @@ export const taskFiltersSchema = z.object({
   limit: z
     .string()
     .transform(Number)
+    .pipe(z.number().int().min(1).max(500))
     .optional(),
   cursor: z.string().optional(),
 });
@@ -132,9 +133,17 @@ export const paChatSchema = z.object({
 
 // ─── PA Actions ─────────────────────────────────────────
 
+// Constrained JSON value type for action payloads — prevents arbitrary objects
+const jsonValue: z.ZodType<string | number | boolean | null> = z.union([
+  z.string().max(10000),
+  z.number(),
+  z.boolean(),
+  z.null(),
+]);
+
 export const actionDecisionSchema = z.object({
   decision: z.enum(["approve", "reject", "edit"]),
-  editedPayload: z.record(z.string(), z.any()).optional(),
+  editedPayload: z.record(z.string().max(200), jsonValue).optional(),
   rejectionReason: z.string().max(500).optional(),
 });
 

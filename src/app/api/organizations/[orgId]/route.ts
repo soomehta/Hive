@@ -7,6 +7,9 @@ import {
   updateOrganization,
   deleteOrganization,
 } from "@/lib/db/queries/organizations";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("organizations");
 
 interface RouteParams {
   params: Promise<{ orgId: string }>;
@@ -41,7 +44,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         { status: error.statusCode }
       );
     }
-    console.error("GET /api/organizations/[orgId] error:", error);
+    log.error({ err: error }, "GET /api/organizations/[orgId] error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -92,7 +95,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         { status: error.statusCode }
       );
     }
-    console.error("PATCH /api/organizations/[orgId] error:", error);
+    log.error({ err: error }, "PATCH /api/organizations/[orgId] error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -109,7 +112,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    if (!hasPermission(auth.memberRole, "org:manage")) {
+    if (!hasPermission(auth.memberRole, "org:delete")) {
       return Response.json(
         { error: "Insufficient permissions" },
         { status: 403 }
@@ -133,7 +136,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         { status: error.statusCode }
       );
     }
-    console.error("DELETE /api/organizations/[orgId] error:", error);
+    log.error({ err: error }, "DELETE /api/organizations/[orgId] error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -4,6 +4,9 @@ import { createCommentSchema } from "@/lib/utils/validation";
 import { getTask, getTaskComments, createTaskComment } from "@/lib/db/queries/tasks";
 import { logActivity } from "@/lib/db/queries/activity";
 import { createNotification } from "@/lib/notifications/in-app";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("task-comments");
 
 interface RouteParams {
   params: Promise<{ taskId: string }>;
@@ -30,7 +33,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         { status: error.statusCode }
       );
     }
-    console.error("GET /api/tasks/[taskId]/comments error:", error);
+    log.error({ err: error }, "GET /api/tasks/[taskId]/comments error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -99,7 +102,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         { status: error.statusCode }
       );
     }
-    console.error("POST /api/tasks/[taskId]/comments error:", error);
+    log.error({ err: error }, "POST /api/tasks/[taskId]/comments error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }

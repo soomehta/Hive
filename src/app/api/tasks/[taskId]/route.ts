@@ -6,6 +6,9 @@ import { getTask, updateTask, deleteTask } from "@/lib/db/queries/tasks";
 import { isProjectMember, isProjectLead } from "@/lib/db/queries/projects";
 import { logActivity } from "@/lib/db/queries/activity";
 import { createNotification } from "@/lib/notifications/in-app";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("tasks");
 
 interface RouteParams {
   params: Promise<{ taskId: string }>;
@@ -29,7 +32,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         { status: error.statusCode }
       );
     }
-    console.error("GET /api/tasks/[taskId] error:", error);
+    log.error({ err: error }, "GET /api/tasks/[taskId] error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -163,7 +166,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         { status: error.statusCode }
       );
     }
-    console.error("PATCH /api/tasks/[taskId] error:", error);
+    log.error({ err: error }, "PATCH /api/tasks/[taskId] error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -213,7 +216,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         { status: error.statusCode }
       );
     }
-    console.error("DELETE /api/tasks/[taskId] error:", error);
+    log.error({ err: error }, "DELETE /api/tasks/[taskId] error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }

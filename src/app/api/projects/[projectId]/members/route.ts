@@ -10,6 +10,9 @@ import {
 } from "@/lib/db/queries/projects";
 import { logActivity } from "@/lib/db/queries/activity";
 import { createNotification } from "@/lib/notifications/in-app";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("project-members");
 
 type RouteParams = { params: Promise<{ projectId: string }> };
 
@@ -38,7 +41,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         { status: error.statusCode }
       );
     }
-    console.error("GET /api/projects/[projectId]/members error:", error);
+    log.error({ err: error }, "GET /api/projects/[projectId]/members error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -113,7 +116,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         { status: error.statusCode }
       );
     }
-    console.error("POST /api/projects/[projectId]/members error:", error);
+    log.error({ err: error }, "POST /api/projects/[projectId]/members error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -181,7 +184,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         { status: error.statusCode }
       );
     }
-    console.error("DELETE /api/projects/[projectId]/members error:", error);
+    log.error({ err: error }, "DELETE /api/projects/[projectId]/members error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }

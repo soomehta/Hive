@@ -31,9 +31,13 @@ export async function getTasks(filters: TaskFilters) {
     search,
     sort = "created_at",
     order = "desc",
-    limit = 20,
+    limit: rawLimit = 20,
     cursor,
   } = filters;
+
+  // Hard cap to prevent unbounded result sets
+  const MAX_LIMIT = 500;
+  const limit = Math.min(Math.max(1, rawLimit), MAX_LIMIT);
 
   const conditions = [eq(tasks.orgId, orgId)];
 

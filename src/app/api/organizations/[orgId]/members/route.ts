@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { nanoid } from "nanoid";
+import { createLogger } from "@/lib/logger";
 import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
 import { hasPermission } from "@/lib/auth/permissions";
 import { inviteMemberSchema } from "@/lib/utils/validation";
@@ -10,6 +11,8 @@ import {
 import { logActivity } from "@/lib/db/queries/activity";
 import { createNotification } from "@/lib/notifications/in-app";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+
+const log = createLogger("org-members");
 
 interface RouteParams {
   params: Promise<{ orgId: string }>;
@@ -61,7 +64,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         { status: error.statusCode }
       );
     }
-    console.error("GET /api/organizations/[orgId]/members error:", error);
+    log.error({ err: error }, "GET /api/organizations/[orgId]/members error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -123,7 +126,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         { status: error.statusCode }
       );
     }
-    console.error("POST /api/organizations/[orgId]/members error:", error);
+    log.error({ err: error }, "POST /api/organizations/[orgId]/members error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }

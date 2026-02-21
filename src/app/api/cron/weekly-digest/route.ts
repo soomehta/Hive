@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { createLogger } from "@/lib/logger";
 import { db } from "@/lib/db";
 import { paProfiles } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -6,11 +7,12 @@ import { getTasks } from "@/lib/db/queries/tasks";
 import { getActivityFeed } from "@/lib/db/queries/activity";
 import { createNotification } from "@/lib/notifications/in-app";
 import { generateReport, type ReportData } from "@/lib/ai/report-generator";
+import { verifyCronSecret } from "@/lib/auth/cron-auth";
+
+const log = createLogger("weekly-digest");
 
 export async function POST(req: NextRequest) {
-  // ── Verify CRON_SECRET ───────────────────────────────
-  const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!verifyCronSecret(req)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -212,7 +214,7 @@ export async function POST(req: NextRequest) {
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error) {
-    console.error("Weekly digest cron error:", error);
+    log.error({ err: error }, "Weekly digest cron error");
     return Response.json(
       { error: "Internal server error" },
       { status: 500 }

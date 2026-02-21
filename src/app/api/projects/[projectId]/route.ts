@@ -10,6 +10,9 @@ import {
   isProjectLead,
 } from "@/lib/db/queries/projects";
 import { logActivity } from "@/lib/db/queries/activity";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("projects");
 
 type RouteParams = { params: Promise<{ projectId: string }> };
 
@@ -47,7 +50,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         { status: error.statusCode }
       );
     }
-    console.error("GET /api/projects/[projectId] error:", error);
+    log.error({ err: error }, "GET /api/projects/[projectId] error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -108,7 +111,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         { status: error.statusCode }
       );
     }
-    console.error("PATCH /api/projects/[projectId] error:", error);
+    log.error({ err: error }, "PATCH /api/projects/[projectId] error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -151,7 +154,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         { status: error.statusCode }
       );
     }
-    console.error("DELETE /api/projects/[projectId] error:", error);
+    log.error({ err: error }, "DELETE /api/projects/[projectId] error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
