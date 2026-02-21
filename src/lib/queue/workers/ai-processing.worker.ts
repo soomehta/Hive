@@ -5,6 +5,7 @@ import { classifyIntent } from "@/lib/ai/intent-classifier";
 import { planAction } from "@/lib/ai/action-planner";
 import { getOrCreatePaProfile } from "@/lib/db/queries/pa-profiles";
 import { createPaAction } from "@/lib/db/queries/pa-actions";
+import { resolveActionTier } from "@/lib/actions/registry";
 import { db } from "@/lib/db";
 import { projects, tasks, organizationMembers } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
@@ -85,8 +86,14 @@ const worker = createWorker<AIProcessingJob>(
       formality: profile.formality,
     });
 
+    // 4b. Resolve tier using profile overrides and autonomy mode
+    const resolvedTier = resolveActionTier(classification.intent, profile, {
+      assigneeId: (plan.payload as Record<string, any>).assigneeId,
+      userId,
+    });
+
     console.log(
-      `[ai-processing] Planned action: tier=${plan.tier}, payload keys=${Object.keys(plan.payload).join(", ")}`
+      `[ai-processing] Planned action: tier=${resolvedTier} (plan.tier=${plan.tier}), payload keys=${Object.keys(plan.payload).join(", ")}`
     );
 
     // 5. Create the PA action record
@@ -94,7 +101,7 @@ const worker = createWorker<AIProcessingJob>(
       userId,
       orgId,
       actionType: classification.intent,
-      tier: plan.tier,
+      tier: resolvedTier,
       plannedPayload: {
         ...plan.payload,
         confirmationMessage: plan.confirmationMessage,
@@ -104,7 +111,7 @@ const worker = createWorker<AIProcessingJob>(
     });
 
     // 6. If the tier is auto_execute, enqueue the action for immediate execution
-    if (plan.tier === "auto_execute") {
+    if (resolvedTier === "auto_execute") {
       const executionJob: ActionExecutionJob = {
         actionId: action.id,
         userId,
@@ -121,13 +128,13 @@ const worker = createWorker<AIProcessingJob>(
     }
 
     console.log(
-      `[ai-processing] Completed job ${job.id}, action=${action.id} tier=${plan.tier}`
+      `[ai-processing] Completed job ${job.id}, action=${action.id} tier=${resolvedTier}`
     );
 
     return {
       actionId: action.id,
       intent: classification.intent,
-      tier: plan.tier,
+      tier: resolvedTier,
     };
   },
   {

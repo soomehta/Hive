@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { rateLimit, rateLimitResponse } from "@/lib/utils/rate-limit";
 import { transcribeAudio as deepgramTranscribe } from "@/lib/voice/deepgram";
 import { transcribeAudio as gladiaTranscribe } from "@/lib/voice/gladia";
 import { uploadAudio } from "@/lib/voice/r2";
@@ -9,6 +10,9 @@ import { nanoid } from "nanoid";
 export async function POST(req: NextRequest) {
   try {
     const auth = await authenticateRequest(req);
+    const rl = rateLimit(`voice:${auth.userId}`, 10, 60_000);
+    if (!rl.success) return rateLimitResponse(rl);
+
     const formData = await req.formData();
     const audioFile = formData.get("audio") as File | null;
 
@@ -16,8 +20,20 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "Audio file is required" }, { status: 400 });
     }
 
-    const buffer = Buffer.from(await audioFile.arrayBuffer());
+    // Validate file size (max 25MB)
+    const MAX_FILE_SIZE = 25 * 1024 * 1024;
+    if (audioFile.size > MAX_FILE_SIZE) {
+      return Response.json({ error: "Audio file too large (max 25MB)" }, { status: 400 });
+    }
+
+    // Validate MIME type
+    const ALLOWED_AUDIO_TYPES = ["audio/webm", "audio/wav", "audio/mp3", "audio/mpeg", "audio/ogg", "audio/mp4", "audio/flac"];
     const mimeType = audioFile.type || "audio/webm";
+    if (!ALLOWED_AUDIO_TYPES.includes(mimeType)) {
+      return Response.json({ error: `Unsupported audio format: ${mimeType}` }, { status: 400 });
+    }
+
+    const buffer = Buffer.from(await audioFile.arrayBuffer());
     const fileKey = `${auth.userId}/${nanoid()}.${mimeType.split("/")[1] ?? "webm"}`;
 
     // Upload to R2 in parallel with transcription

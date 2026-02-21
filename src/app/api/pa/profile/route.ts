@@ -20,7 +20,14 @@ export async function PATCH(req: NextRequest) {
   try {
     const auth = await authenticateRequest(req);
     const body = await req.json();
-    const updates = updatePaProfileSchema.parse(body);
+    const parsed = updatePaProfileSchema.safeParse(body);
+    if (!parsed.success) {
+      return Response.json(
+        { error: "Invalid input", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+    const updates = parsed.data;
 
     const profile = await updatePaProfile(auth.userId, auth.orgId, updates);
     if (!profile) {

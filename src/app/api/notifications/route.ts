@@ -8,12 +8,13 @@ import {
 export async function GET(req: NextRequest) {
   try {
     const auth = await authenticateRequest(req);
-    const limit = req.nextUrl.searchParams.get("limit");
+    const rawLimit = req.nextUrl.searchParams.get("limit");
+    const limit = Math.min(Math.max(1, parseInt(rawLimit ?? "20", 10) || 20), 100);
 
     const data = await getNotifications(
       auth.userId,
       auth.orgId,
-      limit ? Number(limit) : undefined
+      limit
     );
 
     return Response.json({ data });
@@ -44,7 +45,7 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    await markNotificationsRead(ids);
+    await markNotificationsRead(ids, auth.userId, auth.orgId);
 
     return Response.json({ success: true });
   } catch (error) {

@@ -16,11 +16,11 @@ export function PAMessage({ role, content }: PAMessageProps) {
       <div
         className={cn(
           "flex size-7 shrink-0 items-center justify-center rounded-full",
-          isUser ? "bg-zinc-700" : "bg-violet-600/20"
+          isUser ? "bg-accent" : "bg-violet-600/20"
         )}
       >
         {isUser ? (
-          <User className="size-4 text-zinc-300" />
+          <User className="size-4 text-foreground" />
         ) : (
           <Brain className="size-4 text-violet-400" />
         )}
@@ -30,7 +30,7 @@ export function PAMessage({ role, content }: PAMessageProps) {
           "max-w-[85%] rounded-xl px-3 py-2 text-sm",
           isUser
             ? "bg-violet-600 text-white"
-            : "bg-zinc-800 text-zinc-200"
+            : "bg-muted text-foreground"
         )}
       >
         <p className="whitespace-pre-wrap">{content}</p>

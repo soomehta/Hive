@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { createOAuthState } from "@/lib/integrations/oauth-state";
 
 const MICROSOFT_SCOPES = [
   "openid",
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
       redirect_uri: process.env.MICROSOFT_REDIRECT_URI!,
       scope: MICROSOFT_SCOPES,
       response_mode: "query",
-      state: JSON.stringify({ userId: auth.userId, orgId: auth.orgId }),
+      state: createOAuthState(auth.userId, auth.orgId),
     });
 
     return Response.redirect(`https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params}`);

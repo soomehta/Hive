@@ -36,14 +36,17 @@ export async function transcribeAudio(
     }
   );
 
-  const channel = result!.results.channels[0];
+  if (!result?.results?.channels?.[0]?.alternatives?.[0]) {
+    return { transcript: "", confidence: 0, language: "en", words: [] };
+  }
+  const channel = result.results.channels[0];
   const alternative = channel.alternatives[0];
 
   return {
     transcript: alternative.transcript,
     confidence: alternative.confidence,
     language: channel.detected_language ?? "en",
-    words: alternative.words.map((w: any) => ({
+    words: (alternative.words ?? []).map((w: any) => ({
       word: w.word,
       start: w.start,
       end: w.end,

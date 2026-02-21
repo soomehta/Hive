@@ -16,6 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Hexagon, Loader2 } from "lucide-react";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -53,9 +54,14 @@ export default function SignUpPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
-      <Card className="w-full max-w-md">
+      <div className="w-full max-w-md">
+        <Link href="/" className="flex items-center gap-2 mb-8 justify-center">
+          <Hexagon className="size-8 fill-primary text-primary-foreground" />
+          <span className="text-2xl font-bold tracking-tight">Hive</span>
+        </Link>
+      <Card className="w-full">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
+          <CardTitle className="text-2xl font-bold">Create your Hive account</CardTitle>
           <CardDescription>Get started with Hive</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -102,7 +108,9 @@ export default function SignUpPage() {
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Creating account..." : "Create account"}
+              {loading ? (
+                <><Loader2 className="size-4 animate-spin" /> Creating account...</>
+              ) : "Create account"}
             </Button>
             <p className="text-muted-foreground text-sm">
               Already have an account?{" "}
@@ -116,6 +124,7 @@ export default function SignUpPage() {
           </CardFooter>
         </form>
       </Card>
+      </div>
     </div>
   );
 }

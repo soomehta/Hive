@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { rateLimit, rateLimitResponse } from "@/lib/utils/rate-limit";
 import { getOrCreatePaProfile } from "@/lib/db/queries/pa-profiles";
 import { getTasks } from "@/lib/db/queries/tasks";
 import { getActivityFeed } from "@/lib/db/queries/activity";
@@ -11,6 +12,9 @@ import { eq, and, gte, lt, sql } from "drizzle-orm";
 export async function POST(req: NextRequest) {
   try {
     const auth = await authenticateRequest(req);
+    const rl = rateLimit(`report:${auth.userId}`, 10, 60_000);
+    if (!rl.success) return rateLimitResponse(rl);
+
     const body = await req.json();
 
     const {

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +16,14 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { apiClient } from "@/lib/utils/api-client";
+import { Hexagon, Loader2 } from "lucide-react";
+
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -25,12 +34,7 @@ export default function OnboardingPage() {
 
   function handleNameChange(value: string) {
     setName(value);
-    setSlug(
-      value
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "")
-    );
+    setSlug(slugify(value));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -61,13 +65,18 @@ export default function OnboardingPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
-      <Card className="w-full max-w-md">
+      <div className="w-full max-w-md">
+        <Link href="/" className="flex items-center gap-2 mb-8 justify-center">
+          <Hexagon className="size-8 fill-primary text-primary-foreground" />
+          <span className="text-2xl font-bold tracking-tight">Hive</span>
+        </Link>
+      <Card className="w-full">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">
             Create your organization
           </CardTitle>
           <CardDescription>
-            Set up your workspace to start managing projects
+            Create your workspace to get started
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -87,30 +96,23 @@ export default function OnboardingPage() {
                 onChange={(e) => handleNameChange(e.target.value)}
                 required
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="slug">URL slug</Label>
-              <Input
-                id="slug"
-                type="text"
-                placeholder="acme-inc"
-                value={slug}
-                onChange={(e) => setSlug(e.target.value)}
-                required
-                pattern="[a-z0-9-]+"
-              />
-              <p className="text-muted-foreground text-xs">
-                Only lowercase letters, numbers, and hyphens
-              </p>
+              {slug && (
+                <p className="text-muted-foreground text-xs">
+                  Workspace URL: <span className="font-mono font-medium text-foreground">{slug}</span>
+                </p>
+              )}
             </div>
           </CardContent>
           <CardFooter>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Creating..." : "Create organization"}
+              {loading ? (
+                <><Loader2 className="size-4 animate-spin" /> Creating...</>
+              ) : "Create organization"}
             </Button>
           </CardFooter>
         </form>
       </Card>
+      </div>
     </div>
   );
 }

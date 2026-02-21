@@ -1,6 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { sseManager } from "@/lib/notifications/sse";
 import { nanoid } from "nanoid";
+import { db } from "@/lib/db";
+import { organizationMembers } from "@/lib/db/schema";
+import { and, eq } from "drizzle-orm";
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function GET(req: Request) {
   const supabase = await createClient();
@@ -17,6 +22,21 @@ export async function GET(req: Request) {
   const orgId = req.headers.get("x-org-id") ?? url.searchParams.get("orgId");
   if (!orgId) {
     return Response.json({ error: "Missing organization" }, { status: 400 });
+  }
+
+  if (!UUID_REGEX.test(orgId)) {
+    return Response.json({ error: "Invalid organization ID" }, { status: 400 });
+  }
+
+  // Verify org membership
+  const member = await db.query.organizationMembers.findFirst({
+    where: and(
+      eq(organizationMembers.orgId, orgId),
+      eq(organizationMembers.userId, user.id)
+    ),
+  });
+  if (!member) {
+    return Response.json({ error: "Not a member of this organization" }, { status: 403 });
   }
 
   const clientId = nanoid();

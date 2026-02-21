@@ -24,7 +24,11 @@ export function encryptToken(plaintext: string): string {
 
 export function decryptToken(ciphertext: string): string {
   const key = getEncryptionKey();
-  const [ivB64, authTagB64, encryptedB64] = ciphertext.split(":");
+  const parts = ciphertext.split(":");
+  if (parts.length !== 3 || !parts[0] || !parts[1]) {
+    throw new Error("Malformed encrypted token");
+  }
+  const [ivB64, authTagB64, encryptedB64] = parts;
   const iv = Buffer.from(ivB64, "base64");
   const authTag = Buffer.from(authTagB64, "base64");
   const encrypted = Buffer.from(encryptedB64, "base64");

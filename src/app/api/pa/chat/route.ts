@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
 import { paChatSchema } from "@/lib/utils/validation";
+import { rateLimit, rateLimitResponse } from "@/lib/utils/rate-limit";
 import { classifyIntent } from "@/lib/ai/intent-classifier";
 import { planAction } from "@/lib/ai/action-planner";
 import { executeAction } from "@/lib/actions/executor";
@@ -20,8 +21,18 @@ import { eq } from "drizzle-orm";
 export async function POST(req: NextRequest) {
   try {
     const auth = await authenticateRequest(req);
+    const rl = rateLimit(`pa:${auth.userId}`, 20, 60_000);
+    if (!rl.success) return rateLimitResponse(rl);
+
     const body = await req.json();
-    const { message, voiceTranscriptId } = paChatSchema.parse(body);
+    const parsed = paChatSchema.safeParse(body);
+    if (!parsed.success) {
+      return Response.json(
+        { error: "Invalid input", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+    const { message, voiceTranscriptId } = parsed.data;
 
     // Load context
     const paProfile = await getOrCreatePaProfile(auth.userId, auth.orgId);

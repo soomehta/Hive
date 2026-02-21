@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { notifications } from "@/lib/db/schema";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray, count } from "drizzle-orm";
 import { sseManager } from "./sse";
 
 interface CreateNotificationParams {
@@ -46,18 +46,24 @@ export async function getNotifications(
     .limit(limit);
 }
 
-export async function markNotificationsRead(notificationIds: string[]) {
+export async function markNotificationsRead(notificationIds: string[], userId: string, orgId: string) {
   if (notificationIds.length === 0) return;
 
   await db
     .update(notifications)
     .set({ isRead: true, readAt: new Date() })
-    .where(inArray(notifications.id, notificationIds));
+    .where(
+      and(
+        inArray(notifications.id, notificationIds),
+        eq(notifications.userId, userId),
+        eq(notifications.orgId, orgId)
+      )
+    );
 }
 
 export async function getUnreadCount(userId: string, orgId: string) {
-  const result = await db
-    .select()
+  const [result] = await db
+    .select({ total: count() })
     .from(notifications)
     .where(
       and(
@@ -67,5 +73,5 @@ export async function getUnreadCount(userId: string, orgId: string) {
       )
     );
 
-  return result.length;
+  return result?.total ?? 0;
 }

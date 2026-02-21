@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { createOAuthState } from "@/lib/integrations/oauth-state";
 
 export async function GET(req: NextRequest) {
   try {
@@ -9,7 +10,7 @@ export async function GET(req: NextRequest) {
       client_id: process.env.SLACK_CLIENT_ID!,
       scope: "chat:write,channels:read,users:read",
       redirect_uri: process.env.SLACK_REDIRECT_URI!,
-      state: JSON.stringify({ userId: auth.userId, orgId: auth.orgId }),
+      state: createOAuthState(auth.userId, auth.orgId),
     });
 
     return Response.redirect(`https://slack.com/oauth/v2/authorize?${params}`);

@@ -9,6 +9,7 @@ import {
 } from "@/lib/db/queries/organizations";
 import { logActivity } from "@/lib/db/queries/activity";
 import { createNotification } from "@/lib/notifications/in-app";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 interface RouteParams {
   params: Promise<{ orgId: string }>;
@@ -28,7 +29,31 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     const members = await getOrgMembers(orgId);
 
-    return Response.json({ data: members });
+    const membersWithNames = await Promise.all(
+      members.map(async (member) => {
+        try {
+          const { data } = await supabaseAdmin.auth.admin.getUserById(member.userId);
+          return {
+            ...member,
+            displayName:
+              data.user?.user_metadata?.full_name ||
+              data.user?.email?.split("@")[0] ||
+              member.userId.slice(0, 8),
+            email: data.user?.email ?? null,
+            avatarUrl: data.user?.user_metadata?.avatar_url ?? null,
+          };
+        } catch {
+          return {
+            ...member,
+            displayName: member.userId.slice(0, 8),
+            email: null,
+            avatarUrl: null,
+          };
+        }
+      })
+    );
+
+    return Response.json({ data: membersWithNames });
   } catch (error) {
     if (error instanceof AuthError) {
       return Response.json(

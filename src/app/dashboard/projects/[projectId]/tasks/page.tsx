@@ -47,14 +47,16 @@ import {
   Avatar,
   AvatarFallback,
 } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
 import {
   Plus,
   List,
   LayoutGrid,
   Filter,
-  GripVertical,
 } from "lucide-react";
 import type { Task } from "@/types";
+import { Breadcrumbs } from "@/components/shared/breadcrumbs";
+import { toast } from "sonner";
 
 type TaskFormValues = z.infer<typeof createTaskSchema>;
 
@@ -83,6 +85,19 @@ export default function ProjectTasksPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  const { data: project } = useQuery({
+    queryKey: ["project", projectId],
+    queryFn: async () => {
+      const res = await apiClient(`/api/projects/${projectId}`);
+      if (!res.ok) throw new Error("Failed to fetch project");
+      const json = await res.json();
+      return json.data as { id: string; name: string };
+    },
+    enabled: !!orgId && !!projectId,
+  });
 
   const {
     data: tasks,
@@ -111,9 +126,13 @@ export default function ProjectTasksPage() {
       return res.json();
     },
     onSuccess: () => {
+      toast.success("Task created");
       queryClient.invalidateQueries({ queryKey: ["project-tasks", projectId] });
       setSheetOpen(false);
       reset();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to create task");
     },
   });
 
@@ -171,6 +190,13 @@ export default function ProjectTasksPage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: "Projects", href: "/dashboard/projects" },
+          { label: project?.name ?? "Project", href: `/dashboard/projects/${projectId}` },
+          { label: "Tasks" },
+        ]}
+      />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -266,7 +292,8 @@ export default function ProjectTasksPage() {
               {filteredTasks.map((task) => (
                 <div
                   key={task.id}
-                  className="flex items-center gap-4 px-4 py-3 hover:bg-accent/50 transition-colors"
+                  className="flex items-center gap-4 px-4 py-3 hover:bg-accent/50 transition-colors cursor-pointer"
+                  onClick={() => { setSelectedTask(task); setDetailOpen(true); }}
                 >
                   <div
                     className={`h-2.5 w-2.5 rounded-full shrink-0 ${
@@ -331,6 +358,7 @@ export default function ProjectTasksPage() {
                       <Card
                         key={task.id}
                         className="cursor-pointer hover:shadow-md transition-shadow py-3"
+                        onClick={() => { setSelectedTask(task); setDetailOpen(true); }}
                       >
                         <CardContent className="p-3 space-y-2">
                           <div className="flex items-start justify-between gap-2">
@@ -382,6 +410,49 @@ export default function ProjectTasksPage() {
           )}
         </div>
       )}
+
+      {/* Task Detail Sheet */}
+      <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
+        <SheetContent side="right" className="sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{selectedTask?.title ?? "Task"}</SheetTitle>
+            <SheetDescription>Task details</SheetDescription>
+          </SheetHeader>
+          {selectedTask && (
+            <div className="space-y-4 px-4 pb-4">
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline">
+                  {TASK_STATUS_LABELS[selectedTask.status] ?? selectedTask.status}
+                </Badge>
+                <Badge variant="secondary">
+                  {TASK_PRIORITY_LABELS[selectedTask.priority] ?? selectedTask.priority}
+                </Badge>
+              </div>
+              <Separator />
+              {selectedTask.description && (
+                <div>
+                  <h4 className="mb-1 text-sm font-medium text-muted-foreground">Description</h4>
+                  <p className="text-sm whitespace-pre-wrap">{selectedTask.description}</p>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                {selectedTask.dueDate && (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground">Due Date</h4>
+                    <p className="text-sm">{formatDate(selectedTask.dueDate)}</p>
+                  </div>
+                )}
+                {selectedTask.estimatedMinutes && (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground">Estimate</h4>
+                    <p className="text-sm">{selectedTask.estimatedMinutes} minutes</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* Create Task Sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>

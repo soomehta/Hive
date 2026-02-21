@@ -10,7 +10,10 @@ export async function DELETE(
     const auth = await authenticateRequest(req);
     const { integrationId } = await params;
 
-    await deleteIntegration(integrationId);
+    const deleted = await deleteIntegration(integrationId, auth.userId, auth.orgId);
+    if (!deleted) {
+      return Response.json({ error: "Integration not found" }, { status: 404 });
+    }
     return Response.json({ success: true });
   } catch (error) {
     if (error instanceof AuthError) {

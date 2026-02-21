@@ -78,7 +78,7 @@ export default function PASettingsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="size-6 animate-spin text-zinc-500" />
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -88,20 +88,20 @@ export default function PASettingsPage() {
       <div className="flex items-center gap-3">
         <Brain className="size-6 text-violet-400" />
         <div>
-          <h1 className="text-xl font-semibold text-zinc-100">PA Settings</h1>
-          <p className="text-sm text-zinc-500">Configure your Personal Assistant preferences</p>
+          <h1 className="text-xl font-semibold text-foreground">PA Settings</h1>
+          <p className="text-sm text-muted-foreground">Configure your Personal Assistant preferences</p>
         </div>
       </div>
 
       {/* Autonomy Mode */}
-      <Card className="border-zinc-800 bg-zinc-900/50">
+      <Card className="border-border bg-muted">
         <CardHeader>
           <CardTitle className="text-base">Autonomy Mode</CardTitle>
           <CardDescription>Control how much your PA does automatically</CardDescription>
         </CardHeader>
         <CardContent>
           <Select value={form.autonomyMode} onValueChange={(v) => setForm({ ...form, autonomyMode: v })}>
-            <SelectTrigger className="w-full border-zinc-700 bg-zinc-900">
+            <SelectTrigger className="w-full border-border bg-card">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -114,15 +114,15 @@ export default function PASettingsPage() {
       </Card>
 
       {/* Communication Style */}
-      <Card className="border-zinc-800 bg-zinc-900/50">
+      <Card className="border-border bg-muted">
         <CardHeader>
           <CardTitle className="text-base">Communication Style</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label className="text-zinc-300">Verbosity</Label>
+            <Label className="text-foreground">Verbosity</Label>
             <Select value={form.verbosity} onValueChange={(v) => setForm({ ...form, verbosity: v })}>
-              <SelectTrigger className="w-full border-zinc-700 bg-zinc-900">
+              <SelectTrigger className="w-full border-border bg-card">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -133,9 +133,9 @@ export default function PASettingsPage() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label className="text-zinc-300">Formality</Label>
+            <Label className="text-foreground">Formality</Label>
             <Select value={form.formality} onValueChange={(v) => setForm({ ...form, formality: v })}>
-              <SelectTrigger className="w-full border-zinc-700 bg-zinc-900">
+              <SelectTrigger className="w-full border-border bg-card">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -149,35 +149,35 @@ export default function PASettingsPage() {
       </Card>
 
       {/* Working Hours */}
-      <Card className="border-zinc-800 bg-zinc-900/50">
+      <Card className="border-border bg-muted">
         <CardHeader>
           <CardTitle className="text-base">Working Hours</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label className="text-zinc-300">Start</Label>
+              <Label className="text-foreground">Start</Label>
               <input
                 type="time"
                 value={form.workingHoursStart}
                 onChange={(e) => setForm({ ...form, workingHoursStart: e.target.value })}
-                className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100"
+                className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-zinc-300">End</Label>
+              <Label className="text-foreground">End</Label>
               <input
                 type="time"
                 value={form.workingHoursEnd}
                 onChange={(e) => setForm({ ...form, workingHoursEnd: e.target.value })}
-                className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100"
+                className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
               />
             </div>
           </div>
           <div className="space-y-2">
-            <Label className="text-zinc-300">Timezone</Label>
+            <Label className="text-foreground">Timezone</Label>
             <Select value={form.timezone} onValueChange={(v) => setForm({ ...form, timezone: v })}>
-              <SelectTrigger className="w-full border-zinc-700 bg-zinc-900">
+              <SelectTrigger className="w-full border-border bg-card">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -198,20 +198,20 @@ export default function PASettingsPage() {
       </Card>
 
       {/* Briefings */}
-      <Card className="border-zinc-800 bg-zinc-900/50">
+      <Card className="border-border bg-muted">
         <CardHeader>
           <CardTitle className="text-base">Briefings & Digests</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-zinc-300">Morning Briefing</p>
-              <p className="text-xs text-zinc-500">Daily task overview at {form.morningBriefingTime}</p>
+              <p className="text-sm font-medium text-foreground">Morning Briefing</p>
+              <p className="text-xs text-muted-foreground">Daily task overview at {form.morningBriefingTime}</p>
             </div>
             <button
               onClick={() => setForm({ ...form, morningBriefingEnabled: !form.morningBriefingEnabled })}
               className={`relative h-6 w-11 rounded-full transition-colors ${
-                form.morningBriefingEnabled ? "bg-violet-600" : "bg-zinc-700"
+                form.morningBriefingEnabled ? "bg-violet-600" : "bg-accent"
               }`}
             >
               <span
@@ -223,13 +223,13 @@ export default function PASettingsPage() {
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-zinc-300">Weekly Digest</p>
-              <p className="text-xs text-zinc-500">Summary every Friday</p>
+              <p className="text-sm font-medium text-foreground">Weekly Digest</p>
+              <p className="text-xs text-muted-foreground">Summary every Friday</p>
             </div>
             <button
               onClick={() => setForm({ ...form, weeklyDigestEnabled: !form.weeklyDigestEnabled })}
               className={`relative h-6 w-11 rounded-full transition-colors ${
-                form.weeklyDigestEnabled ? "bg-violet-600" : "bg-zinc-700"
+                form.weeklyDigestEnabled ? "bg-violet-600" : "bg-accent"
               }`}
             >
               <span

@@ -98,10 +98,16 @@ export async function updateIntegration(
   return updated;
 }
 
-export async function deleteIntegration(id: string) {
+export async function deleteIntegration(id: string, userId: string, orgId: string) {
   const [deleted] = await db
     .delete(integrations)
-    .where(eq(integrations.id, id))
+    .where(
+      and(
+        eq(integrations.id, id),
+        eq(integrations.userId, userId),
+        eq(integrations.orgId, orgId)
+      )
+    )
     .returning();
 
   return deleted;

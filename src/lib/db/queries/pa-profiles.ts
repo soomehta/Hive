@@ -1,20 +1,23 @@
 import { db } from "@/lib/db";
 import { paProfiles } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 export async function getOrCreatePaProfile(userId: string, orgId: string) {
+  // Use upsert to avoid race condition
+  const [profile] = await db
+    .insert(paProfiles)
+    .values({ userId, orgId })
+    .onConflictDoNothing({ target: [paProfiles.userId, paProfiles.orgId] })
+    .returning();
+
+  if (profile) return profile;
+
+  // If conflict, the profile already exists — fetch it
   const existing = await db.query.paProfiles.findFirst({
     where: and(eq(paProfiles.userId, userId), eq(paProfiles.orgId, orgId)),
   });
 
-  if (existing) return existing;
-
-  const [profile] = await db
-    .insert(paProfiles)
-    .values({ userId, orgId })
-    .returning();
-
-  return profile;
+  return existing!;
 }
 
 export async function getPaProfile(userId: string, orgId: string) {
@@ -57,17 +60,20 @@ export async function incrementInteractions(
   intent?: string
 ) {
   const profile = await getOrCreatePaProfile(userId, orgId);
-  const commonIntents = (profile.commonIntents ?? {}) as Record<string, number>;
+
+  // Atomic increment via SQL
+  const updates: Record<string, any> = {
+    totalInteractions: sql`${paProfiles.totalInteractions} + 1`,
+    lastActiveAt: new Date(),
+  };
+
   if (intent) {
+    const commonIntents = (profile.commonIntents ?? {}) as Record<string, number>;
     commonIntents[intent] = (commonIntents[intent] ?? 0) + 1;
+    updates.commonIntents = commonIntents;
   }
 
-  await db
-    .update(paProfiles)
-    .set({
-      totalInteractions: (profile.totalInteractions ?? 0) + 1,
-      commonIntents,
-      updatedAt: new Date(),
-    })
+  await db.update(paProfiles)
+    .set(updates)
     .where(and(eq(paProfiles.userId, userId), eq(paProfiles.orgId, orgId)));
 }

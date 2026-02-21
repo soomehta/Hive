@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { paProfiles } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { paProfiles, notifications } from "@/lib/db/schema";
+import { eq, and, gte, desc } from "drizzle-orm";
 import { getTasks } from "@/lib/db/queries/tasks";
 import { getActivityFeed } from "@/lib/db/queries/activity";
 import { createNotification } from "@/lib/notifications/in-app";
@@ -50,6 +50,30 @@ export async function POST(req: NextRequest) {
         // Check if within +/- 15 minutes
         const diff = Math.abs(userTimeMinutes - targetTimeMinutes);
         if (diff > 15 && diff < 24 * 60 - 15) {
+          skipped++;
+          continue;
+        }
+
+        // ── Deduplication: skip if briefing already sent today ──
+        const todayStartUtc = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate()
+        );
+        const recentBriefing = await db
+          .select()
+          .from(notifications)
+          .where(
+            and(
+              eq(notifications.userId, profile.userId),
+              eq(notifications.type, "pa_briefing"),
+              gte(notifications.createdAt, todayStartUtc)
+            )
+          )
+          .orderBy(desc(notifications.createdAt))
+          .limit(1);
+
+        if (recentBriefing.length > 0) {
           skipped++;
           continue;
         }

@@ -37,6 +37,9 @@ import {
 } from "@/components/ui/sheet";
 import { Plus, MessageSquare, Pin } from "lucide-react";
 import type { Message } from "@/types";
+import { getUserDisplayName, getUserInitials } from "@/lib/utils/user-display";
+import { Breadcrumbs } from "@/components/shared/breadcrumbs";
+import { toast } from "sonner";
 
 type MessageFormValues = z.infer<typeof createMessageSchema>;
 
@@ -47,6 +50,17 @@ export default function ProjectMessagesPage() {
   const queryClient = useQueryClient();
 
   const [sheetOpen, setSheetOpen] = useState(false);
+
+  const { data: project } = useQuery({
+    queryKey: ["project", projectId],
+    queryFn: async () => {
+      const res = await apiClient(`/api/projects/${projectId}`);
+      if (!res.ok) throw new Error("Failed to fetch project");
+      const json = await res.json();
+      return json.data as { id: string; name: string };
+    },
+    enabled: !!orgId && !!projectId,
+  });
 
   const {
     data: messages,
@@ -75,11 +89,15 @@ export default function ProjectMessagesPage() {
       return res.json();
     },
     onSuccess: () => {
+      toast.success("Message posted");
       queryClient.invalidateQueries({
         queryKey: ["project-messages", projectId],
       });
       setSheetOpen(false);
       reset();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to post message");
     },
   });
 
@@ -123,6 +141,13 @@ export default function ProjectMessagesPage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: "Projects", href: "/dashboard/projects" },
+          { label: project?.name ?? "Project", href: `/dashboard/projects/${projectId}` },
+          { label: "Messages" },
+        ]}
+      />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -179,7 +204,7 @@ export default function ProjectMessagesPage() {
                   <div className="flex items-center gap-3">
                     <Avatar>
                       <AvatarFallback>
-                        {msg.userId.slice(0, 2).toUpperCase()}
+                        {getUserInitials(getUserDisplayName({ userId: msg.userId }))}
                       </AvatarFallback>
                     </Avatar>
                     <div>
@@ -193,7 +218,7 @@ export default function ProjectMessagesPage() {
                         </CardTitle>
                       )}
                       <CardDescription className="text-xs">
-                        {msg.userId} &middot;{" "}
+                        {getUserDisplayName({ userId: msg.userId })} &middot;{" "}
                         {relativeDate(msg.createdAt)}
                         {msg.isFromPa && (
                           <Badge

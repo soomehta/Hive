@@ -62,7 +62,8 @@ export async function getTasks(filters: TaskFilters) {
   }
 
   if (search) {
-    conditions.push(ilike(tasks.title, `%${search}%`));
+    const escapedSearch = search.replace(/[%_\\]/g, '\\$&');
+    conditions.push(ilike(tasks.title, `%${escapedSearch}%`));
   }
 
   if (cursor) {

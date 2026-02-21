@@ -12,6 +12,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Plus, FolderKanban } from "lucide-react";
 import type { Project } from "@/types";
 import { PROJECT_STATUS_LABELS } from "@/lib/utils/constants";
+import { EmptyState } from "@/components/shared/empty-state";
 
 const STATUS_TABS = ["all", "active", "paused", "completed", "archived"] as const;
 
@@ -90,22 +91,26 @@ export default function ProjectsPage() {
                 ))}
               </div>
             ) : !filteredProjects || filteredProjects.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16">
-                <FolderKanban className="text-muted-foreground mb-4 h-12 w-12" />
-                <h3 className="text-lg font-medium">No projects found</h3>
-                <p className="text-muted-foreground mt-1 text-sm">
-                  {statusFilter === "all"
-                    ? "Get started by creating your first project."
-                    : `No ${PROJECT_STATUS_LABELS[statusFilter]?.toLowerCase() ?? statusFilter} projects.`}
-                </p>
-                {statusFilter === "all" && (
-                  <Button asChild className="mt-4">
-                    <Link href="/dashboard/projects/new">
-                      <Plus className="h-4 w-4" />
-                      Create Project
-                    </Link>
-                  </Button>
-                )}
+              <div className="rounded-lg border border-dashed">
+                <EmptyState
+                  icon={<FolderKanban />}
+                  title="No projects found"
+                  description={
+                    statusFilter === "all"
+                      ? "Get started by creating your first project."
+                      : `No ${PROJECT_STATUS_LABELS[statusFilter]?.toLowerCase() ?? statusFilter} projects.`
+                  }
+                  action={
+                    statusFilter === "all" ? (
+                      <Button asChild>
+                        <Link href="/dashboard/projects/new">
+                          <Plus className="h-4 w-4" />
+                          Create Project
+                        </Link>
+                      </Button>
+                    ) : undefined
+                  }
+                />
               </div>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

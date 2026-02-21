@@ -36,25 +36,25 @@ export function IntegrationCard({
   isDisconnecting,
 }: IntegrationCardProps) {
   return (
-    <Card className="border-zinc-800 bg-zinc-900/50">
+    <Card className="border-border bg-muted">
       <CardContent className="flex items-start gap-4 p-5">
         <div className="flex-1 space-y-2">
           <div className="flex items-center gap-2">
-            <h3 className="font-semibold text-zinc-100">{name}</h3>
+            <h3 className="font-semibold text-foreground">{name}</h3>
             {isConnected ? (
               <Badge variant="outline" className="gap-1 border-green-500/30 text-green-400 text-xs">
                 <Check className="size-3" />
                 Connected
               </Badge>
             ) : (
-              <Badge variant="outline" className="border-zinc-700 text-zinc-500 text-xs">
+              <Badge variant="outline" className="border-border text-muted-foreground text-xs">
                 Not connected
               </Badge>
             )}
           </div>
-          <p className="text-sm text-zinc-400">{description}</p>
+          <p className="text-sm text-muted-foreground">{description}</p>
           {connectedEmail && (
-            <p className="text-xs text-zinc-500">Connected as {connectedEmail}</p>
+            <p className="text-xs text-muted-foreground">Connected as {connectedEmail}</p>
           )}
           <div className="flex flex-wrap gap-1.5 pt-1">
             {features.map((f) => (
@@ -72,7 +72,7 @@ export function IntegrationCard({
               size="sm"
               onClick={onDisconnect}
               disabled={isDisconnecting}
-              className="gap-1 border-zinc-700 text-zinc-400 hover:border-red-500 hover:text-red-400"
+              className="gap-1 border-border text-muted-foreground hover:border-red-500 hover:text-red-400"
             >
               {isDisconnecting ? <Loader2 className="size-3 animate-spin" /> : <X className="size-3" />}
               Disconnect

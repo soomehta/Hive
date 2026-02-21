@@ -34,6 +34,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserPlus, Users, Mail, Briefcase, Building2 } from "lucide-react";
 import { toast } from "sonner";
+import { EmptyState } from "@/components/shared/empty-state";
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -45,6 +46,9 @@ interface OrgMember {
   jobTitle: string | null;
   department: string | null;
   joinedAt: string;
+  displayName?: string;
+  email?: string | null;
+  avatarUrl?: string | null;
 }
 
 // ─── Role Badge ─────────────────────────────────────────
@@ -82,7 +86,8 @@ function RoleBadge({ role }: { role: OrgMember["role"] }) {
 // ─── Member Card ────────────────────────────────────────
 
 function MemberCard({ member }: { member: OrgMember }) {
-  const initials = member.userId.slice(0, 2).toUpperCase();
+  const displayName = member.displayName ?? member.userId.slice(0, 8);
+  const initials = displayName.slice(0, 2).toUpperCase();
 
   return (
     <Card>
@@ -93,7 +98,7 @@ function MemberCard({ member }: { member: OrgMember }) {
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex items-center gap-2">
             <p className="truncate text-sm font-medium">
-              {member.userId}
+              {displayName}
             </p>
             <RoleBadge role={member.role} />
           </div>
@@ -300,12 +305,12 @@ export default function TeamPage() {
           </p>
         </div>
       ) : members.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16">
-          <Users className="mb-4 size-12 text-muted-foreground" />
-          <h3 className="text-lg font-medium">No team members</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Invite members to start collaborating.
-          </p>
+        <div className="rounded-lg border border-dashed">
+          <EmptyState
+            icon={<Users />}
+            title="No team members"
+            description="Invite members to start collaborating."
+          />
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

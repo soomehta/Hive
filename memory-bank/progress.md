@@ -7,63 +7,55 @@
 - **Phase 1 – Foundation: COMPLETE**
   - Next.js 16.1.6 + TypeScript + Tailwind CSS v4 + shadcn/ui (20 components)
   - Supabase Auth (browser/server/middleware/admin clients, sign-in, sign-up, onboarding)
-  - Drizzle ORM schema with all Phase 1 tables: organizations, organizationMembers, invitations, projects, projectMembers, tasks, taskComments, messages, activityLog, notifications
-  - All enums: orgRole, projectStatus, taskStatus, taskPriority, notificationType, activityType
+  - Drizzle ORM schema with all Phase 1 tables
   - RBAC permissions system with role-permission matrix
   - API routes: organizations CRUD + members, projects CRUD + members, tasks CRUD + comments, messages CRUD, activity feed, notifications + SSE
-  - Activity logging (logActivity) retrofitted into all CRUD routes
-  - Notification system (in-app + SSE real-time) retrofitted into relevant routes
-  - Frontend: dashboard layout (sidebar + header), org switcher, notification bell
-  - Pages: dashboard home, projects list/new/detail, project tasks (list + kanban), project messages, my tasks (grouped by timeframe), team members + invite, org settings, user profile
-  - Reusable components: task-card, task-list, task-board, task-detail (Sheet), task-form, project-card, message-card, message-composer, activity-feed, empty-state, loading, user-avatar, priority-badge, status-badge, date-display
-  - Zustand store for org context, TanStack Query for server state, apiClient with auto x-org-id header
-  - Vitest configured with 11 passing tests (permissions, activity descriptions, date utils)
-- **Landing Page: COMPLETE**
-  - Conversion-optimized marketing landing page at `/` for unauthenticated visitors
-  - Authenticated users redirect to `/dashboard`
-  - 8 sections: sticky nav, hero with mock PA conversation, social proof, 6-feature grid, 3-step how-it-works, 2-tier pricing, final CTA, footer
-- **Phases 2-4 Spec: COMPLETE**
-  - Comprehensive implementation-ready spec at `docs/phases-2-4-spec.md`
+  - Activity logging and notification system retrofitted into all CRUD routes
+  - Frontend: dashboard layout, org switcher, notification bell, all pages
 - **Phase 2 – Voice + PA Core: COMPLETE**
-  - 7 new enums: actionTier, actionStatus, actionType, integrationProvider, autonomyMode, verbosity, formality
-  - 5 new tables: paProfiles, paConversations, paActions, paCorrections, voiceTranscripts
-  - Types: `src/types/pa.ts` (PAProfile, PAConversation, PAAction, PACorrection, VoiceTranscript, ActionType, ActionTier, ActionStatus, AutonomyMode)
-  - Validation: 4 new Zod schemas (paChatSchema, actionDecisionSchema, reportQuerySchema, updatePaProfileSchema)
-  - Dependencies: @deepgram/sdk, openai, @anthropic-ai/sdk, @aws-sdk/client-s3
-  - Voice: deepgram.ts (Nova-3), gladia.ts (Solaria fallback), r2.ts (Cloudflare R2 audio storage)
-  - AI: intent-classifier.ts (GPT-4o-mini), action-planner.ts (Claude Sonnet), prompts (intent-classification.ts, action-planning.ts)
-  - Action system: registry.ts (19 action types with tier resolution), executor.ts (dispatch to handlers)
-  - 11 action handlers: create-task, update-task, complete-task, delete-task, create-comment, post-message, flag-blocker, query, calendar-block, calendar-event, send-email, send-slack, generate-report
-  - DB queries: pa-profiles.ts (CRUD + getOrCreate + incrementInteractions), pa-actions.ts (CRUD + conversations + corrections + voice transcripts + expire stale)
-  - API routes: POST /api/voice/transcribe, POST /api/pa/chat, GET /api/pa/actions, PATCH /api/pa/actions/[actionId], GET /api/pa/briefing, GET+PATCH /api/pa/profile
-  - Hooks: use-voice-recorder.ts (MediaRecorder API), use-pa.ts (Zustand store + TanStack Query mutations)
-  - PA components: pa-panel.tsx, pa-chat.tsx, pa-message.tsx, pa-input.tsx, pa-voice-recorder.tsx, pa-action-card.tsx, pa-briefing-card.tsx, pa-report-view.tsx
-  - PA settings page: /dashboard/settings/pa (autonomy mode, communication style, working hours, briefings)
-  - Dashboard layout updated with PAPanel floating button + slide-out panel
-  - Sidebar updated with Reports and Integrations nav items
+  - Voice recording, transcription (Deepgram/Gladia), intent classification (GPT-4o-mini), action planning (Claude Sonnet)
+  - Action registry with 19 action types, graduated autonomy tier system
+  - PA chat, approval UI, briefing, voice recorder, PA settings page
 - **Phase 3 – Integrations: COMPLETE**
-  - Dependencies: googleapis, @microsoft/microsoft-graph-client, @slack/web-api
-  - Schema: integrations table with AES-256-GCM encrypted tokens
-  - Types: `src/types/integrations.ts` (Integration, IntegrationProvider, CalendarEvent, EmailMessage)
-  - OAuth infrastructure: oauth.ts (encrypt/decrypt tokens, refresh logic for Google/Microsoft)
-  - Integration wrappers: google-calendar.ts, google-mail.ts, microsoft-calendar.ts, microsoft-mail.ts, slack.ts
-  - DB queries: integrations.ts (CRUD + token encryption/decryption)
-  - API routes: Google (auth, callback, calendar, mail), Microsoft (auth, callback, calendar, mail), Slack (auth, callback, send), integrations list + delete
-  - Frontend: integrations page, integration-card, oauth-button
-  - Action handlers updated from stubs to real implementations (calendar-block, calendar-event, send-email, send-slack)
+  - Google/Microsoft/Slack OAuth with AES-256-GCM encrypted tokens
+  - Calendar, email, messaging integration wrappers
+  - Integration management UI
 - **Phase 4 – Reporting + Proactive: COMPLETE**
-  - Schema: embeddings table (pgvector, 1536 dimensions), scheduledReports table
-  - AI modules: report-generator.ts (Claude Sonnet narrative), briefing-generator.ts (morning briefings), email-drafter.ts, message-drafter.ts, embeddings.ts (OpenAI text-embedding-3-small), rag.ts (pgvector cosine similarity search)
-  - AI prompts: report-generation.ts (role-aware), briefing.ts (day-aware), drafting.ts (email + message)
-  - BullMQ queue: index.ts (Redis connection, queue/worker factories, 8 lazy queue getters), jobs.ts (8 typed job interfaces)
-  - 8 workers: transcription (audio→Deepgram), ai-processing (intent→action), action-execution (execute + log), embedding (generate + store), notification (in-app/email/Slack), morning-briefing (aggregate + generate), weekly-digest (aggregate + report), profile-learning (track patterns + suggest tier changes)
-  - API routes: POST /api/pa/report, 4 cron endpoints (morning-briefing every 15m, overdue-nudge hourly, stale-tasks daily, weekly-digest Fridays)
-  - Frontend: reports page (/dashboard/reports) with chat-style interface, suggested questions, report-chat component, report-export component
-  - Updated generate-report handler from Phase 4 stub to real implementation
-  - Enhanced briefing route with Claude narrative generation
-  - vercel.json with 4 cron job schedules
-  - scripts/worker.ts updated with all 8 worker imports + graceful shutdown
-  - TypeScript compiles cleanly (0 errors), Next.js build succeeds (55 routes), 11 tests pass
+  - Report engine, morning briefing, weekly digest
+  - 8 BullMQ workers, 4 cron endpoints
+  - pgvector embeddings + RAG
+  - Reports page with chat-style interface
+- **Landing Page: COMPLETE**
+- **Security Review Fixes: COMPLETE**
+  - OAuth CSRF protection (HMAC-signed state)
+  - IDOR fixes on integrations + notifications
+  - SSE org membership verification
+  - UUID validation on x-org-id header
+  - Voice upload size/MIME validation
+  - Auth callback open redirect prevention
+  - Token decryption format validation
+  - RBAC enforcement in PA action handlers
+  - resolveActionTier in AI worker
+  - ILIKE search injection prevention
+  - Rate limiting on AI endpoints
+- **UX Review Fixes: COMPLETE**
+  - User display names (not raw UUIDs)
+  - PA panel layout compensation
+  - Voice blob transmission fix
+  - Settings sub-navigation
+  - Semantic color tokens (no hardcoded zinc)
+  - Interactive kanban + task detail editing
+  - Clickable notifications with navigation
+  - Breadcrumbs, toasts, branding, empty states
+  - SSE reconnection with exponential backoff
+- **Production Readiness: COMPLETE**
+  - Centralized env validation
+  - Lazy DB + supabaseAdmin initialization
+  - Race condition fixes (atomic SQL operations)
+  - Health check endpoint
+  - Cron deduplication and schedule fixes
+  - Embedding transaction atomicity
+- **Build verification:** 56 routes, 0 TypeScript errors, 71 tests pass, clean production build.
 
 ## What's Left to Build
 
@@ -71,14 +63,20 @@
 - **End-to-end testing:** Manual testing with real Supabase, Google/Microsoft/Slack OAuth credentials
 - **pgvector setup:** Run post-migrate SQL for pgvector extension and HNSW index
 - **Redis setup:** Configure Upstash Redis for BullMQ workers
+- **SSE scalability:** Upgrade from in-memory singleton to Redis pub/sub or Supabase Realtime
+- **Rate limiting upgrade:** Replace in-memory with @upstash/ratelimit for multi-instance
+- **Structured logging:** Add pino or similar for production logging
+- **Error monitoring:** Integrate Sentry or Datadog
 
 ## Current Status
 
-- **All 4 phases: Code complete.** 55 routes, 0 TypeScript errors, 11 tests pass.
+- **All 4 phases + review fixes: Code complete.** 56 routes, 0 TypeScript errors, 71 tests pass.
 - **Next actionable:** Set up Supabase project, configure environment variables, run migrations, and test end-to-end.
 
 ## Known Issues
 
-- SSE endpoint uses `x-org-id` header but EventSource API doesn't support custom headers — may need query param fallback
-- Middleware file uses deprecated convention (Next.js 16 prefers "proxy") — works but shows warning
-- ioredis version mismatch between top-level and BullMQ bundled versions — resolved with `as unknown as ConnectionOptions` cast
+- SSE uses in-memory singleton — only works for single-instance deployments (Vercel serverless will not work for SSE)
+- Rate limiting is in-memory — loses state across serverless invocations
+- Dashboard pages use "use client" so Next.js metadata exports are not possible (need generateMetadata pattern)
+- Invitation response still leaks token value in API response (LOW priority)
+- No data retention policy for activity_log, notifications, voice_transcripts

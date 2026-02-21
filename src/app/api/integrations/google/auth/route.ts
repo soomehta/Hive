@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { createOAuthState } from "@/lib/integrations/oauth-state";
 
 const GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/calendar",
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
       scope: GOOGLE_SCOPES,
       access_type: "offline",
       prompt: "consent",
-      state: JSON.stringify({ userId: auth.userId, orgId: auth.orgId }),
+      state: createOAuthState(auth.userId, auth.orgId),
     });
 
     return Response.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);

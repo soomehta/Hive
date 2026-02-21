@@ -136,7 +136,7 @@ export function Sidebar({ orgs, user }: SidebarProps) {
           className="w-full justify-start gap-2 border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
           asChild
         >
-          <Link href="/dashboard/projects?new=true">
+          <Link href="/dashboard/projects/new">
             <Plus className="size-4" />
             New Project
           </Link>

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/utils/api-client";
 import { createClient } from "@/lib/supabase/client";
 import { useOrg } from "@/hooks/use-org";
@@ -11,7 +12,9 @@ import {
   type TaskTimeGroup,
   formatDate,
 } from "@/lib/utils/dates";
+import { formatMinutes } from "@/lib/utils/user-display";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Sheet,
@@ -30,6 +33,7 @@ import {
   CalendarDays,
   ClipboardList,
 } from "lucide-react";
+import { EmptyState } from "@/components/shared/empty-state";
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -211,10 +215,12 @@ function TaskDetailSheet({
   task,
   open,
   onOpenChange,
+  onMarkComplete,
 }: {
   task: Task | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onMarkComplete: (task: Task) => Promise<void>;
 }) {
   if (!task) return null;
 
@@ -260,7 +266,7 @@ function TaskDetailSheet({
                 <h4 className="text-sm font-medium text-muted-foreground">
                   Estimate
                 </h4>
-                <p className="text-sm">{task.estimatedMinutes} minutes</p>
+                <p className="text-sm">{formatMinutes(task.estimatedMinutes)}</p>
               </div>
             )}
 
@@ -289,6 +295,23 @@ function TaskDetailSheet({
               <p className="text-sm">{task.blockedReason}</p>
             </div>
           )}
+
+          <div className="flex gap-2 pt-4 border-t">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onMarkComplete(task)}
+              disabled={task.status === "done"}
+            >
+              <CheckCircle2 className="size-4 mr-1" />
+              Mark Complete
+            </Button>
+            <Button size="sm" variant="outline" asChild>
+              <Link href={`/dashboard/projects/${task.projectId}/tasks`}>
+                Open in Project
+              </Link>
+            </Button>
+          </div>
         </div>
       </SheetContent>
     </Sheet>
@@ -325,6 +348,7 @@ const TIME_GROUP_ORDER: TaskTimeGroup[] = [
 
 export default function MyTasksPage() {
   const { orgId } = useOrg();
+  const queryClient = useQueryClient();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -364,6 +388,16 @@ export default function MyTasksPage() {
   const handleSelectTask = (task: Task) => {
     setSelectedTask(task);
     setSheetOpen(true);
+  };
+
+  const handleMarkComplete = async (task: Task) => {
+    await apiClient(`/api/tasks/${task.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "done" }),
+    });
+    queryClient.invalidateQueries({ queryKey: ["my-tasks"] });
+    setSheetOpen(false);
+    setSelectedTask(null);
   };
 
   if (isLoading || !user) {
@@ -412,12 +446,12 @@ export default function MyTasksPage() {
       </div>
 
       {!hasAnyTasks ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16">
-          <ClipboardList className="mb-4 size-12 text-muted-foreground" />
-          <h3 className="text-lg font-medium">No tasks assigned</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            You don&apos;t have any tasks assigned to you yet.
-          </p>
+        <div className="rounded-lg border border-dashed">
+          <EmptyState
+            icon={<ClipboardList />}
+            title="No tasks assigned"
+            description="You don't have any tasks assigned to you yet."
+          />
         </div>
       ) : (
         <div className="space-y-6">
@@ -436,6 +470,7 @@ export default function MyTasksPage() {
         task={selectedTask}
         open={sheetOpen}
         onOpenChange={setSheetOpen}
+        onMarkComplete={handleMarkComplete}
       />
     </div>
   );

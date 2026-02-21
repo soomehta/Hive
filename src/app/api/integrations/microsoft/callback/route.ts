@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { createIntegration } from "@/lib/db/queries/integrations";
+import { verifyOAuthState } from "@/lib/integrations/oauth-state";
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,7 +16,12 @@ export async function GET(req: NextRequest) {
       return Response.redirect(new URL("/dashboard/integrations?error=missing_params", req.url));
     }
 
-    const state = JSON.parse(stateStr) as { userId: string; orgId: string };
+    let state: { userId: string; orgId: string };
+    try {
+      state = verifyOAuthState(stateStr);
+    } catch {
+      return Response.redirect(new URL("/dashboard/integrations?error=invalid_state", req.url));
+    }
 
     const tokenRes = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
       method: "POST",

@@ -17,13 +17,32 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle2, Clock, Activity, ListTodo } from "lucide-react";
+import {
+  CheckCircle2,
+  CheckSquare,
+  Clock,
+  Activity,
+  ListTodo,
+  Edit3,
+  UserPlus,
+  FolderPlus,
+  MessageSquare,
+} from "lucide-react";
 import Link from "next/link";
 import type { Task, ActivityLogEntry } from "@/types";
 import {
   TASK_STATUS_LABELS,
   TASK_PRIORITY_LABELS,
 } from "@/lib/utils/constants";
+
+const ACTIVITY_ICONS: Record<string, React.ElementType> = {
+  task_created: CheckSquare,
+  task_completed: CheckCircle2,
+  task_updated: Edit3,
+  member_joined: UserPlus,
+  project_created: FolderPlus,
+  message_posted: MessageSquare,
+};
 
 export default function DashboardPage() {
   const { orgId } = useOrg();
@@ -258,27 +277,30 @@ export default function DashboardPage() {
               </p>
             ) : (
               <div className="space-y-3">
-                {activityData.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="flex items-start gap-3 rounded-lg border p-3"
-                  >
-                    <div className="bg-muted flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
-                      <Activity className="h-4 w-4" />
+                {activityData.map((entry) => {
+                  const Icon = ACTIVITY_ICONS[entry.type] ?? Activity;
+                  return (
+                    <div
+                      key={entry.id}
+                      className="flex items-start gap-3 rounded-lg border p-3"
+                    >
+                      <div className="bg-muted flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
+                        <Icon className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm">
+                          {getActivityDescription(
+                            entry.type as Parameters<typeof getActivityDescription>[0],
+                            entry.metadata as Parameters<typeof getActivityDescription>[1]
+                          )}
+                        </p>
+                        <p className="text-muted-foreground text-xs">
+                          {relativeDate(entry.createdAt)}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm">
-                        {getActivityDescription(
-                          entry.type as Parameters<typeof getActivityDescription>[0],
-                          entry.metadata as Parameters<typeof getActivityDescription>[1]
-                        )}
-                      </p>
-                      <p className="text-muted-foreground text-xs">
-                        {relativeDate(entry.createdAt)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>

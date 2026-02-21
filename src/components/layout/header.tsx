@@ -31,6 +31,10 @@ const pageTitles: Record<string, string> = {
   "/dashboard/my-tasks": "My Tasks",
   "/dashboard/team": "Team",
   "/dashboard/settings": "Settings",
+  "/dashboard/integrations": "Integrations",
+  "/dashboard/reports": "Reports",
+  "/dashboard/settings/profile": "Profile",
+  "/dashboard/settings/pa": "PA Settings",
 };
 
 function getPageTitle(pathname: string): string {
@@ -112,24 +116,44 @@ export function Header({ user }: HeaderProps) {
                   No notifications yet
                 </div>
               ) : (
-                notifications.slice(0, 20).map((notification) => (
-                  <div
-                    key={notification.id}
-                    className={`border-b px-4 py-3 last:border-b-0 ${
-                      !notification.isRead ? "bg-muted/50" : ""
-                    }`}
-                  >
-                    <p className="text-sm">{notification.title}</p>
-                    {notification.body && (
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {notification.body}
+                notifications.slice(0, 20).map((notification) => {
+                  const meta = notification.metadata as Record<string, string> | null;
+                  const notifLink = meta?.link
+                    ?? (meta?.taskId && meta?.projectId
+                      ? `/dashboard/projects/${meta.projectId}/tasks`
+                      : meta?.projectId
+                      ? `/dashboard/projects/${meta.projectId}`
+                      : null);
+
+                  async function handleNotifClick() {
+                    if (!notification.isRead) {
+                      await markAsRead([notification.id]);
+                    }
+                    if (notifLink) {
+                      router.push(notifLink);
+                    }
+                  }
+
+                  return (
+                    <button
+                      key={notification.id}
+                      onClick={handleNotifClick}
+                      className={`w-full border-b px-4 py-3 text-left last:border-b-0 transition-colors hover:bg-muted/70 ${
+                        !notification.isRead ? "bg-muted/50" : ""
+                      } ${notifLink ? "cursor-pointer" : "cursor-default"}`}
+                    >
+                      <p className="text-sm">{notification.title}</p>
+                      {notification.body && (
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {notification.body}
+                        </p>
+                      )}
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {relativeDate(notification.createdAt)}
                       </p>
-                    )}
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {relativeDate(notification.createdAt)}
-                    </p>
-                  </div>
-                ))
+                    </button>
+                  );
+                })
               )}
             </div>
           </PopoverContent>

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { tasks } from "@/lib/db/schema";
-import { and, lt, eq } from "drizzle-orm";
+import { tasks, notifications } from "@/lib/db/schema";
+import { and, lt, eq, gte, desc } from "drizzle-orm";
 import { createNotification } from "@/lib/notifications/in-app";
 
 export async function POST(req: NextRequest) {
@@ -16,6 +16,8 @@ export async function POST(req: NextRequest) {
     const sevenDaysAgo = new Date(
       now.getTime() - 7 * 24 * 60 * 60 * 1000
     );
+    // Deduplication window: do not re-notify about the same stale task within 7 days
+    const dedupeWindowStart = sevenDaysAgo;
 
     // ── Find stale tasks: in_progress and not updated in 7+ days ──
     const staleTasks = await db
@@ -36,6 +38,30 @@ export async function POST(req: NextRequest) {
       try {
         // ── Skip if no assignee ──────────────────────────
         if (!task.assigneeId) {
+          skipped++;
+          continue;
+        }
+
+        // ── Deduplication: skip if already notified in last 7 days ──
+        const recentNudge = await db
+          .select()
+          .from(notifications)
+          .where(
+            and(
+              eq(notifications.userId, task.assigneeId),
+              eq(notifications.type, "pa_nudge"),
+              gte(notifications.createdAt, dedupeWindowStart)
+            )
+          )
+          .orderBy(desc(notifications.createdAt))
+          .limit(10);
+
+        const alreadyNudged = recentNudge.some((n) => {
+          const meta = n.metadata as Record<string, unknown> | null;
+          return meta?.taskId === task.id && meta?.nudgeType === "stale";
+        });
+
+        if (alreadyNudged) {
           skipped++;
           continue;
         }

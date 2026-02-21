@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Send, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
@@ -14,6 +14,14 @@ interface PAInputProps {
 export function PAInput({ onSend, onVoice, isLoading }: PAInputProps) {
   const [text, setText] = useState("");
   const { state, startRecording, stopRecording, audioBlob, duration } = useVoiceRecorder();
+  const sentBlobRef = useRef<Blob | null>(null);
+
+  useEffect(() => {
+    if (audioBlob && state === "idle" && audioBlob !== sentBlobRef.current) {
+      sentBlobRef.current = audioBlob;
+      onVoice(audioBlob);
+    }
+  }, [audioBlob, state, onVoice]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,28 +40,17 @@ export function PAInput({ onSend, onVoice, isLoading }: PAInputProps) {
   async function handleMicClick() {
     if (state === "recording") {
       stopRecording();
-      // audioBlob will be available after stopRecording via the hook
-      // We use an effect-like pattern -- check after a tick
-      setTimeout(() => {
-        const recorder = document.querySelector("[data-voice-blob]");
-      }, 100);
     } else {
       await startRecording();
     }
   }
 
-  // Send audio when blob is ready
-  if (audioBlob && state === "idle") {
-    onVoice(audioBlob);
-    // Reset handled by re-render
-  }
-
   if (state === "recording") {
     return (
-      <div className="flex items-center gap-3 border-t border-zinc-800 px-4 py-3">
+      <div className="flex items-center gap-3 border-t border-border px-4 py-3">
         <div className="flex flex-1 items-center gap-2">
           <div className="size-2 animate-pulse rounded-full bg-red-500" />
-          <span className="text-sm text-zinc-300">
+          <span className="text-sm text-foreground">
             Recording... {Math.floor(duration / 60)}:{String(duration % 60).padStart(2, "0")}
           </span>
         </div>
@@ -70,14 +67,14 @@ export function PAInput({ onSend, onVoice, isLoading }: PAInputProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex items-end gap-2 border-t border-zinc-800 px-4 py-3">
+    <form onSubmit={handleSubmit} className="flex items-end gap-2 border-t border-border px-4 py-3">
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder="Ask your PA..."
         rows={1}
-        className="flex-1 resize-none rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+        className="flex-1 resize-none rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
         disabled={isLoading}
       />
       <Button
@@ -85,7 +82,7 @@ export function PAInput({ onSend, onVoice, isLoading }: PAInputProps) {
         size="icon"
         variant="ghost"
         onClick={handleMicClick}
-        className="size-9 shrink-0 text-zinc-400 hover:text-violet-400"
+        className="size-9 shrink-0 text-muted-foreground hover:text-violet-400"
         disabled={isLoading}
       >
         <Mic className="size-4" />

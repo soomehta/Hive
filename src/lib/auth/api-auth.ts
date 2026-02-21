@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { organizationMembers } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 interface AuthResult {
   userId: string;
   orgId: string;
@@ -25,6 +27,10 @@ export async function authenticateRequest(
   const orgId = req.headers.get("x-org-id");
   if (!orgId) {
     throw new AuthError("Missing organization", 400);
+  }
+
+  if (!UUID_REGEX.test(orgId)) {
+    throw new AuthError("Invalid organization ID", 400);
   }
 
   const member = await db.query.organizationMembers.findFirst({

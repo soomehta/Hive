@@ -23,14 +23,14 @@ export function PAPanel() {
 
       {/* Panel */}
       {isOpen && (
-        <div className="fixed right-0 top-0 z-50 flex h-full w-[400px] flex-col border-l border-zinc-800 bg-zinc-950 shadow-2xl">
+        <div className="fixed right-0 top-0 z-50 flex h-full w-[400px] flex-col border-l border-border bg-card shadow-2xl">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <div className="flex items-center gap-2">
               <Brain className="size-5 text-violet-400" />
-              <h2 className="text-sm font-semibold text-zinc-100">PA Assistant</h2>
+              <h2 className="text-sm font-semibold text-foreground">PA Assistant</h2>
             </div>
-            <Button variant="ghost" size="icon" onClick={close} className="size-8 text-zinc-400 hover:text-zinc-100">
+            <Button variant="ghost" size="icon" onClick={close} className="size-8 text-muted-foreground hover:text-foreground">
               <X className="size-4" />
             </Button>
           </div>

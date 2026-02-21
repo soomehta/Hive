@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { db } from "@/lib/db";
 import { embeddings } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 
 let _openai: OpenAI | null = null;
 function getOpenAI() {
@@ -49,23 +49,24 @@ export async function storeEmbedding(
 ): Promise<void> {
   const vector = await generateEmbedding(content);
 
-  // Delete existing embedding for this source if it exists (upsert behavior)
-  await db
-    .delete(embeddings)
-    .where(
-      and(
-        eq(embeddings.sourceType, sourceType),
-        eq(embeddings.sourceId, sourceId)
-      )
-    );
+  // Wrap delete + insert in a transaction to avoid a partial-update window
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(embeddings)
+      .where(
+        and(
+          eq(embeddings.sourceType, sourceType),
+          eq(embeddings.sourceId, sourceId)
+        )
+      );
 
-  // Insert the new embedding
-  await db.insert(embeddings).values({
-    orgId,
-    sourceType,
-    sourceId,
-    content,
-    embedding: vector,
+    await tx.insert(embeddings).values({
+      orgId,
+      sourceType,
+      sourceId,
+      content,
+      embedding: vector,
+    });
   });
 }
 
@@ -109,19 +110,6 @@ export async function storeBatchEmbeddings(
     dimensions: EMBEDDING_DIMENSIONS,
   });
 
-  // Delete existing embeddings for these sources
-  for (const item of items) {
-    await db
-      .delete(embeddings)
-      .where(
-        and(
-          eq(embeddings.sourceType, item.sourceType),
-          eq(embeddings.sourceId, item.sourceId)
-        )
-      );
-  }
-
-  // Insert all new embeddings
   const values = items.map((item, i) => ({
     orgId: item.orgId,
     sourceType: item.sourceType,
@@ -130,5 +118,13 @@ export async function storeBatchEmbeddings(
     embedding: response.data[i].embedding,
   }));
 
-  await db.insert(embeddings).values(values);
+  // Delete existing embeddings in a single query, then batch insert — all in one transaction
+  const sourceIds = items.map((item) => item.sourceId);
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(embeddings)
+      .where(inArray(embeddings.sourceId, sourceIds));
+
+    await tx.insert(embeddings).values(values);
+  });
 }

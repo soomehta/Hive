@@ -16,6 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Hexagon, Loader2 } from "lucide-react";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -47,9 +48,14 @@ export default function SignInPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
-      <Card className="w-full max-w-md">
+      <div className="w-full max-w-md">
+        <Link href="/" className="flex items-center gap-2 mb-8 justify-center">
+          <Hexagon className="size-8 fill-primary text-primary-foreground" />
+          <span className="text-2xl font-bold tracking-tight">Hive</span>
+        </Link>
+      <Card className="w-full">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
+          <CardTitle className="text-2xl font-bold">Welcome back to Hive</CardTitle>
           <CardDescription>Sign in to your Hive account</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -84,7 +90,9 @@ export default function SignInPage() {
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Signing in..." : "Sign in"}
+              {loading ? (
+                <><Loader2 className="size-4 animate-spin" /> Signing in...</>
+              ) : "Sign in"}
             </Button>
             <p className="text-muted-foreground text-sm">
               Don&apos;t have an account?{" "}
@@ -98,6 +106,7 @@ export default function SignInPage() {
           </CardFooter>
         </form>
       </Card>
+      </div>
     </div>
   );
 }

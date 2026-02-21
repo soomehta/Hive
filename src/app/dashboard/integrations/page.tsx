@@ -62,7 +62,7 @@ export default function IntegrationsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="size-6 animate-spin text-zinc-500" />
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -72,8 +72,8 @@ export default function IntegrationsPage() {
       <div className="flex items-center gap-3">
         <Plug className="size-6 text-violet-400" />
         <div>
-          <h1 className="text-xl font-semibold text-zinc-100">Integrations</h1>
-          <p className="text-sm text-zinc-500">Connect your tools to let your PA work across platforms</p>
+          <h1 className="text-xl font-semibold text-foreground">Integrations</h1>
+          <p className="text-sm text-muted-foreground">Connect your tools to let your PA work across platforms</p>
         </div>
       </div>
 

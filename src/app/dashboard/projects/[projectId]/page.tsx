@@ -34,8 +34,24 @@ import {
   MessageSquare,
   Settings,
   Activity,
+  CheckSquare,
+  CheckCircle2,
+  Edit3,
+  UserPlus,
+  FolderPlus,
 } from "lucide-react";
 import type { Project, Task, ProjectMember, ActivityLogEntry, Message } from "@/types";
+import { getUserDisplayName, getUserInitials } from "@/lib/utils/user-display";
+import { Breadcrumbs } from "@/components/shared/breadcrumbs";
+
+const ACTIVITY_ICONS: Record<string, React.ElementType> = {
+  task_created: CheckSquare,
+  task_completed: CheckCircle2,
+  task_updated: Edit3,
+  member_joined: UserPlus,
+  project_created: FolderPlus,
+  message_posted: MessageSquare,
+};
 
 const STATUS_BADGE_COLORS: Record<string, string> = {
   active: "bg-green-100 text-green-700",
@@ -132,6 +148,12 @@ export default function ProjectOverviewPage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: "Projects", href: "/dashboard/projects" },
+          { label: project?.name ?? "Project" },
+        ]}
+      />
       {/* Project Header */}
       {projectLoading ? (
         <div className="space-y-2">
@@ -317,12 +339,12 @@ export default function ProjectOverviewPage() {
                       >
                         <Avatar size="sm">
                           <AvatarFallback>
-                            {member.userId.slice(0, 2).toUpperCase()}
+                            {getUserInitials(getUserDisplayName({ userId: member.userId }))}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">
-                            {member.userId}
+                            {getUserDisplayName({ userId: member.userId })}
                           </p>
                           <p className="text-muted-foreground text-xs capitalize">
                             {member.role}
@@ -365,27 +387,30 @@ export default function ProjectOverviewPage() {
                   </p>
                 ) : (
                   <div className="space-y-3">
-                    {activityData.map((entry) => (
-                      <div
-                        key={entry.id}
-                        className="flex items-start gap-3 rounded-lg border p-3"
-                      >
-                        <div className="bg-muted flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
-                          <Activity className="h-4 w-4" />
+                    {activityData.map((entry) => {
+                      const Icon = ACTIVITY_ICONS[entry.type] ?? Activity;
+                      return (
+                        <div
+                          key={entry.id}
+                          className="flex items-start gap-3 rounded-lg border p-3"
+                        >
+                          <div className="bg-muted flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
+                            <Icon className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm">
+                              {getActivityDescription(
+                                entry.type as Parameters<typeof getActivityDescription>[0],
+                                entry.metadata as Parameters<typeof getActivityDescription>[1]
+                              )}
+                            </p>
+                            <p className="text-muted-foreground text-xs">
+                              {relativeDate(entry.createdAt)}
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm">
-                            {getActivityDescription(
-                              entry.type as Parameters<typeof getActivityDescription>[0],
-                              entry.metadata as Parameters<typeof getActivityDescription>[1]
-                            )}
-                          </p>
-                          <p className="text-muted-foreground text-xs">
-                            {relativeDate(entry.createdAt)}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
@@ -525,7 +550,7 @@ export default function ProjectOverviewPage() {
                         <div className="flex items-center gap-2">
                           <Avatar size="sm">
                             <AvatarFallback>
-                              {msg.userId.slice(0, 2).toUpperCase()}
+                              {getUserInitials(getUserDisplayName({ userId: msg.userId }))}
                             </AvatarFallback>
                           </Avatar>
                           {msg.title && (

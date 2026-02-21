@@ -4,6 +4,7 @@ import { getUserOrganizations } from "@/lib/db/queries/organizations";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { PAPanel } from "@/components/pa/pa-panel";
+import { MainContent } from "@/components/layout/main-content";
 
 export default async function DashboardLayout({
   children,
@@ -28,7 +29,7 @@ export default async function DashboardLayout({
       <Sidebar orgs={orgs} user={userProfile} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header user={userProfile} />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <MainContent>{children}</MainContent>
       </div>
       <PAPanel />
     </div>

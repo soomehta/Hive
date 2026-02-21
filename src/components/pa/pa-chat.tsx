@@ -18,7 +18,7 @@ export function PAChat() {
     {
       id: "welcome",
       role: "assistant",
-      content: "Hi! I'm your PA. Ask me to create tasks, check your schedule, or get project updates.",
+      content: "Hi! I'm your Hive PA. Try asking me:\n\n• \"Create a task for design review by Friday\"\n• \"What's blocking the project?\"\n• \"Block my calendar for deep work tomorrow\"\n• \"How's the team doing this week?\"",
     },
   ]);
   const { sendMessage, sendVoice } = usePAChat();
@@ -96,7 +96,7 @@ export function PAChat() {
           </div>
         ))}
         {(sendMessage.isPending || sendVoice.isPending) && (
-          <div className="flex items-center gap-2 text-sm text-zinc-500">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <div className="size-2 animate-pulse rounded-full bg-violet-400" />
             Thinking...
           </div>
