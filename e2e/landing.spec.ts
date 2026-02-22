@@ -105,13 +105,13 @@ test.describe("Landing Page", () => {
 
   // ── Social Proof Bar ──────────────────────────────────────────────────────
 
-  test("philosophy bar shows 'Voice-First' and 'Zero Dashboards' and 'Graduated Autonomy'", async ({
+  test("philosophy bar shows 'Voice-First' and 'Your Dashboards' and 'Graduated Autonomy'", async ({
     page,
   }) => {
     // Scope to the philosophy bar section (between hero and #features)
-    const philBar = page.locator("section.border-y");
+    const philBar = page.locator("section.border-y").first();
     await expect(philBar.getByText("Voice-First")).toBeVisible();
-    await expect(philBar.getByText("Zero Dashboards")).toBeVisible();
+    await expect(philBar.getByText("Your Dashboards")).toBeVisible();
     await expect(philBar.getByText("Graduated Autonomy")).toBeVisible();
   });
 
