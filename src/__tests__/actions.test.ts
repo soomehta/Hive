@@ -36,6 +36,9 @@ const mockProfile = {
   updateHabits: null,
   totalInteractions: 0,
   commonIntents: null,
+  assistantBeeInstanceId: null,
+  swarmNotificationsEnabled: true,
+  beeAutonomyOverrides: {},
   createdAt: new Date(),
   updatedAt: new Date(),
 };

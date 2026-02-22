@@ -55,6 +55,9 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "pa_report_ready",
   "member_invited",
   "project_created",
+  "bee_swarm_completed",
+  "bee_signal_hold",
+  "bee_needs_approval",
 ]);
 
 export const activityTypeEnum = pgEnum("activity_type", [
@@ -73,6 +76,11 @@ export const activityTypeEnum = pgEnum("activity_type", [
   "member_left",
   "pa_action_executed",
   "pa_report_generated",
+  "bee_swarm_started",
+  "bee_swarm_completed",
+  "bee_handover",
+  "bee_signal",
+  "dashboard_layout_changed",
 ]);
 
 // ─── Phase 2 Enums ─────────────────────────────────────
@@ -139,6 +147,75 @@ export const formalityEnum = pgEnum("formality", [
   "mixed",
 ]);
 
+// ─── Phase 5 Enums ────────────────────────────────────────
+
+export const beeTypeEnum = pgEnum("bee_type", [
+  "assistant",
+  "admin",
+  "manager",
+  "operator",
+]);
+
+export const beeSubtypeEnum = pgEnum("bee_subtype", [
+  "none",
+  "orchestrator",
+  "coordinator",
+  "specialist",
+  "analyst",
+  "compliance",
+]);
+
+export const beeRunStatusEnum = pgEnum("bee_run_status", [
+  "queued",
+  "running",
+  "waiting_handover",
+  "waiting_signal",
+  "completed",
+  "failed",
+  "cancelled",
+]);
+
+export const swarmStatusEnum = pgEnum("swarm_status", [
+  "planning",
+  "running",
+  "paused",
+  "completed",
+  "failed",
+]);
+
+export const handoverTypeEnum = pgEnum("handover_type", [
+  "sequential",
+  "parallel",
+  "conditional",
+]);
+
+export const signalTypeEnum = pgEnum("signal_type", [
+  "hold",
+  "info",
+  "warning",
+  "escalate",
+]);
+
+export const pathwayEnum = pgEnum("pathway", [
+  "boards",
+  "lists",
+  "workspace",
+]);
+
+export const dashboardComponentTypeEnum = pgEnum("dashboard_component_type", [
+  "board",
+  "list",
+  "timeline",
+  "calendar",
+  "activity_feed",
+  "metrics_panel",
+  "team_view",
+  "files",
+  "chat_messages",
+  "bee_panel",
+  "custom_widget",
+]);
+
 // ─── Organizations ───────────────────────────────────────
 
 export const organizations = pgTable("organizations", {
@@ -146,6 +223,7 @@ export const organizations = pgTable("organizations", {
   name: varchar("name", { length: 255 }).notNull(),
   slug: varchar("slug", { length: 100 }).notNull().unique(),
   logoUrl: text("logo_url"),
+  pathway: pathwayEnum("pathway").default("boards").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -544,6 +622,11 @@ export const paProfiles = pgTable(
     updateHabits: text("update_habits"),
     totalInteractions: integer("total_interactions").default(0),
     commonIntents: jsonb("common_intents"),
+    assistantBeeInstanceId: uuid("assistant_bee_instance_id"),
+    swarmNotificationsEnabled: boolean("swarm_notifications_enabled")
+      .default(true)
+      .notNull(),
+    beeAutonomyOverrides: jsonb("bee_autonomy_overrides").default({}),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -576,6 +659,8 @@ export const paConversations = pgTable(
     role: varchar("role", { length: 20 }).notNull(),
     content: text("content").notNull(),
     metadata: jsonb("metadata"),
+    beeInstanceId: uuid("bee_instance_id"),
+    swarmSessionId: uuid("swarm_session_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -617,6 +702,8 @@ export const paActions = pgTable(
     executionResult: jsonb("execution_result"),
     userEditedPayload: jsonb("user_edited_payload"),
     rejectionReason: text("rejection_reason"),
+    beeRunId: uuid("bee_run_id"),
+    swarmSessionId: uuid("swarm_session_id"),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     approvedAt: timestamp("approved_at", { withTimezone: true }),
     executedAt: timestamp("executed_at", { withTimezone: true }),
@@ -795,4 +882,380 @@ export const scheduledReportsRelations = relations(
       references: [organizations.id],
     }),
   })
+);
+
+// ─── Phase 5: Bee Templates ─────────────────────────────
+
+export const beeTemplates = pgTable(
+  "bee_templates",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    orgId: uuid("org_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    type: beeTypeEnum("type").notNull(),
+    subtype: beeSubtypeEnum("subtype").default("none").notNull(),
+    systemPrompt: text("system_prompt").notNull(),
+    toolAccess: jsonb("tool_access").default([]).notNull(),
+    defaultAutonomyTier: actionTierEnum("default_autonomy_tier")
+      .default("draft_approve")
+      .notNull(),
+    triggerConditions: jsonb("trigger_conditions").default({}).notNull(),
+    isSystem: boolean("is_system").default(false).notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("bee_templates_org_idx").on(table.orgId),
+    index("bee_templates_type_idx").on(table.type),
+  ]
+);
+
+export const beeTemplatesRelations = relations(
+  beeTemplates,
+  ({ one, many }) => ({
+    organization: one(organizations, {
+      fields: [beeTemplates.orgId],
+      references: [organizations.id],
+    }),
+    instances: many(beeInstances),
+  })
+);
+
+// ─── Phase 5: Bee Instances ─────────────────────────────
+
+export const beeInstances = pgTable(
+  "bee_instances",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    templateId: uuid("template_id")
+      .references(() => beeTemplates.id, { onDelete: "cascade" })
+      .notNull(),
+    orgId: uuid("org_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    projectId: uuid("project_id").references(() => projects.id, {
+      onDelete: "cascade",
+    }),
+    name: varchar("name", { length: 255 }).notNull(),
+    contextOverrides: jsonb("context_overrides").default({}).notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("bee_instances_org_idx").on(table.orgId),
+    index("bee_instances_project_idx").on(table.projectId),
+    index("bee_instances_template_idx").on(table.templateId),
+  ]
+);
+
+export const beeInstancesRelations = relations(
+  beeInstances,
+  ({ one }) => ({
+    template: one(beeTemplates, {
+      fields: [beeInstances.templateId],
+      references: [beeTemplates.id],
+    }),
+    organization: one(organizations, {
+      fields: [beeInstances.orgId],
+      references: [organizations.id],
+    }),
+    project: one(projects, {
+      fields: [beeInstances.projectId],
+      references: [projects.id],
+    }),
+  })
+);
+
+// ─── Phase 5: Swarm Sessions ────────────────────────────
+
+export const swarmSessions = pgTable(
+  "swarm_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    orgId: uuid("org_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: varchar("user_id", { length: 255 }).notNull(),
+    conversationId: uuid("conversation_id"),
+    triggerMessage: text("trigger_message").notNull(),
+    dispatchPlan: jsonb("dispatch_plan").notNull(),
+    status: swarmStatusEnum("status").default("planning").notNull(),
+    result: jsonb("result"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("swarm_sessions_org_idx").on(table.orgId),
+    index("swarm_sessions_user_idx").on(table.userId),
+    index("swarm_sessions_status_idx").on(table.status),
+  ]
+);
+
+export const swarmSessionsRelations = relations(
+  swarmSessions,
+  ({ one, many }) => ({
+    organization: one(organizations, {
+      fields: [swarmSessions.orgId],
+      references: [organizations.id],
+    }),
+    beeRuns: many(beeRuns),
+    hiveContextEntries: many(hiveContext),
+    handovers: many(beeHandovers),
+    signals: many(beeSignals),
+  })
+);
+
+// ─── Phase 5: Bee Runs ──────────────────────────────────
+
+export const beeRuns = pgTable(
+  "bee_runs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    swarmSessionId: uuid("swarm_session_id")
+      .references(() => swarmSessions.id, { onDelete: "cascade" })
+      .notNull(),
+    beeInstanceId: uuid("bee_instance_id")
+      .references(() => beeInstances.id, { onDelete: "cascade" })
+      .notNull(),
+    status: beeRunStatusEnum("status").default("queued").notNull(),
+    order: integer("order").default(0).notNull(),
+    input: jsonb("input"),
+    output: jsonb("output"),
+    statusText: text("status_text"),
+    tokensUsed: integer("tokens_used"),
+    durationMs: integer("duration_ms"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("bee_runs_swarm_idx").on(table.swarmSessionId),
+    index("bee_runs_instance_idx").on(table.beeInstanceId),
+    index("bee_runs_status_idx").on(table.status),
+  ]
+);
+
+export const beeRunsRelations = relations(beeRuns, ({ one }) => ({
+  swarmSession: one(swarmSessions, {
+    fields: [beeRuns.swarmSessionId],
+    references: [swarmSessions.id],
+  }),
+  beeInstance: one(beeInstances, {
+    fields: [beeRuns.beeInstanceId],
+    references: [beeInstances.id],
+  }),
+}));
+
+// ─── Phase 5: Hive Context ─────────────────────────────
+
+export const hiveContext = pgTable(
+  "hive_context",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    swarmSessionId: uuid("swarm_session_id")
+      .references(() => swarmSessions.id, { onDelete: "cascade" })
+      .notNull(),
+    beeRunId: uuid("bee_run_id")
+      .references(() => beeRuns.id, { onDelete: "cascade" })
+      .notNull(),
+    key: varchar("key", { length: 255 }).notNull(),
+    value: jsonb("value").notNull(),
+    contextType: varchar("context_type", { length: 50 }).notNull(),
+    isVisible: boolean("is_visible").default(true).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("hive_context_swarm_idx").on(table.swarmSessionId),
+    index("hive_context_bee_run_idx").on(table.beeRunId),
+    index("hive_context_key_idx").on(table.key),
+  ]
+);
+
+export const hiveContextRelations = relations(hiveContext, ({ one }) => ({
+  swarmSession: one(swarmSessions, {
+    fields: [hiveContext.swarmSessionId],
+    references: [swarmSessions.id],
+  }),
+  beeRun: one(beeRuns, {
+    fields: [hiveContext.beeRunId],
+    references: [beeRuns.id],
+  }),
+}));
+
+// ─── Phase 5: Bee Handovers ─────────────────────────────
+
+export const beeHandovers = pgTable(
+  "bee_handovers",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    swarmSessionId: uuid("swarm_session_id")
+      .references(() => swarmSessions.id, { onDelete: "cascade" })
+      .notNull(),
+    fromBeeRunId: uuid("from_bee_run_id")
+      .references(() => beeRuns.id, { onDelete: "cascade" })
+      .notNull(),
+    toBeeRunId: uuid("to_bee_run_id")
+      .references(() => beeRuns.id, { onDelete: "cascade" })
+      .notNull(),
+    handoverType: handoverTypeEnum("handover_type").notNull(),
+    summary: text("summary").notNull(),
+    data: jsonb("data"),
+    request: text("request"),
+    constraints: jsonb("constraints"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("bee_handovers_swarm_idx").on(table.swarmSessionId),
+  ]
+);
+
+export const beeHandoversRelations = relations(
+  beeHandovers,
+  ({ one }) => ({
+    swarmSession: one(swarmSessions, {
+      fields: [beeHandovers.swarmSessionId],
+      references: [swarmSessions.id],
+    }),
+    fromBeeRun: one(beeRuns, {
+      fields: [beeHandovers.fromBeeRunId],
+      references: [beeRuns.id],
+    }),
+    toBeeRun: one(beeRuns, {
+      fields: [beeHandovers.toBeeRunId],
+      references: [beeRuns.id],
+    }),
+  })
+);
+
+// ─── Phase 5: Bee Signals ───────────────────────────────
+
+export const beeSignals = pgTable(
+  "bee_signals",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    swarmSessionId: uuid("swarm_session_id")
+      .references(() => swarmSessions.id, { onDelete: "cascade" })
+      .notNull(),
+    fromBeeRunId: uuid("from_bee_run_id")
+      .references(() => beeRuns.id, { onDelete: "cascade" })
+      .notNull(),
+    targetBeeRunId: uuid("target_bee_run_id").references(() => beeRuns.id, {
+      onDelete: "set null",
+    }),
+    signalType: signalTypeEnum("signal_type").notNull(),
+    message: text("message").notNull(),
+    data: jsonb("data"),
+    isResolved: boolean("is_resolved").default(false).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("bee_signals_swarm_idx").on(table.swarmSessionId),
+    index("bee_signals_resolved_idx").on(table.isResolved),
+  ]
+);
+
+export const beeSignalsRelations = relations(beeSignals, ({ one }) => ({
+  swarmSession: one(swarmSessions, {
+    fields: [beeSignals.swarmSessionId],
+    references: [swarmSessions.id],
+  }),
+  fromBeeRun: one(beeRuns, {
+    fields: [beeSignals.fromBeeRunId],
+    references: [beeRuns.id],
+  }),
+  targetBeeRun: one(beeRuns, {
+    fields: [beeSignals.targetBeeRunId],
+    references: [beeRuns.id],
+  }),
+}));
+
+// ─── Phase 5: Dashboard Layouts ─────────────────────────
+
+export const dashboardLayouts = pgTable(
+  "dashboard_layouts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    orgId: uuid("org_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    projectId: uuid("project_id").references(() => projects.id, {
+      onDelete: "cascade",
+    }),
+    userId: varchar("user_id", { length: 255 }),
+    pathway: pathwayEnum("pathway").notNull(),
+    layoutPresetIndex: integer("layout_preset_index").default(0).notNull(),
+    slots: jsonb("slots").notNull(),
+    isDefault: boolean("is_default").default(false).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("dashboard_layouts_org_idx").on(table.orgId),
+    index("dashboard_layouts_user_idx").on(table.userId),
+    index("dashboard_layouts_project_idx").on(table.projectId),
+  ]
+);
+
+export const dashboardLayoutsRelations = relations(
+  dashboardLayouts,
+  ({ one }) => ({
+    organization: one(organizations, {
+      fields: [dashboardLayouts.orgId],
+      references: [organizations.id],
+    }),
+    project: one(projects, {
+      fields: [dashboardLayouts.projectId],
+      references: [projects.id],
+    }),
+  })
+);
+
+// ─── Phase 5: Component Registry ────────────────────────
+
+export const componentRegistry = pgTable(
+  "component_registry",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    type: dashboardComponentTypeEnum("type").notNull().unique(),
+    name: varchar("name", { length: 255 }).notNull(),
+    description: text("description"),
+    defaultConfig: jsonb("default_config").default({}).notNull(),
+    supportedPathways: jsonb("supported_pathways").notNull(),
+    minWidth: integer("min_width").default(1).notNull(),
+    maxWidth: integer("max_width").default(4).notNull(),
+    minHeight: integer("min_height").default(1).notNull(),
+    maxHeight: integer("max_height").default(4).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  }
 );

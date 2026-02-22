@@ -13,7 +13,12 @@ type ActivityType =
   | "member_joined"
   | "member_left"
   | "pa_action_executed"
-  | "pa_report_generated";
+  | "pa_report_generated"
+  | "bee_swarm_started"
+  | "bee_swarm_completed"
+  | "bee_handover"
+  | "bee_signal"
+  | "dashboard_layout_changed";
 
 interface ActivityMetadata {
   taskTitle?: string;
@@ -66,6 +71,16 @@ export function getActivityDescription(
       return "PA executed an action";
     case "pa_report_generated":
       return "PA generated a report";
+    case "bee_swarm_started":
+      return "Bee swarm started processing";
+    case "bee_swarm_completed":
+      return "Bee swarm completed";
+    case "bee_handover":
+      return "Bee handover occurred";
+    case "bee_signal":
+      return "Bee signal emitted";
+    case "dashboard_layout_changed":
+      return "Dashboard layout was changed";
     default:
       return "performed an action";
   }

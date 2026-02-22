@@ -173,6 +173,7 @@ export function PageClient() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask a question about your project..."
+            aria-label="Report question"
             disabled={reportMutation.isPending}
             className="flex-1"
           />
@@ -180,8 +181,9 @@ export function PageClient() {
             type="submit"
             size="icon"
             disabled={!input.trim() || reportMutation.isPending}
+            aria-label="Send question"
           >
-            <Send className="size-4" />
+            <Send className="size-4" aria-hidden="true" />
           </Button>
         </form>
       </div>

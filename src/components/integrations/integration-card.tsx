@@ -1,8 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Check, ExternalLink, Loader2, X } from "lucide-react";
 import { OAuthButton } from "./oauth-button";
 
@@ -35,53 +46,80 @@ export function IntegrationCard({
   onDisconnect,
   isDisconnecting,
 }: IntegrationCardProps) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
   return (
-    <Card className="border-border bg-muted">
-      <CardContent className="flex items-start gap-4 p-5">
-        <div className="flex-1 space-y-2">
-          <div className="flex items-center gap-2">
-            <h3 className="font-semibold text-foreground">{name}</h3>
+    <>
+      <Card className="border-border bg-muted">
+        <CardContent className="flex items-start gap-4 p-5">
+          <div className="flex-1 space-y-2">
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-foreground">{name}</h3>
+              {isConnected ? (
+                <Badge variant="outline" className="gap-1 border-green-500/30 text-green-400 text-xs">
+                  <Check className="size-3" aria-hidden="true" />
+                  Connected
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="border-border text-muted-foreground text-xs">
+                  Not connected
+                </Badge>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">{description}</p>
+            {connectedEmail && (
+              <p className="text-xs text-muted-foreground">Connected as {connectedEmail}</p>
+            )}
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {features.map((f) => (
+                <Badge key={f} variant="outline" className={`text-xs ${PROVIDER_COLORS[provider]}`}>
+                  {f}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          <div className="shrink-0">
             {isConnected ? (
-              <Badge variant="outline" className="gap-1 border-green-500/30 text-green-400 text-xs">
-                <Check className="size-3" />
-                Connected
-              </Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConfirmOpen(true)}
+                disabled={isDisconnecting}
+                className="gap-1 border-border text-muted-foreground hover:border-red-500 hover:text-red-400"
+              >
+                {isDisconnecting ? <Loader2 className="size-3 animate-spin" aria-hidden="true" /> : <X className="size-3" aria-hidden="true" />}
+                Disconnect
+              </Button>
             ) : (
-              <Badge variant="outline" className="border-border text-muted-foreground text-xs">
-                Not connected
-              </Badge>
+              <OAuthButton authUrl={authUrl} provider={name} />
             )}
           </div>
-          <p className="text-sm text-muted-foreground">{description}</p>
-          {connectedEmail && (
-            <p className="text-xs text-muted-foreground">Connected as {connectedEmail}</p>
-          )}
-          <div className="flex flex-wrap gap-1.5 pt-1">
-            {features.map((f) => (
-              <Badge key={f} variant="outline" className={`text-xs ${PROVIDER_COLORS[provider]}`}>
-                {f}
-              </Badge>
-            ))}
-          </div>
-        </div>
+        </CardContent>
+      </Card>
 
-        <div className="shrink-0">
-          {isConnected ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onDisconnect}
-              disabled={isDisconnecting}
-              className="gap-1 border-border text-muted-foreground hover:border-red-500 hover:text-red-400"
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disconnect {name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will revoke access to your {name} account. Your PA will no longer be able to access {description.toLowerCase()}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                onDisconnect?.();
+                setConfirmOpen(false);
+              }}
+              className="bg-destructive text-white hover:bg-destructive/90"
             >
-              {isDisconnecting ? <Loader2 className="size-3 animate-spin" /> : <X className="size-3" />}
               Disconnect
-            </Button>
-          ) : (
-            <OAuthButton authUrl={authUrl} provider={name} />
-          )}
-        </div>
-      </CardContent>
-    </Card>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

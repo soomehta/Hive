@@ -1,13 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { chatCompletion } from "./providers";
 import { getBriefingPrompt } from "./prompts/briefing";
-
-let _anthropic: Anthropic | null = null;
-function getAnthropic() {
-  if (!_anthropic) {
-    _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
-  }
-  return _anthropic;
-}
 
 export interface BriefingContext {
   userName: string;
@@ -94,28 +86,18 @@ ${context.blockers.length > 0 ? context.blockers.map((b) => `- "${b.title}"${b.r
 ## Recent Activity (last 24h)
 ${context.recentActivity.length > 0 ? context.recentActivity.slice(0, 10).map((a) => `- [${a.type}] ${a.description}`).join("\n") : "No recent activity"}`;
 
-  const response = await getAnthropic().messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 1024,
-    system: systemPrompt,
+  const content = await chatCompletion("briefer", {
     messages: [
-      {
-        role: "user",
-        content: userMessage,
-      },
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userMessage },
     ],
   });
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    throw new Error("Empty response from briefing generator");
-  }
-
-  // Parse the JSON response from Claude
+  // Parse the JSON response
   let parsed: { briefing: string; highlights: string[]; riskFlags: string[] };
   try {
-    let jsonStr = textBlock.text;
-    // Handle case where Claude wraps in code block despite instructions
+    let jsonStr = content;
+    // Handle case where model wraps in code block despite instructions
     const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (jsonMatch) {
       jsonStr = jsonMatch[1].trim();
@@ -124,7 +106,7 @@ ${context.recentActivity.length > 0 ? context.recentActivity.slice(0, 10).map((a
   } catch {
     // If JSON parsing fails, treat the whole response as the briefing text
     parsed = {
-      briefing: textBlock.text,
+      briefing: content,
       highlights: [],
       riskFlags: [],
     };

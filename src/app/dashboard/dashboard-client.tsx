@@ -131,7 +131,7 @@ export function PageClient() {
             <CardTitle className="text-sm font-medium">
               Tasks Due Today
             </CardTitle>
-            <Clock className="text-muted-foreground h-4 w-4" />
+            <Clock className="text-muted-foreground h-4 w-4" aria-hidden="true" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -149,7 +149,7 @@ export function PageClient() {
             <CardTitle className="text-sm font-medium">
               Active Tasks
             </CardTitle>
-            <ListTodo className="text-muted-foreground h-4 w-4" />
+            <ListTodo className="text-muted-foreground h-4 w-4" aria-hidden="true" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -167,7 +167,7 @@ export function PageClient() {
             <CardTitle className="text-sm font-medium">
               Recent Events
             </CardTitle>
-            <Activity className="text-muted-foreground h-4 w-4" />
+            <Activity className="text-muted-foreground h-4 w-4" aria-hidden="true" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">

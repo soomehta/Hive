@@ -92,8 +92,9 @@ export function PAActionCard({ action }: PAActionCardProps) {
             onClick={handleApprove}
             disabled={isPending}
             className="h-7 gap-1 bg-green-600 text-xs hover:bg-green-700"
+            aria-label={`Approve ${registry?.description ?? action.actionType}`}
           >
-            {isPending ? <Loader2 className="size-3 animate-spin" /> : <Check className="size-3" />}
+            {isPending ? <Loader2 className="size-3 animate-spin" aria-hidden="true" /> : <Check className="size-3" aria-hidden="true" />}
             Approve
           </Button>
           <Button
@@ -102,8 +103,9 @@ export function PAActionCard({ action }: PAActionCardProps) {
             onClick={handleReject}
             disabled={isPending}
             className="h-7 gap-1 border-border text-xs text-muted-foreground hover:border-red-500 hover:text-red-400"
+            aria-label={`Reject ${registry?.description ?? action.actionType}`}
           >
-            <X className="size-3" />
+            <X className="size-3" aria-hidden="true" />
             Reject
           </Button>
         </div>

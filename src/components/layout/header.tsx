@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { Bell, LogOut, User } from "lucide-react";
+import { Bell, LogOut, Menu, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useMobileNav } from "@/hooks/use-mobile-nav";
 import { useNotifications } from "@/hooks/use-notifications";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { Button } from "@/components/ui/button";
@@ -37,14 +38,37 @@ const pageTitles: Record<string, string> = {
   "/dashboard/settings/pa": "PA Settings",
 };
 
+/** Map of dynamic route segments to contextual titles */
+const dynamicSegmentTitles: Record<string, string> = {
+  tasks: "Tasks",
+  messages: "Messages",
+  settings: "Project Settings",
+  new: "New Project",
+};
+
 function getPageTitle(pathname: string): string {
   // Check exact match first
   if (pageTitles[pathname]) {
     return pageTitles[pathname];
   }
 
-  // Check prefix matches for nested routes
   const segments = pathname.split("/").filter(Boolean);
+
+  // Handle dynamic project routes: /dashboard/projects/[id]/tasks etc.
+  if (segments.length >= 4 && segments[1] === "projects") {
+    const subPage = segments[3];
+    if (dynamicSegmentTitles[subPage]) {
+      return dynamicSegmentTitles[subPage];
+    }
+    return "Project";
+  }
+
+  // Handle /dashboard/projects/[id]
+  if (segments.length === 3 && segments[1] === "projects") {
+    return "Project";
+  }
+
+  // Check prefix matches for nested routes
   if (segments.length >= 2) {
     const parentPath = `/${segments[0]}/${segments[1]}`;
     if (pageTitles[parentPath]) {
@@ -60,6 +84,7 @@ export function Header({ user }: HeaderProps) {
   const pathname = usePathname();
   const { notifications, unreadCount, markAsRead } = useNotifications();
   const pageTitle = getPageTitle(pathname);
+  const toggleMobileNav = useMobileNav((s) => s.toggle);
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -77,9 +102,18 @@ export function Header({ user }: HeaderProps) {
   }
 
   return (
-    <header className="flex h-14 items-center justify-between border-b bg-background px-6">
-      {/* Left: Page title */}
-      <div>
+    <header className="flex h-14 items-center justify-between border-b bg-background px-4 lg:px-6">
+      {/* Left: Hamburger (mobile only) + Page title */}
+      <div className="flex items-center gap-3">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="lg:hidden"
+          onClick={toggleMobileNav}
+          aria-label="Open navigation menu"
+        >
+          <Menu className="size-5" />
+        </Button>
         <h1 className="text-lg font-semibold">{pageTitle}</h1>
       </div>
 
@@ -88,14 +122,21 @@ export function Header({ user }: HeaderProps) {
         {/* Notification bell */}
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="size-4" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative"
+              aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : "Notifications"}
+            >
+              <Bell className="size-4" aria-hidden="true" />
               {unreadCount > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
+                <span
+                  className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white"
+                  aria-hidden="true"
+                >
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}
-              <span className="sr-only">Notifications</span>
             </Button>
           </PopoverTrigger>
           <PopoverContent align="end" className="w-80 p-0">

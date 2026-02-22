@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { PAPanel } from "@/components/pa/pa-panel";
 import { MainContent } from "@/components/layout/main-content";
+import { MobileSidebar } from "@/components/layout/mobile-sidebar";
 
 export default async function DashboardLayout({
   children,
@@ -26,7 +27,11 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex h-screen">
+      <a href="#main-content" className="skip-to-main">
+        Skip to main content
+      </a>
       <Sidebar orgs={orgs} user={userProfile} />
+      <MobileSidebar orgs={orgs} user={userProfile} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header user={userProfile} />
         <MainContent>{children}</MainContent>

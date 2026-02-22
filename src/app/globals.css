@@ -124,3 +124,42 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* A10: Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Skip-to-main link */
+.skip-to-main {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  z-index: 100;
+}
+
+.skip-to-main:focus {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  width: auto;
+  height: auto;
+  padding: 0.5rem 1rem;
+  background: var(--background);
+  color: var(--foreground);
+  border: 2px solid var(--ring);
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-weight: 500;
+  z-index: 100;
+}

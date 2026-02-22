@@ -2,9 +2,8 @@
 
 ## Current Focus
 
-- **All 4 phases code complete.** 56 routes, 0 TypeScript errors, 71 tests pass.
-- **Comprehensive review completed.** Code, architecture, and UX reviews identified 70 issues across CRITICAL/HIGH/MEDIUM/LOW.
-- **All 4 fix phases applied:** Phase A (security), Phase B (UX), Phase C (production readiness), Phase D (polish).
+- **All 5 phases code complete.** 70+ routes, 0 TypeScript errors, 70 tests pass.
+- **Phase 5 complete:** Multi-Bee Agent System & Configurable Dashboards — all 7 sub-phases (5A-5G) implemented.
 - **Next step:** Set up Supabase project, run Drizzle migrations, and perform end-to-end testing with real data.
 
 ## Recent Changes (Review Fixes)
@@ -58,6 +57,56 @@
 - SSE reconnection: Exponential backoff with max 5 retries
 - Activity icons: Mapped activity types to distinct lucide-react icons
 - Project cards: Status labels mapped from enum values
+
+## Recent Changes (Phase 5 — Multi-Bee Agent System & Configurable Dashboards)
+
+### Sub-phase 5A — Schema & Bee Templates
+- 8 new enums (bee_type, bee_subtype, bee_run_status, swarm_status, handover_type, signal_type, pathway, dashboard_component_type)
+- 9 new tables (bee_templates, bee_instances, swarm_sessions, bee_runs, hive_context, bee_handovers, bee_signals, dashboard_layouts, component_registry)
+- Extended organizations (pathway), paProfiles (assistantBeeInstanceId, swarmNotificationsEnabled, beeAutonomyOverrides), paConversations (beeInstanceId, swarmSessionId), paActions (beeRunId, swarmSessionId)
+- Extended activity_type and notification_type enums with bee/dashboard events
+- CRUD queries and API routes for bee templates and instances
+- System bee definitions (Assistant + Admin) in system-bees.ts
+- TypeScript types in src/types/bees.ts
+
+### Sub-phase 5B — Bee Dispatcher & Swarm Execution
+- Complexity assessment (heuristic scoring 0-100, threshold 30 for swarm activation)
+- Bee dispatcher inserted between intent classification and action planning in PA chat
+- Swarm executor with phased parallel execution, hold signal checking, result synthesis
+- Hive context (append-only shared memory), handover contracts, signal system
+- AI provider roles: "dispatcher" (GPT-4o-mini) and "bee-runner" (Claude Sonnet)
+- Swarm API routes (list, detail, cancel, signal resolve, SSE stream)
+
+### Sub-phase 5C — Swarm Panel UI
+- Swarm panel component with SSE-driven real-time updates
+- Bee avatar, run item, handover arrow, signal badge components
+- Zustand store (use-swarm.ts) + SSE subscription
+- Integrated into PA panel (conditionally renders when swarm active)
+
+### Sub-phase 5D — Dashboard Engine & Pathway System
+- 3 pathways (boards, lists, workspace) with 4 presets each (12 total)
+- Dashboard engine with CSS Grid, lazy-loaded widgets, edit mode, slot picker
+- 10 component wrappers (board, list, timeline, calendar, activity, metrics, team, files, chat, bee-panel)
+- Layout resolution cascade: user override > project default > org default > preset
+- Dashboard API routes (layouts CRUD, components list, pathway set)
+
+### Sub-phase 5E — Enhanced Onboarding
+- 4-step onboarding flow: create org → choose pathway → preview layout → meet assistant
+- PathwayStep, LayoutStep, AssistantIntroStep components
+- Progress bar and back/forward navigation
+
+### Sub-phase 5F — Bee Settings UI & Admin Bee
+- Bee template management page with create/delete/toggle/edit
+- Template editor page with trigger conditions, autonomy tier, system prompt
+- "Bees" nav item in sidebar with Bot icon
+- Dashboard page updated to use DashboardEngine based on org pathway
+
+### Sub-phase 5G — Polish & Integration Testing
+- Bee activity logging: swarm_started, swarm_completed, handover, signal events written to activity_log
+- Swarm cleanup cron (30-day retention for old swarm sessions)
+- E2E tests for bee API auth enforcement, dashboard layout API auth, onboarding auth guard
+- Drizzle migration generated (0001_flimsy_zarek.sql)
+- 0 TypeScript errors, 70 tests pass, clean production build
 
 ## Active Decisions & Considerations
 

@@ -56,6 +56,21 @@
   - Cron deduplication and schedule fixes
   - Embedding transaction atomicity
 - **Build verification:** 56 routes, 0 TypeScript errors, 71 tests pass, clean production build.
+- **Phase 5 – Multi-Bee Agent System & Configurable Dashboards: COMPLETE**
+  - 9 new DB tables: bee_templates, bee_instances, swarm_sessions, bee_runs, hive_context, bee_handovers, bee_signals, dashboard_layouts, component_registry
+  - 8 new enums, extended activity_type and notification_type enums
+  - Complexity-based dispatcher: simple requests → direct PA pipeline, complex → multi-bee swarm
+  - Swarm executor with phased parallel execution, hold signals, result synthesis
+  - Hive context (append-only shared memory), handover contracts, signal system
+  - SSE-driven swarm panel UI integrated into PA panel
+  - Dashboard engine with 3 pathways (boards/lists/workspace), 12 presets, 10 lazy-loaded widgets
+  - Slot-based configurable layouts with edit mode and slot picker
+  - 4-step onboarding flow: org → pathway → layout → assistant
+  - Bee settings UI with template management and editor
+  - Activity logging for all bee events
+  - Swarm cleanup cron (30-day retention)
+  - Drizzle migration generated
+  - 70+ routes, 0 TypeScript errors, 70 tests pass, clean production build
 
 ## What's Left to Build
 
@@ -70,8 +85,8 @@
 
 ## Current Status
 
-- **All 4 phases + review fixes: Code complete.** 56 routes, 0 TypeScript errors, 71 tests pass.
-- **Next actionable:** Set up Supabase project, configure environment variables, run migrations, and test end-to-end.
+- **All 5 phases + review fixes: Code complete.** 70+ routes, 0 TypeScript errors, 70 tests pass.
+- **Next actionable:** Set up Supabase project, configure environment variables, run Drizzle migrations (including Phase 5 migration 0001_flimsy_zarek.sql), and test end-to-end.
 
 ## Known Issues
 

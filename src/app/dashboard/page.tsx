@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { PageClient } from "./dashboard-client";
+import { DashboardPageClient } from "./dashboard-page-client";
 
 export const metadata: Metadata = {
   title: "Dashboard | Hive",
 };
 
 export default function Page() {
-  return <PageClient />;
+  return <DashboardPageClient />;
 }

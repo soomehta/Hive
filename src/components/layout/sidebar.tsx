@@ -12,6 +12,7 @@ import {
   BarChart3,
   Plug,
   Plus,
+  Bot,
 } from "lucide-react";
 import { useOrg } from "@/hooks/use-org";
 import {
@@ -38,6 +39,10 @@ interface SidebarProps {
   user: { id: string; email: string; fullName: string };
 }
 
+interface SidebarContentProps extends SidebarProps {
+  onNavigate?: () => void;
+}
+
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Projects", href: "/dashboard/projects", icon: FolderKanban },
@@ -45,10 +50,11 @@ const navItems = [
   { label: "Reports", href: "/dashboard/reports", icon: BarChart3 },
   { label: "Integrations", href: "/dashboard/integrations", icon: Plug },
   { label: "Team", href: "/dashboard/team", icon: Users },
+  { label: "Bees", href: "/dashboard/settings/bees", icon: Bot },
   { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
-export function Sidebar({ orgs, user }: SidebarProps) {
+export function SidebarContent({ orgs, user, onNavigate }: SidebarContentProps) {
   const pathname = usePathname();
   const { orgId, setOrg } = useOrg();
 
@@ -70,14 +76,22 @@ export function Sidebar({ orgs, user }: SidebarProps) {
     if (href === "/dashboard") {
       return pathname === "/dashboard";
     }
+    // Prevent Settings from matching when on Bees page
+    if (href === "/dashboard/settings" && pathname.startsWith("/dashboard/settings/bees")) {
+      return false;
+    }
     return pathname.startsWith(href);
   }
 
   return (
-    <aside className="flex w-64 flex-col border-r bg-zinc-950 text-zinc-100">
+    <>
       {/* Brand */}
       <div className="flex h-14 items-center px-5">
-        <Link href="/dashboard" className="text-xl font-bold tracking-tight">
+        <Link
+          href="/dashboard"
+          className="text-xl font-bold tracking-tight"
+          onClick={onNavigate}
+        >
           Hive
         </Link>
       </div>
@@ -103,7 +117,7 @@ export function Sidebar({ orgs, user }: SidebarProps) {
       <Separator className="bg-zinc-800" />
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-3 py-3">
+      <nav aria-label="Main navigation" className="flex-1 space-y-1 px-3 py-3">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.href);
@@ -112,14 +126,16 @@ export function Sidebar({ orgs, user }: SidebarProps) {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
+              aria-current={active ? "page" : undefined}
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                 active
                   ? "bg-zinc-800 text-white"
-                  : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-100"
+                  : "text-zinc-300 hover:bg-zinc-900 hover:text-zinc-100"
               )}
             >
-              <Icon className="size-4 shrink-0" />
+              <Icon className="size-4 shrink-0" aria-hidden="true" />
               {item.label}
             </Link>
           );
@@ -136,20 +152,28 @@ export function Sidebar({ orgs, user }: SidebarProps) {
           className="w-full justify-start gap-2 border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
           asChild
         >
-          <Link href="/dashboard/projects/new">
-            <Plus className="size-4" />
+          <Link href="/dashboard/projects/new" onClick={onNavigate}>
+            <Plus className="size-4" aria-hidden="true" />
             New Project
           </Link>
         </Button>
       </div>
 
       {/* User info */}
-      <div className="border-t border-zinc-800 px-4 py-3">
+      <div className="border-t border-zinc-800 px-4 py-3" aria-label="Current user">
         <p className="truncate text-sm font-medium text-zinc-200">
           {user.fullName}
         </p>
-        <p className="truncate text-xs text-zinc-500">{user.email}</p>
+        <p className="truncate text-xs text-zinc-400">{user.email}</p>
       </div>
+    </>
+  );
+}
+
+export function Sidebar({ orgs, user }: SidebarProps) {
+  return (
+    <aside className="hidden w-64 flex-col border-r bg-zinc-950 text-zinc-100 lg:flex">
+      <SidebarContent orgs={orgs} user={user} />
     </aside>
   );
 }

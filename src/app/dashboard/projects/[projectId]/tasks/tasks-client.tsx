@@ -16,12 +16,10 @@ import {
   TASK_PRIORITY_LABELS,
 } from "@/lib/utils/constants";
 import { formatDate } from "@/lib/utils/dates";
+import { getUserDisplayName, getUserInitials } from "@/lib/utils/user-display";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,6 +42,17 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Avatar,
   AvatarFallback,
 } from "@/components/ui/avatar";
@@ -53,12 +62,21 @@ import {
   List,
   LayoutGrid,
   Filter,
+  Trash2,
 } from "lucide-react";
 import type { Task } from "@/types";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { toast } from "sonner";
 
 type TaskFormValues = z.infer<typeof createTaskSchema>;
+
+interface ProjectMember {
+  id: string;
+  projectId: string;
+  userId: string;
+  role: string;
+  joinedAt: string;
+}
 
 const STATUS_COLUMN_COLORS: Record<string, string> = {
   todo: "border-t-gray-400",
@@ -113,6 +131,17 @@ export function PageClient() {
     enabled: !!orgId && !!projectId,
   });
 
+  const { data: members } = useQuery({
+    queryKey: ["project-members", projectId],
+    queryFn: async () => {
+      const res = await apiClient(`/api/projects/${projectId}/members`);
+      if (!res.ok) throw new Error("Failed to fetch members");
+      const json = await res.json();
+      return json.data as ProjectMember[];
+    },
+    enabled: !!orgId && !!projectId,
+  });
+
   const createMutation = useMutation({
     mutationFn: async (data: TaskFormValues) => {
       const res = await apiClient("/api/tasks", {
@@ -128,11 +157,69 @@ export function PageClient() {
     onSuccess: () => {
       toast.success("Task created");
       queryClient.invalidateQueries({ queryKey: ["project-tasks", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
       setSheetOpen(false);
       reset();
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to create task");
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({
+      taskId,
+      data,
+    }: {
+      taskId: string;
+      data: Record<string, unknown>;
+    }) => {
+      const res = await apiClient(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || "Failed to update task");
+      }
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      toast.success("Task updated");
+      queryClient.invalidateQueries({ queryKey: ["project-tasks", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      // Sync the selectedTask state with the updated field
+      setSelectedTask((prev) =>
+        prev && prev.id === variables.taskId
+          ? { ...prev, ...variables.data }
+          : prev
+      );
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to update task");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      const res = await apiClient(`/api/tasks/${taskId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || "Failed to delete task");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast.success("Task deleted");
+      queryClient.invalidateQueries({ queryKey: ["project-tasks", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      setDetailOpen(false);
+      setSelectedTask(null);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to delete task");
     },
   });
 
@@ -290,10 +377,12 @@ export function PageClient() {
           <CardContent className="p-0">
             <div className="divide-y">
               {filteredTasks.map((task) => (
-                <div
+                <button
+                  type="button"
                   key={task.id}
-                  className="flex items-center gap-4 px-4 py-3 hover:bg-accent/50 transition-colors cursor-pointer"
+                  className="flex w-full items-center gap-4 px-4 py-3 hover:bg-accent/50 transition-colors cursor-pointer text-left"
                   onClick={() => { setSelectedTask(task); setDetailOpen(true); }}
+                  aria-label={`View task: ${task.title}`}
                 >
                   <div
                     className={`h-2.5 w-2.5 rounded-full shrink-0 ${
@@ -319,14 +408,14 @@ export function PageClient() {
                   {task.assigneeId && (
                     <Avatar size="sm">
                       <AvatarFallback>
-                        {task.assigneeId.slice(0, 2).toUpperCase()}
+                        {getUserInitials(getUserDisplayName({ userId: task.assigneeId }))}
                       </AvatarFallback>
                     </Avatar>
                   )}
                   <span className="text-muted-foreground text-xs shrink-0 w-24 text-right">
                     {task.dueDate ? formatDate(task.dueDate) : "No date"}
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           </CardContent>
@@ -358,7 +447,11 @@ export function PageClient() {
                       <Card
                         key={task.id}
                         className="cursor-pointer hover:shadow-md transition-shadow py-3"
+                        tabIndex={0}
+                        role="button"
+                        aria-label={`Task: ${task.title}, ${TASK_PRIORITY_LABELS[task.priority] ?? task.priority} priority`}
                         onClick={() => { setSelectedTask(task); setDetailOpen(true); }}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedTask(task); setDetailOpen(true); } }}
                       >
                         <CardContent className="p-3 space-y-2">
                           <div className="flex items-start justify-between gap-2">
@@ -390,13 +483,11 @@ export function PageClient() {
                             <div className="flex items-center gap-1.5">
                               <Avatar size="sm">
                                 <AvatarFallback>
-                                  {task.assigneeId
-                                    .slice(0, 2)
-                                    .toUpperCase()}
+                                  {getUserInitials(getUserDisplayName({ userId: task.assigneeId }))}
                                 </AvatarFallback>
                               </Avatar>
                               <span className="text-muted-foreground text-xs truncate">
-                                {task.assigneeId}
+                                {getUserDisplayName({ userId: task.assigneeId })}
                               </span>
                             </div>
                           )}
@@ -420,34 +511,174 @@ export function PageClient() {
           </SheetHeader>
           {selectedTask && (
             <div className="space-y-4 px-4 pb-4">
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="outline">
-                  {TASK_STATUS_LABELS[selectedTask.status] ?? selectedTask.status}
-                </Badge>
-                <Badge variant="secondary">
-                  {TASK_PRIORITY_LABELS[selectedTask.priority] ?? selectedTask.priority}
-                </Badge>
-              </div>
               <Separator />
+
+              {/* Status selector */}
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                <Select
+                  value={selectedTask.status}
+                  onValueChange={(value) =>
+                    updateMutation.mutate({
+                      taskId: selectedTask.id,
+                      data: { status: value },
+                    })
+                  }
+                  disabled={updateMutation.isPending}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TASK_STATUSES.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {TASK_STATUS_LABELS[status]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Priority selector */}
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-muted-foreground">Priority</Label>
+                <Select
+                  value={selectedTask.priority}
+                  onValueChange={(value) =>
+                    updateMutation.mutate({
+                      taskId: selectedTask.id,
+                      data: { priority: value },
+                    })
+                  }
+                  disabled={updateMutation.isPending}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TASK_PRIORITIES.map((priority) => (
+                      <SelectItem key={priority} value={priority}>
+                        {TASK_PRIORITY_LABELS[priority]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Assignee selector */}
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-muted-foreground">Assignee</Label>
+                <Select
+                  value={selectedTask.assigneeId ?? "unassigned"}
+                  onValueChange={(value) =>
+                    updateMutation.mutate({
+                      taskId: selectedTask.id,
+                      data: { assigneeId: value === "unassigned" ? null : value },
+                    })
+                  }
+                  disabled={updateMutation.isPending}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select assignee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {members?.map((member) => (
+                      <SelectItem key={member.userId} value={member.userId}>
+                        {getUserDisplayName({ userId: member.userId })}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Due date input */}
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="detail-due-date"
+                  className="text-sm font-medium text-muted-foreground"
+                >
+                  Due Date
+                </Label>
+                <Input
+                  id="detail-due-date"
+                  type="date"
+                  defaultValue={
+                    selectedTask.dueDate
+                      ? new Date(selectedTask.dueDate).toISOString().split("T")[0]
+                      : ""
+                  }
+                  onBlur={(e) => {
+                    const value = e.target.value;
+                    const newDate = value
+                      ? new Date(value).toISOString()
+                      : null;
+                    if (newDate !== selectedTask.dueDate) {
+                      updateMutation.mutate({
+                        taskId: selectedTask.id,
+                        data: { dueDate: newDate },
+                      });
+                    }
+                  }}
+                  disabled={updateMutation.isPending}
+                />
+              </div>
+
+              <Separator />
+
+              {/* Description */}
               {selectedTask.description && (
                 <div>
                   <h4 className="mb-1 text-sm font-medium text-muted-foreground">Description</h4>
                   <p className="text-sm whitespace-pre-wrap">{selectedTask.description}</p>
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-4">
-                {selectedTask.dueDate && (
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground">Due Date</h4>
-                    <p className="text-sm">{formatDate(selectedTask.dueDate)}</p>
-                  </div>
-                )}
-                {selectedTask.estimatedMinutes && (
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground">Estimate</h4>
-                    <p className="text-sm">{selectedTask.estimatedMinutes} minutes</p>
-                  </div>
-                )}
+
+              {/* Estimate */}
+              {selectedTask.estimatedMinutes && (
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground">Estimate</h4>
+                  <p className="text-sm">
+                    {selectedTask.estimatedMinutes >= 60
+                      ? `${Math.floor(selectedTask.estimatedMinutes / 60)}h ${selectedTask.estimatedMinutes % 60 > 0 ? `${selectedTask.estimatedMinutes % 60}m` : ""}`
+                      : `${selectedTask.estimatedMinutes}m`}
+                    {" "}({selectedTask.estimatedMinutes} min)
+                  </p>
+                </div>
+              )}
+
+              {/* Delete button */}
+              <div className="pt-2 border-t">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10 w-full justify-start"
+                      disabled={deleteMutation.isPending}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      {deleteMutation.isPending ? "Deleting..." : "Delete Task"}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete task?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete &ldquo;{selectedTask.title}&rdquo;. This cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => deleteMutation.mutate(selectedTask.id)}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
           )}
@@ -553,6 +784,31 @@ export function PageClient() {
               </Select>
             </div>
 
+            {/* Assignee */}
+            <div className="space-y-2">
+              <Label>Assignee</Label>
+              <Select
+                onValueChange={(value) =>
+                  setValue(
+                    "assigneeId",
+                    value === "unassigned" ? undefined : value
+                  )
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select assignee (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {members?.map((member) => (
+                    <SelectItem key={member.userId} value={member.userId}>
+                      {getUserDisplayName({ userId: member.userId })}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Due Date */}
             <div className="space-y-2">
               <Label htmlFor="task-due-date">Due Date</Label>
@@ -587,6 +843,9 @@ export function PageClient() {
                   );
                 }}
               />
+              <p className="text-xs text-muted-foreground">
+                Enter time in minutes (e.g. 90 = 1h 30m)
+              </p>
             </div>
 
             <div className="flex justify-end gap-2 pt-4">

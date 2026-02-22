@@ -1,13 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { chatCompletion } from "./providers";
 import { getReportGenerationPrompt } from "./prompts/report-generation";
-
-let _anthropic: Anthropic | null = null;
-function getAnthropic() {
-  if (!_anthropic) {
-    _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
-  }
-  return _anthropic;
-}
 
 export interface ReportData {
   tasksByStatus: Record<string, number>;
@@ -50,25 +42,15 @@ ${question}
 ## Project Data
 ${JSON.stringify(data, null, 2)}`;
 
-  const response = await getAnthropic().messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 2048,
-    system: systemPrompt,
+  const content = await chatCompletion("reporter", {
     messages: [
-      {
-        role: "user",
-        content: userMessage,
-      },
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userMessage },
     ],
   });
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    throw new Error("Empty response from report generator");
-  }
-
   return {
-    narrative: textBlock.text,
+    narrative: content,
     data,
     generatedAt: new Date().toISOString(),
   };

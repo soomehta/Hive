@@ -239,7 +239,7 @@ export function PageClient() {
                   <div className="space-y-4">
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="flex items-center gap-2">
-                        <Calendar className="text-muted-foreground h-4 w-4" />
+                        <Calendar className="text-muted-foreground h-4 w-4" aria-hidden="true" />
                         <span className="text-sm">
                           <span className="text-muted-foreground">
                             Start:{" "}
@@ -250,7 +250,7 @@ export function PageClient() {
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Calendar className="text-muted-foreground h-4 w-4" />
+                        <Calendar className="text-muted-foreground h-4 w-4" aria-hidden="true" />
                         <span className="text-sm">
                           <span className="text-muted-foreground">
                             Target:{" "}
@@ -273,7 +273,7 @@ export function PageClient() {
                     )}
                     <div className="flex gap-4 pt-2">
                       <div className="flex items-center gap-2">
-                        <ListTodo className="text-muted-foreground h-4 w-4" />
+                        <ListTodo className="text-muted-foreground h-4 w-4" aria-hidden="true" />
                         <span className="text-sm">
                           {tasksLoading ? (
                             <Skeleton className="h-4 w-8 inline-block" />
@@ -283,7 +283,7 @@ export function PageClient() {
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Users className="text-muted-foreground h-4 w-4" />
+                        <Users className="text-muted-foreground h-4 w-4" aria-hidden="true" />
                         <span className="text-sm">
                           {membersLoading ? (
                             <Skeleton className="h-4 w-8 inline-block" />
@@ -293,7 +293,7 @@ export function PageClient() {
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <MessageSquare className="text-muted-foreground h-4 w-4" />
+                        <MessageSquare className="text-muted-foreground h-4 w-4" aria-hidden="true" />
                         <span className="text-sm">
                           {messagesLoading ? (
                             <Skeleton className="h-4 w-8 inline-block" />

@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Brain, Save, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 export function PageClient() {
   const queryClient = useQueryClient();
@@ -68,6 +69,10 @@ export function PageClient() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pa-profile"] });
+      toast.success("PA settings saved");
+    },
+    onError: () => {
+      toast.error("Failed to save settings");
     },
   });
 
@@ -209,6 +214,9 @@ export function PageClient() {
               <p className="text-xs text-muted-foreground">Daily task overview at {form.morningBriefingTime}</p>
             </div>
             <button
+              role="switch"
+              aria-checked={form.morningBriefingEnabled}
+              aria-label="Morning briefing"
               onClick={() => setForm({ ...form, morningBriefingEnabled: !form.morningBriefingEnabled })}
               className={`relative h-6 w-11 rounded-full transition-colors ${
                 form.morningBriefingEnabled ? "bg-violet-600" : "bg-accent"
@@ -227,6 +235,9 @@ export function PageClient() {
               <p className="text-xs text-muted-foreground">Summary every Friday</p>
             </div>
             <button
+              role="switch"
+              aria-checked={form.weeklyDigestEnabled}
+              aria-label="Weekly digest"
               onClick={() => setForm({ ...form, weeklyDigestEnabled: !form.weeklyDigestEnabled })}
               className={`relative h-6 w-11 rounded-full transition-colors ${
                 form.weeklyDigestEnabled ? "bg-violet-600" : "bg-accent"

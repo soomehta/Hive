@@ -19,17 +19,9 @@ test.describe("Sign-In Page (/sign-in)", () => {
     await page.goto("/sign-in");
   });
 
-  test("page loads with 'Welcome back' heading", async ({ page }) => {
+  test("page loads with 'Welcome back to Hive' heading", async ({ page }) => {
     await expect(
-      page.getByRole("heading", { name: /Welcome back/i })
-    ).toBeVisible();
-  });
-
-  test("page shows 'Sign in to your Hive account' description", async ({
-    page,
-  }) => {
-    await expect(
-      page.getByText(/Sign in to your Hive account/i)
+      page.getByText(/Welcome back to Hive/i)
     ).toBeVisible();
   });
 
@@ -74,14 +66,10 @@ test.describe("Sign-Up Page (/sign-up)", () => {
     await page.goto("/sign-up");
   });
 
-  test("page loads with 'Create an account' heading", async ({ page }) => {
+  test("page loads with 'Create your Hive account' heading", async ({ page }) => {
     await expect(
-      page.getByRole("heading", { name: /Create an account/i })
+      page.getByText(/Create your Hive account/i)
     ).toBeVisible();
-  });
-
-  test("page shows 'Get started with Hive' description", async ({ page }) => {
-    await expect(page.getByText(/Get started with Hive/i)).toBeVisible();
   });
 
   test("'Full name' input is present and typed as text", async ({ page }) => {
@@ -190,7 +178,7 @@ test.describe("Cross-Page Navigation from Sign-In", () => {
     await page.getByRole("link", { name: /Sign up/i }).click();
     await expect(page).toHaveURL(/\/sign-up/);
     await expect(
-      page.getByRole("heading", { name: /Create an account/i })
+      page.getByText(/Create your Hive account/i)
     ).toBeVisible();
   });
 
@@ -201,7 +189,7 @@ test.describe("Cross-Page Navigation from Sign-In", () => {
     await page.getByRole("link", { name: /Sign in/i }).click();
     await expect(page).toHaveURL(/\/sign-in/);
     await expect(
-      page.getByRole("heading", { name: /Welcome back/i })
+      page.getByText(/Welcome back to Hive/i)
     ).toBeVisible();
   });
 });

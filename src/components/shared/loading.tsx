@@ -7,7 +7,11 @@ interface LoadingProps {
 
 export function Loading({ className, size = "default" }: LoadingProps) {
   return (
-    <div className={cn("flex items-center justify-center", className)}>
+    <div
+      role="status"
+      aria-label="Loading"
+      className={cn("flex items-center justify-center", className)}
+    >
       <div
         className={cn(
           "animate-spin rounded-full border-2 border-muted-foreground/25 border-t-foreground",
@@ -16,6 +20,7 @@ export function Loading({ className, size = "default" }: LoadingProps) {
           size === "lg" && "size-8"
         )}
       />
+      <span className="sr-only">Loading...</span>
     </div>
   );
 }

@@ -1,13 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { chatCompletion } from "./providers";
 import { getActionPlanningPrompt } from "./prompts/action-planning";
-
-let _anthropic: Anthropic | null = null;
-function getAnthropic() {
-  if (!_anthropic) {
-    _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
-  }
-  return _anthropic;
-}
 
 interface PlanContext {
   userName: string;
@@ -30,11 +22,9 @@ export async function planAction(
 ): Promise<PlanResult> {
   const systemPrompt = getActionPlanningPrompt(context);
 
-  const response = await getAnthropic().messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 1024,
-    system: systemPrompt,
+  const content = await chatCompletion("planner", {
     messages: [
+      { role: "system", content: systemPrompt },
       {
         role: "user",
         content: `Intent: ${intent}\nEntities: ${JSON.stringify(entities, null, 2)}`,
@@ -42,13 +32,8 @@ export async function planAction(
     ],
   });
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    throw new Error("Empty response from action planner");
-  }
-
   // Extract JSON from response (may be wrapped in markdown code block)
-  let jsonStr = textBlock.text;
+  let jsonStr = content;
   const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (jsonMatch) {
     jsonStr = jsonMatch[1].trim();

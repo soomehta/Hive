@@ -1,13 +1,5 @@
-import OpenAI from "openai";
+import { chatCompletion } from "./providers";
 import { getIntentClassificationPrompt } from "./prompts/intent-classification";
-
-let _openai: OpenAI | null = null;
-function getOpenAI() {
-  if (!_openai) {
-    _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
-  }
-  return _openai;
-}
 
 interface ClassificationContext {
   userName: string;
@@ -28,20 +20,13 @@ export async function classifyIntent(
 ): Promise<ClassificationResult> {
   const systemPrompt = getIntentClassificationPrompt(context);
 
-  const response = await getOpenAI().chat.completions.create({
-    model: "gpt-4o-mini",
-    response_format: { type: "json_object" },
-    temperature: 0.1,
+  const content = await chatCompletion("classifier", {
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: text },
     ],
+    jsonMode: true,
   });
-
-  const content = response.choices[0].message.content;
-  if (!content) {
-    throw new Error("Empty response from intent classifier");
-  }
 
   const result = JSON.parse(content) as ClassificationResult;
 

@@ -3,10 +3,13 @@
 import { Brain, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePAStore } from "@/hooks/use-pa";
+import { useSwarmStore } from "@/hooks/use-swarm";
 import { PAChat } from "./pa-chat";
+import { SwarmPanel } from "@/components/bees/swarm-panel";
 
 export function PAPanel() {
   const { isOpen, toggle, close } = usePAStore();
+  const activeSwarmId = useSwarmStore((s) => s.activeSwarmId);
 
   return (
     <>
@@ -30,10 +33,13 @@ export function PAPanel() {
               <Brain className="size-5 text-violet-400" />
               <h2 className="text-sm font-semibold text-foreground">PA Assistant</h2>
             </div>
-            <Button variant="ghost" size="icon" onClick={close} className="size-8 text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" size="icon" onClick={close} className="size-8 text-muted-foreground hover:text-foreground" aria-label="Close PA Assistant">
               <X className="size-4" />
             </Button>
           </div>
+
+          {/* Swarm Panel (shown when swarm is active) */}
+          {activeSwarmId && <SwarmPanel />}
 
           {/* Chat area */}
           <PAChat />

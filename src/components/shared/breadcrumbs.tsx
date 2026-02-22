@@ -11,19 +11,23 @@ interface BreadcrumbItem {
 
 export function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
   return (
-    <nav className="flex items-center gap-1.5 text-sm text-muted-foreground mb-4">
-      {items.map((item, i) => (
-        <Fragment key={i}>
-          {i > 0 && <ChevronRight className="size-3.5" />}
-          {item.href ? (
-            <Link href={item.href} className="hover:text-foreground transition-colors">
-              {item.label}
-            </Link>
-          ) : (
-            <span className="text-foreground">{item.label}</span>
-          )}
-        </Fragment>
-      ))}
+    <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-muted-foreground mb-4">
+      <ol className="flex items-center gap-1.5">
+        {items.map((item, i) => (
+          <Fragment key={i}>
+            {i > 0 && <ChevronRight className="size-3.5" aria-hidden="true" />}
+            <li>
+              {item.href ? (
+                <Link href={item.href} className="hover:text-foreground transition-colors">
+                  {item.label}
+                </Link>
+              ) : (
+                <span className="text-foreground" aria-current="page">{item.label}</span>
+              )}
+            </li>
+          </Fragment>
+        ))}
+      </ol>
     </nav>
   );
 }

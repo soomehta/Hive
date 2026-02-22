@@ -1,36 +1,28 @@
-import OpenAI from "openai";
+import { getEmbeddingProvider, getRoleConfig } from "./providers";
 import { db } from "@/lib/db";
 import { embeddings } from "@/lib/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 
-let _openai: OpenAI | null = null;
-function getOpenAI() {
-  if (!_openai) {
-    _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
-  }
-  return _openai;
-}
-
-const EMBEDDING_MODEL = "text-embedding-3-small";
 const EMBEDDING_DIMENSIONS = 1536;
 
 /**
  * Generate an embedding vector for the given text.
- * Uses OpenAI text-embedding-3-small (1536 dimensions).
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
   // Truncate extremely long text to avoid token limits
   const truncated = text.slice(0, 8000);
+  const config = getRoleConfig("embedding");
+  const provider = getEmbeddingProvider("embedding");
 
-  const response = await getOpenAI().embeddings.create({
-    model: EMBEDDING_MODEL,
+  const result = await provider.embed({
+    model: config.model,
     input: truncated,
     dimensions: EMBEDDING_DIMENSIONS,
   });
 
-  const embedding = response.data[0]?.embedding;
+  const embedding = result.embeddings[0];
   if (!embedding) {
-    throw new Error("Empty embedding response from OpenAI");
+    throw new Error("Empty embedding response");
   }
 
   return embedding;
@@ -90,7 +82,7 @@ export async function deleteEmbedding(
 /**
  * Generate embeddings for multiple items in batch.
  * More efficient than calling storeEmbedding in a loop because it batches
- * the OpenAI API calls.
+ * the API calls.
  */
 export async function storeBatchEmbeddings(
   items: Array<{
@@ -104,8 +96,11 @@ export async function storeBatchEmbeddings(
 
   // Generate all embeddings in a single API call (up to 2048 inputs)
   const texts = items.map((item) => item.content.slice(0, 8000));
-  const response = await getOpenAI().embeddings.create({
-    model: EMBEDDING_MODEL,
+  const config = getRoleConfig("embedding");
+  const provider = getEmbeddingProvider("embedding");
+
+  const result = await provider.embed({
+    model: config.model,
     input: texts,
     dimensions: EMBEDDING_DIMENSIONS,
   });
@@ -115,7 +110,7 @@ export async function storeBatchEmbeddings(
     sourceType: item.sourceType,
     sourceId: item.sourceId,
     content: item.content,
-    embedding: response.data[i].embedding,
+    embedding: result.embeddings[i],
   }));
 
   // Delete existing embeddings in a single query, then batch insert — all in one transaction

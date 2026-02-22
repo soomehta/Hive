@@ -14,6 +14,8 @@ import {
   getRecentConversations,
 } from "@/lib/db/queries/pa-actions";
 import { getTasks } from "@/lib/db/queries/tasks";
+import { dispatch } from "@/lib/bees/dispatcher";
+import { executeSwarm } from "@/lib/bees/swarm-executor";
 import { db } from "@/lib/db";
 import { projects, organizationMembers } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -68,66 +70,93 @@ export async function POST(req: NextRequest) {
       })),
     });
 
-    const registry = ACTION_REGISTRY[classification.intent];
+    // ─── Bee Dispatcher: assess complexity and choose path ───
+    const dispatchResult = await dispatch({
+      message,
+      intent: classification.intent,
+      entities: classification.entities,
+      orgId: auth.orgId,
+    });
+
     let responseMessage: string;
     let action = null;
+    let swarmSessionId: string | null = null;
 
-    if (!registry) {
-      responseMessage = "I'm not sure how to help with that. Could you rephrase your request?";
-    } else {
-      // Plan the action
-      const plan = await planAction(classification.intent, classification.entities, {
-        userName: auth.userId,
-        autonomyMode: paProfile.autonomyMode,
+    if (dispatchResult.mode === "swarm") {
+      // ─── Swarm path: multi-bee execution ───
+      log.info(
+        { score: dispatchResult.complexityScore, bees: dispatchResult.selectedBees.length },
+        "Dispatching to swarm"
+      );
+
+      const swarmResult = await executeSwarm({
+        orgId: auth.orgId,
+        userId: auth.userId,
+        triggerMessage: message,
+        dispatchPlan: dispatchResult,
         verbosity: paProfile.verbosity,
         formality: paProfile.formality,
       });
 
-      const tier = resolveActionTier(classification.intent, paProfile, {
-        assigneeId: classification.entities.assigneeId,
-        userId: auth.userId,
-      });
+      responseMessage = swarmResult.synthesizedResponse;
+      swarmSessionId = swarmResult.swarmSessionId;
+    } else {
+      // ─── Direct path: existing PA pipeline (unchanged) ───
+      const registry = ACTION_REGISTRY[classification.intent];
 
-      if (tier === "auto_execute" || tier === "execute_notify") {
-        // Execute immediately
-        const paAction = await createPaAction({
-          userId: auth.userId,
-          orgId: auth.orgId,
-          actionType: classification.intent,
-          tier,
-          plannedPayload: plan.payload,
-        });
-
-        const result = await executeAction({ ...paAction } as any);
-
-        await updatePaAction(paAction.id, {
-          status: result.success ? "executed" : "failed",
-          executedPayload: plan.payload,
-          executionResult: result as any,
-          executedAt: new Date(),
-        });
-
-        action = { ...paAction, status: result.success ? "executed" : "failed", executionResult: result };
-        responseMessage = result.success
-          ? plan.confirmationMessage
-          : `I couldn't complete that: ${result.error}`;
-      } else if (tier === "draft_approve") {
-        // Create pending action
-        const paAction = await createPaAction({
-          userId: auth.userId,
-          orgId: auth.orgId,
-          actionType: classification.intent,
-          tier,
-          plannedPayload: plan.payload,
-        });
-
-        action = paAction;
-        responseMessage = plan.draftPreview
-          ? `Here's what I'd like to do:\n\n${plan.draftPreview}\n\nShall I go ahead?`
-          : plan.confirmationMessage;
+      if (!registry) {
+        responseMessage = "I'm not sure how to help with that. Could you rephrase your request?";
       } else {
-        // suggest_only
-        responseMessage = plan.confirmationMessage;
+        const plan = await planAction(classification.intent, classification.entities, {
+          userName: auth.userId,
+          autonomyMode: paProfile.autonomyMode,
+          verbosity: paProfile.verbosity,
+          formality: paProfile.formality,
+        });
+
+        const tier = resolveActionTier(classification.intent, paProfile, {
+          assigneeId: classification.entities.assigneeId,
+          userId: auth.userId,
+        });
+
+        if (tier === "auto_execute" || tier === "execute_notify") {
+          const paAction = await createPaAction({
+            userId: auth.userId,
+            orgId: auth.orgId,
+            actionType: classification.intent,
+            tier,
+            plannedPayload: plan.payload,
+          });
+
+          const result = await executeAction({ ...paAction } as any);
+
+          await updatePaAction(paAction.id, {
+            status: result.success ? "executed" : "failed",
+            executedPayload: plan.payload,
+            executionResult: result as any,
+            executedAt: new Date(),
+          });
+
+          action = { ...paAction, status: result.success ? "executed" : "failed", executionResult: result };
+          responseMessage = result.success
+            ? plan.confirmationMessage
+            : `I couldn't complete that: ${result.error}`;
+        } else if (tier === "draft_approve") {
+          const paAction = await createPaAction({
+            userId: auth.userId,
+            orgId: auth.orgId,
+            actionType: classification.intent,
+            tier,
+            plannedPayload: plan.payload,
+          });
+
+          action = paAction;
+          responseMessage = plan.draftPreview
+            ? `Here's what I'd like to do:\n\n${plan.draftPreview}\n\nShall I go ahead?`
+            : plan.confirmationMessage;
+        } else {
+          responseMessage = plan.confirmationMessage;
+        }
       }
     }
 
@@ -137,13 +166,23 @@ export async function POST(req: NextRequest) {
       orgId: auth.orgId,
       role: "assistant",
       content: responseMessage,
-      metadata: action ? { actionId: action.id } : undefined,
+      metadata: {
+        ...(action ? { actionId: action.id } : {}),
+        ...(swarmSessionId ? { swarmSessionId } : {}),
+      },
     });
 
     // Update interaction stats
     await incrementInteractions(auth.userId, auth.orgId, classification.intent);
 
-    return Response.json({ message: responseMessage, action, intent: classification.intent, entities: classification.entities });
+    return Response.json({
+      message: responseMessage,
+      action,
+      swarmSessionId,
+      intent: classification.intent,
+      entities: classification.entities,
+      dispatchMode: dispatchResult.mode,
+    });
   } catch (error) {
     if (error instanceof AuthError) {
       return Response.json({ error: error.message }, { status: error.statusCode });

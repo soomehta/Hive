@@ -1,13 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { chatCompletion } from "./providers";
 import { getEmailDraftingPrompt } from "./prompts/drafting";
-
-let _anthropic: Anthropic | null = null;
-function getAnthropic() {
-  if (!_anthropic) {
-    _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
-  }
-  return _anthropic;
-}
 
 export interface EmailDraftParams {
   intent: string;
@@ -37,25 +29,15 @@ ${JSON.stringify(params.entities, null, 2)}
 ## Sender
 ${params.context.userName}`;
 
-  const response = await getAnthropic().messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 1024,
-    system: systemPrompt,
+  const content = await chatCompletion("email-drafter", {
     messages: [
-      {
-        role: "user",
-        content: userMessage,
-      },
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userMessage },
     ],
   });
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    throw new Error("Empty response from email drafter");
-  }
-
   // Parse JSON response
-  let jsonStr = textBlock.text;
+  let jsonStr = content;
   const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (jsonMatch) {
     jsonStr = jsonMatch[1].trim();

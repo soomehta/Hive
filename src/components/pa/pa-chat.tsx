@@ -86,7 +86,7 @@ export function PAChat() {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3" aria-label="PA conversation" role="log" aria-live="polite">
         {messages.map((msg) => (
           <div key={msg.id}>
             <PAMessage role={msg.role} content={msg.content} />
@@ -96,8 +96,8 @@ export function PAChat() {
           </div>
         ))}
         {(sendMessage.isPending || sendVoice.isPending) && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <div className="size-2 animate-pulse rounded-full bg-violet-400" />
+          <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+            <div className="size-2 animate-pulse rounded-full bg-violet-400" aria-hidden="true" />
             Thinking...
           </div>
         )}

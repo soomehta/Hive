@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/utils/api-client";
 import { createClient } from "@/lib/supabase/client";
 import { useOrg } from "@/hooks/use-org";
@@ -15,7 +15,16 @@ import {
 import { formatMinutes } from "@/lib/utils/user-display";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Sheet,
   SheetContent,
@@ -23,6 +32,17 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import {
   CheckCircle2,
@@ -32,8 +52,10 @@ import {
   XCircle,
   CalendarDays,
   ClipboardList,
+  Trash2,
 } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
+import { toast } from "sonner";
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -211,37 +233,131 @@ function TaskRow({ task, onClick }: { task: Task; onClick: () => void }) {
 
 // ─── Task Detail Sheet ──────────────────────────────────
 
+const TASK_STATUS_OPTIONS: { value: Task["status"]; label: string }[] = [
+  { value: "todo", label: "To Do" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "in_review", label: "In Review" },
+  { value: "done", label: "Done" },
+  { value: "cancelled", label: "Cancelled" },
+];
+
+const TASK_PRIORITY_OPTIONS: { value: Task["priority"]; label: string }[] = [
+  { value: "urgent", label: "Urgent" },
+  { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
+  { value: "low", label: "Low" },
+];
+
 function TaskDetailSheet({
   task,
   open,
   onOpenChange,
-  onMarkComplete,
+  onTaskUpdate,
+  onTaskDelete,
+  isUpdating,
+  isDeleting,
 }: {
   task: Task | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onMarkComplete: (task: Task) => Promise<void>;
+  onTaskUpdate: (taskId: string, data: Record<string, unknown>) => void;
+  onTaskDelete: (taskId: string) => void;
+  isUpdating: boolean;
+  isDeleting: boolean;
 }) {
   if (!task) return null;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-lg">
+      <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{task.title}</SheetTitle>
           <SheetDescription>Task details</SheetDescription>
         </SheetHeader>
         <div className="space-y-4 px-4">
-          <div className="flex flex-wrap gap-2">
-            <PriorityBadge priority={task.priority} />
-            <StatusBadge status={task.status} />
-            {task.isBlocked && (
-              <Badge variant="destructive">Blocked</Badge>
-            )}
+          <Separator />
+
+          {/* Status selector */}
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+            <Select
+              value={task.status}
+              onValueChange={(value) =>
+                onTaskUpdate(task.id, { status: value })
+              }
+              disabled={isUpdating}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TASK_STATUS_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Priority selector */}
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium text-muted-foreground">Priority</Label>
+            <Select
+              value={task.priority}
+              onValueChange={(value) =>
+                onTaskUpdate(task.id, { priority: value })
+              }
+              disabled={isUpdating}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TASK_PRIORITY_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Due date input */}
+          <div className="space-y-1.5">
+            <Label
+              htmlFor="my-task-due-date"
+              className="text-sm font-medium text-muted-foreground"
+            >
+              Due Date
+            </Label>
+            <Input
+              id="my-task-due-date"
+              type="date"
+              defaultValue={
+                task.dueDate
+                  ? new Date(task.dueDate).toISOString().split("T")[0]
+                  : ""
+              }
+              onBlur={(e) => {
+                const value = e.target.value;
+                const newDate = value ? new Date(value).toISOString() : null;
+                if (newDate !== task.dueDate) {
+                  onTaskUpdate(task.id, { dueDate: newDate });
+                }
+              }}
+              disabled={isUpdating}
+            />
           </div>
 
           <Separator />
 
+          {/* Blocked indicator */}
+          {task.isBlocked && (
+            <Badge variant="destructive">Blocked</Badge>
+          )}
+
+          {/* Description */}
           {task.description && (
             <div>
               <h4 className="mb-1 text-sm font-medium text-muted-foreground">
@@ -251,16 +367,8 @@ function TaskDetailSheet({
             </div>
           )}
 
+          {/* Metadata grid */}
           <div className="grid grid-cols-2 gap-4">
-            {task.dueDate && (
-              <div>
-                <h4 className="text-sm font-medium text-muted-foreground">
-                  Due Date
-                </h4>
-                <p className="text-sm">{formatDate(task.dueDate)}</p>
-              </div>
-            )}
-
             {task.estimatedMinutes && (
               <div>
                 <h4 className="text-sm font-medium text-muted-foreground">
@@ -296,21 +404,56 @@ function TaskDetailSheet({
             </div>
           )}
 
+          {/* Action buttons */}
           <div className="flex gap-2 pt-4 border-t">
             <Button
               size="sm"
               variant="outline"
-              onClick={() => onMarkComplete(task)}
-              disabled={task.status === "done"}
+              onClick={() => onTaskUpdate(task.id, { status: "done" })}
+              disabled={task.status === "done" || isUpdating}
             >
               <CheckCircle2 className="size-4 mr-1" />
-              Mark Complete
+              {isUpdating ? "Saving..." : "Mark Complete"}
             </Button>
             <Button size="sm" variant="outline" asChild>
               <Link href={`/dashboard/projects/${task.projectId}/tasks`}>
                 Open in Project
               </Link>
             </Button>
+          </div>
+
+          {/* Delete button */}
+          <div className="border-t pt-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10 w-full justify-start"
+                  disabled={isDeleting}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  {isDeleting ? "Deleting..." : "Delete Task"}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete task?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete &ldquo;{task.title}&rdquo;. This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => onTaskDelete(task.id)}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
       </SheetContent>
@@ -385,19 +528,71 @@ export function PageClient() {
     enabled: !!orgId && !!userId,
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async ({
+      taskId,
+      data,
+    }: {
+      taskId: string;
+      data: Record<string, unknown>;
+    }) => {
+      const res = await apiClient(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || "Failed to update task");
+      }
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      // Show specific message when marking complete
+      if (variables.data.status === "done") {
+        toast.success("Task marked complete");
+      } else {
+        toast.success("Task updated");
+      }
+      queryClient.invalidateQueries({ queryKey: ["my-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      // Sync selected task state with updated fields
+      setSelectedTask((prev) =>
+        prev && prev.id === variables.taskId
+          ? { ...prev, ...variables.data }
+          : prev
+      );
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to update task");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      const res = await apiClient(`/api/tasks/${taskId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || "Failed to delete task");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast.success("Task deleted");
+      queryClient.invalidateQueries({ queryKey: ["my-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      setSheetOpen(false);
+      setSelectedTask(null);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to delete task");
+    },
+  });
+
   const handleSelectTask = (task: Task) => {
     setSelectedTask(task);
     setSheetOpen(true);
-  };
-
-  const handleMarkComplete = async (task: Task) => {
-    await apiClient(`/api/tasks/${task.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ status: "done" }),
-    });
-    queryClient.invalidateQueries({ queryKey: ["my-tasks"] });
-    setSheetOpen(false);
-    setSelectedTask(null);
   };
 
   if (isLoading || !user) {
@@ -470,7 +665,10 @@ export function PageClient() {
         task={selectedTask}
         open={sheetOpen}
         onOpenChange={setSheetOpen}
-        onMarkComplete={handleMarkComplete}
+        onTaskUpdate={(taskId, data) => updateMutation.mutate({ taskId, data })}
+        onTaskDelete={(taskId) => deleteMutation.mutate(taskId)}
+        isUpdating={updateMutation.isPending}
+        isDeleting={deleteMutation.isPending}
       />
     </div>
   );
