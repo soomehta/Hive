@@ -37,55 +37,55 @@ const features = [
     icon: Brain,
     title: "Personal AI Assistant",
     description:
-      "Every team member gets a PA that knows their role, projects, and preferences. Ask anything in natural language.",
+      "Every teammate gets an assistant that learns their priorities, projects, and working style.",
   },
   {
     icon: Mic,
     title: "Voice-First Commands",
     description:
-      "Speak to create tasks, check your schedule, or draft emails. Your PA understands context and acts on it.",
+      "Speak to create tasks, check your schedule, and prep updates when your hands are full.",
   },
   {
     icon: Shield,
     title: "Graduated Autonomy",
     description:
-      "Choose how much control you want. Auto-pilot, co-pilot, or manual mode. Override per action type.",
+      "Decide how hands-on you want to be: fully automatic, confirm before sending, or drafts only.",
   },
   {
     icon: MessageSquare,
     title: "Reports as Conversations",
     description:
-      'No dashboards. Ask "How\'s the team doing?" and get a narrative answer backed by real data.',
+      'Ask "What is blocking us?" and get a clear answer with context, not another dashboard to decode.',
   },
   {
     icon: Plug,
     title: "Smart Integrations",
     description:
-      "Google Calendar, Gmail, Outlook, Slack. Your PA reads your calendar, sends emails, and posts to Slack on your behalf.",
+      "Connect Google, Outlook, and Slack so your assistant can coordinate work across the tools you already use.",
   },
   {
     icon: Sun,
     title: "Morning Briefings",
     description:
-      "Start every day with a personalized briefing: your tasks, meetings, blockers, and what to focus on.",
+      "Start your day with one focused plan: priorities, meetings, blockers, and what needs attention first.",
   },
   {
     icon: Bot,
-    title: "Bee Swarm Intelligence",
+    title: "Team-Style AI Support",
     description:
-      "Complex requests automatically dispatch specialized AI bees — Analysts, Managers, Operators — that collaborate in parallel and synthesize results.",
+      "For bigger questions, Hive brings in specialized assistants that collaborate and return one clear recommendation.",
   },
   {
     icon: LayoutGrid,
     title: "Configurable Dashboards",
     description:
-      "Choose Boards, Lists, or Workspace pathway. Drag-and-drop 10+ widget types. Four preset layouts per pathway, fully customizable.",
+      "Pick a view that fits your team, then tailor your workspace with boards, lists, calendars, and more.",
   },
   {
     icon: AlertTriangle,
     title: "Safety Signals",
     description:
-      "Compliance bees raise hold signals when they spot risks. Swarm execution pauses for your review. You always have the final say.",
+      "Risk checks pause sensitive actions and ask for your approval so nothing important happens without you.",
   },
 ];
 
@@ -98,9 +98,9 @@ const steps = [
   },
   {
     number: "2",
-    title: "PA Plans & Acts",
+    title: "Hive Coordinates the Work",
     description:
-      "Your PA classifies the intent and scores complexity. Simple requests execute instantly. Complex ones dispatch a bee swarm that works in phased parallel and synthesizes results.",
+      "Simple requests happen right away. Bigger requests are broken down, handled in parallel, and returned as one plan.",
   },
   {
     number: "3",
@@ -131,31 +131,31 @@ const proFeatures = [
 const beeTypes = [
   {
     icon: Wrench,
-    name: "Analyst Bee",
+    name: "Analyst Assistant",
     color: "text-emerald-400",
     bg: "bg-emerald-500/10",
-    description: "Scans data, gathers metrics, identifies trends",
+    description: "Scans progress, gathers numbers, and spots trends",
   },
   {
     icon: Users,
-    name: "Manager Bee",
+    name: "Manager Assistant",
     color: "text-blue-400",
     bg: "bg-blue-500/10",
-    description: "Evaluates team capacity and workload balance",
+    description: "Checks team capacity and workload balance",
   },
   {
     icon: Bot,
-    name: "Assistant Bee",
+    name: "Coordinator Assistant",
     color: "text-violet-400",
     bg: "bg-violet-500/10",
-    description: "Synthesizes results into a single clear answer",
+    description: "Turns findings into one clear recommendation",
   },
   {
     icon: Shield,
-    name: "Compliance Bee",
+    name: "Compliance Assistant",
     color: "text-amber-400",
     bg: "bg-amber-500/10",
-    description: "Checks policies, flags risks, enforces guardrails",
+    description: "Checks policy risks before sensitive actions",
   },
 ];
 
@@ -196,11 +196,17 @@ const widgetTypes = [
   "Bee Panel",
 ];
 
+const heroStats = [
+  { value: "70+", label: "Built-in routes" },
+  { value: "10+", label: "Dashboard widgets" },
+  { value: "3", label: "Workspace pathways" },
+];
+
 export function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
-      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-50 border-b bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-6">
             <Link href="/" className="flex items-center gap-2">
@@ -218,7 +224,7 @@ export function LandingPage() {
                 href="#bee-swarm"
                 className="text-muted-foreground transition-colors hover:text-foreground"
               >
-                Bee Swarm
+                AI Teamwork
               </a>
               <a
                 href="#how-it-works"
@@ -249,23 +255,32 @@ export function LandingPage() {
       </header>
 
       {/* Hero Section */}
-      <section className="px-4 pb-16 pt-20 sm:px-6 sm:pb-24 sm:pt-28 lg:px-8">
+      <section className="relative overflow-hidden px-4 pb-16 pt-20 sm:px-6 sm:pb-24 sm:pt-28 lg:px-8">
+        <div className="pointer-events-none absolute inset-0 -z-10">
+          <div className="absolute left-1/2 top-0 h-72 w-72 -translate-x-1/2 rounded-full bg-primary/15 blur-3xl" />
+          <div className="absolute right-10 top-32 h-56 w-56 rounded-full bg-violet-500/10 blur-3xl" />
+        </div>
         <div className="mx-auto max-w-6xl">
           <div className="mx-auto max-w-3xl text-center">
-            <Badge variant="secondary" className="mb-6 px-3 py-1 text-sm">
-              AI-Native Project Management
+            <Badge
+              variant="secondary"
+              className="mb-6 border border-primary/20 bg-primary/5 px-3 py-1 text-sm"
+            >
+              Project management that feels simpler
             </Badge>
             <h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
-              Your AI Assistant That Actually{" "}
-              <span className="text-primary/80">Manages Projects</span>
+              Less busywork. More{" "}
+              <span className="bg-gradient-to-r from-primary to-violet-500 bg-clip-text text-transparent">
+                meaningful progress.
+              </span>
             </h1>
             <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground sm:text-xl">
-              Hive gives every team member a personal AI assistant that creates
-              tasks, schedules meetings, drafts emails, and generates
-              reports&mdash;all from natural language. Voice or text.
+              Hive keeps everything you need in one place and gives every team
+              member an AI assistant that helps plan, coordinate, and follow
+              through. Talk to it or type naturally.
             </p>
             <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Button size="lg" asChild className="w-full sm:w-auto">
+              <Button size="lg" asChild className="w-full rounded-full px-7 sm:w-auto">
                 <Link href="/sign-up">
                   Start Free
                   <ArrowRight className="size-4" />
@@ -275,16 +290,28 @@ export function LandingPage() {
                 variant="outline"
                 size="lg"
                 asChild
-                className="w-full sm:w-auto"
+                className="w-full rounded-full px-7 sm:w-auto"
               >
                 <a href="#how-it-works">See How It Works</a>
               </Button>
             </div>
           </div>
 
+          <div className="mx-auto mt-10 grid max-w-2xl grid-cols-3 gap-3 sm:gap-4">
+            {heroStats.map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded-xl border bg-background/70 px-3 py-3 text-center shadow-sm"
+              >
+                <p className="text-lg font-semibold sm:text-xl">{stat.value}</p>
+                <p className="text-xs text-muted-foreground">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+
           {/* Mock PA Conversation */}
           <div className="mx-auto mt-16 max-w-lg">
-            <Card className="overflow-hidden">
+            <Card className="overflow-hidden border-primary/20 shadow-xl shadow-primary/5">
               <CardHeader className="border-b bg-muted/50 pb-3 pt-4">
                 <div className="flex items-center gap-2">
                   <div className="flex size-7 items-center justify-center rounded-full bg-primary">
@@ -302,26 +329,30 @@ export function LandingPage() {
                 </div>
                 <div className="flex justify-start">
                   <div className="rounded-2xl rounded-bl-md bg-muted px-4 py-2 text-sm">
-                    I&apos;ve dispatched a swarm for this. Analyst, Manager, and
-                    Compliance bees are on it.
+                    Working on it. I am checking progress, team capacity, and
+                    policy risks now.
                   </div>
                 </div>
                 {/* Swarm mini-visualization */}
                 <div className="mx-4 space-y-1.5 rounded-lg border bg-muted/30 px-3 py-2.5 text-xs">
                   <div className="flex items-center gap-2">
                     <span className="size-2 rounded-full bg-emerald-400" />
-                    <span className="text-muted-foreground">Analyst Bee</span>
+                    <span className="text-muted-foreground">
+                      Analyst Assistant
+                    </span>
                     <Check className="ml-auto size-3 text-emerald-400" />
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="size-2 rounded-full bg-blue-400" />
-                    <span className="text-muted-foreground">Manager Bee</span>
+                    <span className="text-muted-foreground">
+                      Manager Assistant
+                    </span>
                     <Check className="ml-auto size-3 text-blue-400" />
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="size-2 rounded-full bg-amber-400" />
                     <span className="text-muted-foreground">
-                      Compliance Bee
+                      Compliance Assistant
                     </span>
                     <Check className="ml-auto size-3 text-amber-400" />
                   </div>
@@ -329,7 +360,7 @@ export function LandingPage() {
                 <div className="flex justify-start">
                   <div className="rounded-2xl rounded-bl-md bg-muted px-4 py-2 text-sm">
                     Launch readiness: 87% tasks complete, 3 blockers on design
-                    track. Sarah at 120% capacity &mdash; I&apos;ve drafted a
+                    track. Sarah is overloaded &mdash; I&apos;ve drafted a
                     rebalance. One flag: privacy review not signed off.
                   </div>
                 </div>
@@ -340,16 +371,16 @@ export function LandingPage() {
       </section>
 
       {/* Social Proof / Philosophy */}
-      <section className="border-y bg-muted/30 px-4 py-12 sm:px-6 lg:px-8">
+      <section className="border-y bg-gradient-to-b from-muted/40 to-muted/20 px-4 py-12 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl">
           <div className="flex flex-wrap items-center justify-center gap-6 text-center text-sm font-medium text-muted-foreground sm:gap-10">
             <span>Bee Swarm Intelligence</span>
             <Separator orientation="vertical" className="hidden h-5 sm:block" />
             <span>Voice-First</span>
             <Separator orientation="vertical" className="hidden h-5 sm:block" />
-            <span>Your Dashboards</span>
+            <span>Your Workspace</span>
             <Separator orientation="vertical" className="hidden h-5 sm:block" />
-            <span>Graduated Autonomy</span>
+            <span>You Stay in Control</span>
             <Separator orientation="vertical" className="hidden h-5 sm:block" />
             <span>Async-First</span>
           </div>
@@ -364,15 +395,18 @@ export function LandingPage() {
               Everything your team needs
             </h2>
             <p className="mx-auto max-w-2xl text-muted-foreground">
-              Project management designed around AI from the ground up. Not
-              bolted on&mdash;built in.
+              Everything your team needs to plan, communicate, and execute
+              without hopping between five tools.
             </p>
           </div>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {features.map((feature) => (
-              <Card key={feature.title} className="border-muted/60">
+              <Card
+                key={feature.title}
+                className="border-muted/60 transition-all duration-200 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg"
+              >
                 <CardHeader>
-                  <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-primary/10">
+                  <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-violet-500/10">
                     <feature.icon className="size-5 text-primary" />
                   </div>
                   <CardTitle className="text-base">{feature.title}</CardTitle>
@@ -387,16 +421,16 @@ export function LandingPage() {
       {/* Bee Swarm Showcase */}
       <section
         id="bee-swarm"
-        className="bg-muted/30 px-4 py-16 sm:px-6 sm:py-24 lg:px-8"
+        className="bg-gradient-to-b from-muted/30 to-background px-4 py-16 sm:px-6 sm:py-24 lg:px-8"
       >
         <div className="mx-auto max-w-6xl">
           <div className="mb-12 text-center">
             <h2 className="mb-3 text-3xl font-bold tracking-tight sm:text-4xl">
-              One request. Multiple AI specialists.
+              One question, backed by multiple specialists
             </h2>
             <p className="mx-auto max-w-2xl text-muted-foreground">
-              Hive automatically dispatches the right AI agents for complex
-              work &mdash; in parallel.
+              When work gets complex, Hive coordinates focused assistants in the
+              background and gives you one clear answer.
             </p>
           </div>
           <div className="grid gap-8 lg:grid-cols-2">
@@ -405,7 +439,7 @@ export function LandingPage() {
               {beeTypes.map((bee) => (
                 <div
                   key={bee.name}
-                  className="flex items-start gap-4 rounded-lg border bg-background p-4"
+                  className="flex items-start gap-4 rounded-lg border bg-background p-4 transition-colors hover:border-primary/40"
                 >
                   <div
                     className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${bee.bg}`}
@@ -423,9 +457,9 @@ export function LandingPage() {
             </div>
 
             {/* Right column — Swarm flow card */}
-            <Card>
+            <Card className="border-primary/20 shadow-lg shadow-primary/5">
               <CardHeader className="flex-row items-center justify-between space-y-0 pb-4">
-                <CardTitle className="text-base">Swarm Execution</CardTitle>
+                <CardTitle className="text-base">How Hive Handles Complexity</CardTitle>
                 <Badge
                   variant="secondary"
                   className="bg-emerald-500/10 text-emerald-500"
@@ -437,23 +471,23 @@ export function LandingPage() {
                 {/* Phase 0 — parallel */}
                 <div>
                   <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Phase 0 &mdash; Parallel
+                    Step 1 &mdash; Parallel checks
                   </p>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                    <div className="flex items-center justify-between rounded-md border bg-background px-3 py-2 text-sm">
                       <div className="flex items-center gap-2">
                         <span className="size-2 rounded-full bg-emerald-400" />
-                        Analyst Bee
+                        Analyst Assistant
                       </div>
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <span>1.2s</span>
                         <Check className="size-4 text-emerald-400" />
                       </div>
                     </div>
-                    <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                    <div className="flex items-center justify-between rounded-md border bg-background px-3 py-2 text-sm">
                       <div className="flex items-center gap-2">
                         <span className="size-2 rounded-full bg-amber-400" />
-                        Compliance Bee
+                        Compliance Assistant
                       </div>
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <span>0.8s</span>
@@ -471,12 +505,12 @@ export function LandingPage() {
                 {/* Phase 1 */}
                 <div>
                   <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Phase 1
+                    Step 2 &mdash; Team context
                   </p>
-                  <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                  <div className="flex items-center justify-between rounded-md border bg-background px-3 py-2 text-sm">
                     <div className="flex items-center gap-2">
                       <span className="size-2 rounded-full bg-blue-400" />
-                      Manager Bee
+                      Manager Assistant
                     </div>
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <span>1.5s</span>
@@ -493,12 +527,12 @@ export function LandingPage() {
                 {/* Synthesis */}
                 <div>
                   <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Synthesis
+                    Step 3 &mdash; Final recommendation
                   </p>
-                  <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                  <div className="flex items-center justify-between rounded-md border bg-background px-3 py-2 text-sm">
                     <div className="flex items-center gap-2">
                       <span className="size-2 rounded-full bg-violet-400" />
-                      Assistant Bee
+                      Coordinator Assistant
                     </div>
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <span>0.6s</span>
@@ -508,8 +542,9 @@ export function LandingPage() {
                 </div>
 
                 {/* Result preview */}
-                <div className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-                  Result: 4 findings synthesized into executive summary
+                <div className="rounded-md border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+                  Result: a concise summary with findings, tradeoffs, and next
+                  actions
                 </div>
               </CardContent>
             </Card>
@@ -528,15 +563,18 @@ export function LandingPage() {
               Your workspace, your way
             </h2>
             <p className="mx-auto max-w-2xl text-muted-foreground">
-              Three pathways to organize work. Drag widgets, swap layouts, make
-              it yours.
+              Start with a layout that fits your team and shape it as your
+              workflows evolve.
             </p>
           </div>
           <div className="grid gap-6 sm:grid-cols-3">
             {pathways.map((pathway) => (
-              <Card key={pathway.title} className="border-muted/60">
+              <Card
+                key={pathway.title}
+                className="border-muted/60 transition-all duration-200 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg"
+              >
                 <CardHeader>
-                  <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-primary/10">
+                  <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-violet-500/10">
                     <pathway.icon className="size-5 text-primary" />
                   </div>
                   <CardTitle className="text-base">{pathway.title}</CardTitle>
@@ -551,12 +589,12 @@ export function LandingPage() {
             ))}
           </div>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-2 text-center text-xs text-muted-foreground">
-            {widgetTypes.map((widget, i) => (
-              <span key={widget}>
+            {widgetTypes.map((widget) => (
+              <span
+                key={widget}
+                className="rounded-full border bg-muted/40 px-3 py-1"
+              >
                 {widget}
-                {i < widgetTypes.length - 1 && (
-                  <span className="ml-2">&middot;</span>
-                )}
               </span>
             ))}
           </div>
@@ -566,7 +604,7 @@ export function LandingPage() {
       {/* How It Works */}
       <section
         id="how-it-works"
-        className="border-y bg-muted/30 px-4 py-16 sm:px-6 sm:py-24 lg:px-8"
+        className="border-y bg-gradient-to-b from-muted/30 to-muted/20 px-4 py-16 sm:px-6 sm:py-24 lg:px-8"
       >
         <div className="mx-auto max-w-6xl">
           <div className="mb-12 text-center">
@@ -574,20 +612,25 @@ export function LandingPage() {
               How it works
             </h2>
             <p className="mx-auto max-w-2xl text-muted-foreground">
-              Three steps from thought to action. Your PA handles the rest.
+              Tell Hive what you need and it takes care of the coordination.
             </p>
           </div>
           <div className="grid gap-8 sm:grid-cols-3">
             {steps.map((step) => (
-              <div key={step.number} className="text-center">
-                <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground">
-                  {step.number}
-                </div>
-                <h3 className="mb-2 text-lg font-semibold">{step.title}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {step.description}
-                </p>
-              </div>
+              <Card
+                key={step.number}
+                className="border-muted/60 bg-background/80 p-2 text-center shadow-sm"
+              >
+                <CardContent className="pt-6">
+                  <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground">
+                    {step.number}
+                  </div>
+                  <h3 className="mb-2 text-lg font-semibold">{step.title}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {step.description}
+                  </p>
+                </CardContent>
+              </Card>
             ))}
           </div>
         </div>
@@ -601,12 +644,12 @@ export function LandingPage() {
               Simple, transparent pricing
             </h2>
             <p className="mx-auto max-w-2xl text-muted-foreground">
-              Start free. Upgrade when your team needs the full PA experience.
+              Start free and upgrade when your team needs deeper automation.
             </p>
           </div>
           <div className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-2">
             {/* Free Plan */}
-            <Card>
+            <Card className="border-muted/70 shadow-sm">
               <CardHeader>
                 <CardTitle className="text-xl">Free</CardTitle>
                 <CardDescription>
@@ -631,21 +674,21 @@ export function LandingPage() {
                 </ul>
               </CardContent>
               <CardFooter>
-                <Button variant="outline" className="w-full" asChild>
+                <Button variant="outline" className="w-full rounded-full" asChild>
                   <Link href="/sign-up">Get Started Free</Link>
                 </Button>
               </CardFooter>
             </Card>
 
             {/* Pro Plan */}
-            <Card className="relative border-primary/50">
+            <Card className="relative border-primary/40 bg-gradient-to-b from-primary/5 to-background shadow-xl shadow-primary/10">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                 <Badge className="px-3">Most Popular</Badge>
               </div>
               <CardHeader>
                 <CardTitle className="text-xl">Pro</CardTitle>
                 <CardDescription>
-                  Full PA experience for growing teams
+                  Full assistant experience for growing teams
                 </CardDescription>
                 <div className="pt-2">
                   <span className="text-3xl font-bold">$3</span>
@@ -668,7 +711,7 @@ export function LandingPage() {
                 </ul>
               </CardContent>
               <CardFooter>
-                <Button className="w-full" asChild>
+                <Button className="w-full rounded-full" asChild>
                   <Link href="/sign-up">
                     Start Free Trial
                     <ChevronRight className="size-4" />
@@ -682,19 +725,22 @@ export function LandingPage() {
 
       {/* Final CTA */}
       <section className="border-t bg-muted/30 px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
-        <div className="mx-auto max-w-6xl text-center">
-          <h2 className="mb-3 text-3xl font-bold tracking-tight sm:text-4xl">
-            Ready to work with your AI assistant?
-          </h2>
-          <p className="mx-auto mb-8 max-w-xl text-muted-foreground">
-            Join teams who manage projects through conversation, not clicks.
-          </p>
-          <Button size="lg" asChild>
-            <Link href="/sign-up">
-              Get Started Free
-              <ArrowRight className="size-4" />
-            </Link>
-          </Button>
+        <div className="mx-auto max-w-6xl">
+          <div className="rounded-2xl border bg-gradient-to-br from-primary/10 via-background to-violet-500/10 px-6 py-12 text-center shadow-sm sm:px-10">
+            <h2 className="mb-3 text-3xl font-bold tracking-tight sm:text-4xl">
+              Ready to make work feel lighter?
+            </h2>
+            <p className="mx-auto mb-8 max-w-xl text-muted-foreground">
+              Join teams replacing status-chasing and busywork with clear
+              priorities and steady progress.
+            </p>
+            <Button size="lg" className="rounded-full px-8" asChild>
+              <Link href="/sign-up">
+                Get Started Free
+                <ArrowRight className="size-4" />
+              </Link>
+            </Button>
+          </div>
         </div>
       </section>
 
