@@ -11,6 +11,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
+  LiveBeeSwarmDemo,
+  LivePaConversationDemo,
+} from "@/components/landing/live-product-demos";
+import {
   Brain,
   Mic,
   Shield,
@@ -257,14 +261,14 @@ export function LandingPage() {
       {/* Hero Section */}
       <section className="relative overflow-hidden px-4 pb-16 pt-20 sm:px-6 sm:pb-24 sm:pt-28 lg:px-8">
         <div className="pointer-events-none absolute inset-0 -z-10">
-          <div className="absolute left-1/2 top-0 h-72 w-72 -translate-x-1/2 rounded-full bg-primary/15 blur-3xl" />
-          <div className="absolute right-10 top-32 h-56 w-56 rounded-full bg-violet-500/10 blur-3xl" />
+          <div className="absolute left-1/2 top-0 h-72 w-72 -translate-x-1/2 rounded-full bg-primary/15 blur-3xl demo-float-slow" />
+          <div className="absolute right-10 top-32 h-56 w-56 rounded-full bg-violet-500/10 blur-3xl demo-float-delay" />
         </div>
         <div className="mx-auto max-w-6xl">
           <div className="mx-auto max-w-3xl text-center">
             <Badge
               variant="secondary"
-              className="mb-6 border border-primary/20 bg-primary/5 px-3 py-1 text-sm"
+              className="mb-6 border border-primary/20 bg-primary/5 px-3 py-1 text-sm demo-fade-up"
             >
               Project management that feels simpler
             </Badge>
@@ -298,10 +302,11 @@ export function LandingPage() {
           </div>
 
           <div className="mx-auto mt-10 grid max-w-2xl grid-cols-3 gap-3 sm:gap-4">
-            {heroStats.map((stat) => (
+            {heroStats.map((stat, index) => (
               <div
                 key={stat.label}
-                className="rounded-xl border bg-background/70 px-3 py-3 text-center shadow-sm"
+                className="rounded-xl border bg-background/70 px-3 py-3 text-center shadow-sm demo-fade-up"
+                style={{ animationDelay: `${index * 120}ms` }}
               >
                 <p className="text-lg font-semibold sm:text-xl">{stat.value}</p>
                 <p className="text-xs text-muted-foreground">{stat.label}</p>
@@ -311,61 +316,7 @@ export function LandingPage() {
 
           {/* Mock PA Conversation */}
           <div className="mx-auto mt-16 max-w-lg">
-            <Card className="overflow-hidden border-primary/20 shadow-xl shadow-primary/5">
-              <CardHeader className="border-b bg-muted/50 pb-3 pt-4">
-                <div className="flex items-center gap-2">
-                  <div className="flex size-7 items-center justify-center rounded-full bg-primary">
-                    <Brain className="size-4 text-primary-foreground" />
-                  </div>
-                  <CardTitle className="text-sm">Hive PA</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-4">
-                <div className="flex justify-end">
-                  <div className="rounded-2xl rounded-br-md bg-primary px-4 py-2 text-sm text-primary-foreground">
-                    Audit our Q1 launch readiness &mdash; check task completion,
-                    team workload, and compliance risks
-                  </div>
-                </div>
-                <div className="flex justify-start">
-                  <div className="rounded-2xl rounded-bl-md bg-muted px-4 py-2 text-sm">
-                    Working on it. I am checking progress, team capacity, and
-                    policy risks now.
-                  </div>
-                </div>
-                {/* Swarm mini-visualization */}
-                <div className="mx-4 space-y-1.5 rounded-lg border bg-muted/30 px-3 py-2.5 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-emerald-400" />
-                    <span className="text-muted-foreground">
-                      Analyst Assistant
-                    </span>
-                    <Check className="ml-auto size-3 text-emerald-400" />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-blue-400" />
-                    <span className="text-muted-foreground">
-                      Manager Assistant
-                    </span>
-                    <Check className="ml-auto size-3 text-blue-400" />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-amber-400" />
-                    <span className="text-muted-foreground">
-                      Compliance Assistant
-                    </span>
-                    <Check className="ml-auto size-3 text-amber-400" />
-                  </div>
-                </div>
-                <div className="flex justify-start">
-                  <div className="rounded-2xl rounded-bl-md bg-muted px-4 py-2 text-sm">
-                    Launch readiness: 87% tasks complete, 3 blockers on design
-                    track. Sarah is overloaded &mdash; I&apos;ve drafted a
-                    rebalance. One flag: privacy review not signed off.
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <LivePaConversationDemo />
           </div>
         </div>
       </section>
@@ -456,98 +407,8 @@ export function LandingPage() {
               ))}
             </div>
 
-            {/* Right column — Swarm flow card */}
-            <Card className="border-primary/20 shadow-lg shadow-primary/5">
-              <CardHeader className="flex-row items-center justify-between space-y-0 pb-4">
-                <CardTitle className="text-base">How Hive Handles Complexity</CardTitle>
-                <Badge
-                  variant="secondary"
-                  className="bg-emerald-500/10 text-emerald-500"
-                >
-                  Completed
-                </Badge>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Phase 0 — parallel */}
-                <div>
-                  <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Step 1 &mdash; Parallel checks
-                  </p>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between rounded-md border bg-background px-3 py-2 text-sm">
-                      <div className="flex items-center gap-2">
-                        <span className="size-2 rounded-full bg-emerald-400" />
-                        Analyst Assistant
-                      </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <span>1.2s</span>
-                        <Check className="size-4 text-emerald-400" />
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between rounded-md border bg-background px-3 py-2 text-sm">
-                      <div className="flex items-center gap-2">
-                        <span className="size-2 rounded-full bg-amber-400" />
-                        Compliance Assistant
-                      </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <span>0.8s</span>
-                        <Check className="size-4 text-amber-400" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Arrow handover */}
-                <div className="flex justify-center">
-                  <ArrowDown className="size-5 text-muted-foreground" />
-                </div>
-
-                {/* Phase 1 */}
-                <div>
-                  <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Step 2 &mdash; Team context
-                  </p>
-                  <div className="flex items-center justify-between rounded-md border bg-background px-3 py-2 text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="size-2 rounded-full bg-blue-400" />
-                      Manager Assistant
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <span>1.5s</span>
-                      <Check className="size-4 text-blue-400" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Arrow handover */}
-                <div className="flex justify-center">
-                  <ArrowDown className="size-5 text-muted-foreground" />
-                </div>
-
-                {/* Synthesis */}
-                <div>
-                  <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Step 3 &mdash; Final recommendation
-                  </p>
-                  <div className="flex items-center justify-between rounded-md border bg-background px-3 py-2 text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="size-2 rounded-full bg-violet-400" />
-                      Coordinator Assistant
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <span>0.6s</span>
-                      <Check className="size-4 text-violet-400" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Result preview */}
-                <div className="rounded-md border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-                  Result: a concise summary with findings, tradeoffs, and next
-                  actions
-                </div>
-              </CardContent>
-            </Card>
+            {/* Right column — Live swarm flow card */}
+            <LiveBeeSwarmDemo />
           </div>
         </div>
       </section>

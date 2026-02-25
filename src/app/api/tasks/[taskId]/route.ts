@@ -197,16 +197,15 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const deleted = await deleteTask(taskId);
-
     await logActivity({
       orgId: auth.orgId,
       projectId: task.projectId,
-      taskId,
       userId: auth.userId,
       type: "task_deleted",
-      metadata: { taskTitle: task.title },
+      metadata: { taskId, taskTitle: task.title },
     });
+
+    const deleted = await deleteTask(taskId);
 
     return Response.json({ data: deleted });
   } catch (error) {

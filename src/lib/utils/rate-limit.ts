@@ -4,13 +4,27 @@ import { Redis } from "@upstash/redis";
 // ─── Lazy singleton Redis client ────────────────────────
 
 let _redis: Redis | null = null;
+let _redisAvailable: boolean | null = null;
 
-function getRedis(): Redis {
+function isRedisConfigured(): boolean {
+  return !!(
+    process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+  );
+}
+
+function getRedis(): Redis | null {
+  if (_redisAvailable === false) return null;
+
   if (!_redis) {
+    if (!isRedisConfigured()) {
+      _redisAvailable = false;
+      return null;
+    }
     _redis = new Redis({
       url: process.env.UPSTASH_REDIS_REST_URL!,
       token: process.env.UPSTASH_REDIS_REST_TOKEN!,
     });
+    _redisAvailable = true;
   }
   return _redis;
 }
@@ -19,13 +33,16 @@ function getRedis(): Redis {
 
 const limiters = new Map<string, Ratelimit>();
 
-function getLimiter(limit: number, windowMs: number): Ratelimit {
+function getLimiter(limit: number, windowMs: number): Ratelimit | null {
+  const redis = getRedis();
+  if (!redis) return null;
+
   const key = `${limit}:${windowMs}`;
   let limiter = limiters.get(key);
   if (!limiter) {
     const windowS = `${Math.ceil(windowMs / 1000)} s` as `${number} s`;
     limiter = new Ratelimit({
-      redis: getRedis(),
+      redis,
       limiter: Ratelimit.slidingWindow(limit, windowS),
       prefix: "hive:rl",
     });
@@ -48,6 +65,12 @@ export async function rateLimit(
   windowMs: number
 ): Promise<RateLimitResult> {
   const limiter = getLimiter(limit, windowMs);
+
+  // When Redis is not configured, allow all requests
+  if (!limiter) {
+    return { success: true, remaining: limit, resetAt: Date.now() + windowMs };
+  }
+
   const result = await limiter.limit(key);
 
   return {
