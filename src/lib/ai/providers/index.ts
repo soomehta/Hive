@@ -3,6 +3,43 @@ import type { AIRole } from "./config";
 import { getRoleConfig, resolveApiKey } from "./config";
 import { OpenAIAdapter } from "./openai-adapter";
 import { AnthropicAdapter } from "./anthropic-adapter";
+import { createLogger } from "@/lib/logger";
+
+const retryLog = createLogger("ai-retry");
+
+const RETRYABLE_STATUS_CODES = [429, 500, 502, 503, 529];
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 1000;
+
+async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await fn();
+    } catch (error: unknown) {
+      lastError = error;
+
+      const status = (error as { status?: number })?.status;
+      const isRetryable =
+        status !== undefined && RETRYABLE_STATUS_CODES.includes(status);
+
+      if (!isRetryable || attempt === MAX_RETRIES) {
+        throw error;
+      }
+
+      const jitter = Math.random() * 500;
+      const delay = BASE_DELAY_MS * Math.pow(2, attempt) + jitter;
+      retryLog.warn(
+        { attempt: attempt + 1, status, delay: Math.round(delay), label },
+        "Retrying AI provider call"
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  throw lastError;
+}
 
 export type { ChatProvider, EmbeddingProvider } from "./types";
 export type {
@@ -93,13 +130,46 @@ export async function chatCompletion(
   const config = getRoleConfig(role);
   const provider = getChatProvider(role);
 
-  const result = await provider.chat({
-    model: config.model,
-    messages: params.messages,
-    temperature: params.temperature ?? config.temperature,
-    maxTokens: params.maxTokens ?? config.maxTokens,
-    jsonMode: params.jsonMode,
-  });
+  const result = await withRetry(
+    () =>
+      provider.chat({
+        model: config.model,
+        messages: params.messages,
+        temperature: params.temperature ?? config.temperature,
+        maxTokens: params.maxTokens ?? config.maxTokens,
+        jsonMode: params.jsonMode,
+      }),
+    `chatCompletion:${role}`
+  );
 
   return result.content;
+}
+
+/**
+ * Convenience: perform a chat completion with retry and return the full result
+ * (content + usage). Useful when you need token counts.
+ */
+export async function chatCompletionWithUsage(
+  role: AIRole,
+  params: {
+    messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+    temperature?: number;
+    maxTokens?: number;
+    jsonMode?: boolean;
+  }
+) {
+  const config = getRoleConfig(role);
+  const provider = getChatProvider(role);
+
+  return withRetry(
+    () =>
+      provider.chat({
+        model: config.model,
+        messages: params.messages,
+        temperature: params.temperature ?? config.temperature,
+        maxTokens: params.maxTokens ?? config.maxTokens,
+        jsonMode: params.jsonMode,
+      }),
+    `chatCompletionWithUsage:${role}`
+  );
 }

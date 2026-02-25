@@ -88,3 +88,20 @@ export interface LearningJob {
   /** Whether the user edited the planned payload before approval */
   wasEdited: boolean;
 }
+
+export interface SwarmExecutionJob {
+  /** Pre-created swarm session UUID — the session row already exists when this job is enqueued */
+  swarmSessionId: string;
+  /** Clerk user ID who triggered the swarm */
+  userId: string;
+  /** Organization UUID */
+  orgId: string;
+  /** Original PA chat message that triggered swarm dispatch */
+  triggerMessage: string;
+  /** Full dispatch plan (bees, phases, complexity score) serialised as JSON */
+  dispatchPlan: import("@/types/bees").DispatchPlan;
+  /** PA profile verbosity setting, forwarded to the synthesis prompt */
+  verbosity: string;
+  /** PA profile formality setting, forwarded to the synthesis prompt */
+  formality: string;
+}

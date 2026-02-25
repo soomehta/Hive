@@ -6,6 +6,7 @@ interface PlanContext {
   autonomyMode: string;
   verbosity: string;
   formality: string;
+  ragContext?: string;
 }
 
 interface PlanResult {

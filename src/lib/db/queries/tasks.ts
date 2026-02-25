@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { tasks, taskComments } from "@/lib/db/schema";
-import { eq, and, ilike, lt, desc, asc, sql } from "drizzle-orm";
+import { eq, and, ilike, lt, desc, asc, sql, or } from "drizzle-orm";
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -70,8 +70,35 @@ export async function getTasks(filters: TaskFilters) {
     conditions.push(ilike(tasks.title, `%${escapedSearch}%`));
   }
 
+  // Compound cursor: "ISO_TIMESTAMP_ID" for stable pagination
   if (cursor) {
-    conditions.push(lt(tasks.id, cursor));
+    const sepIndex = cursor.indexOf("_");
+    if (sepIndex > 0) {
+      const cursorDate = new Date(cursor.slice(0, sepIndex));
+      const cursorId = cursor.slice(sepIndex + 1);
+      if (!isNaN(cursorDate.getTime())) {
+        // For desc: get rows where (createdAt < cursorDate) OR (createdAt = cursorDate AND id < cursorId)
+        // For asc: get rows where (createdAt > cursorDate) OR (createdAt = cursorDate AND id > cursorId)
+        if (order === "asc") {
+          conditions.push(
+            or(
+              sql`${tasks.createdAt} > ${cursorDate}`,
+              and(sql`${tasks.createdAt} = ${cursorDate}`, sql`${tasks.id} > ${cursorId}`)
+            )!
+          );
+        } else {
+          conditions.push(
+            or(
+              sql`${tasks.createdAt} < ${cursorDate}`,
+              and(sql`${tasks.createdAt} = ${cursorDate}`, sql`${tasks.id} < ${cursorId}`)
+            )!
+          );
+        }
+      }
+    } else {
+      // Backwards-compatible: plain UUID cursor (legacy)
+      conditions.push(lt(tasks.id, cursor));
+    }
   }
 
   // Determine sort column
@@ -94,7 +121,10 @@ export async function getTasks(filters: TaskFilters) {
 
   const hasMore = data.length > limit;
   const results = hasMore ? data.slice(0, limit) : data;
-  const nextCursor = hasMore ? results[results.length - 1].id : null;
+  const lastItem = results[results.length - 1];
+  const nextCursor = hasMore && lastItem
+    ? `${lastItem.createdAt.toISOString()}_${lastItem.id}`
+    : null;
 
   return { data: results, nextCursor };
 }

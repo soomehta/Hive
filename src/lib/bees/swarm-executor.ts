@@ -25,6 +25,13 @@ interface SwarmInput {
   dispatchPlan: DispatchPlan;
   verbosity: string;
   formality: string;
+  /**
+   * When provided, the executor uses this existing swarm session instead of
+   * creating a new one.  The HTTP handler pre-creates the session so it can
+   * return the session ID to the client immediately, then enqueues the actual
+   * work as a BullMQ job that passes the ID back here.
+   */
+  existingSwarmSessionId?: string;
 }
 
 interface SwarmResult {
@@ -38,14 +45,29 @@ export async function executeSwarm(input: SwarmInput): Promise<SwarmResult> {
   const startTime = Date.now();
   let totalTokens = 0;
 
-  // Create swarm session
-  const session = await createSwarmSession({
-    orgId: input.orgId,
-    userId: input.userId,
-    conversationId: input.conversationId,
-    triggerMessage: input.triggerMessage,
-    dispatchPlan: input.dispatchPlan,
-  });
+  // Use a pre-created session if the caller already persisted one (e.g. the
+  // HTTP handler created it before handing off to BullMQ), otherwise create
+  // a fresh session here.
+  const session = input.existingSwarmSessionId
+    ? await (async () => {
+        const { getSwarmSession } = await import(
+          "@/lib/db/queries/swarm-sessions"
+        );
+        const existing = await getSwarmSession(input.existingSwarmSessionId!);
+        if (!existing) {
+          throw new Error(
+            `Swarm session not found: ${input.existingSwarmSessionId}`
+          );
+        }
+        return existing;
+      })()
+    : await createSwarmSession({
+        orgId: input.orgId,
+        userId: input.userId,
+        conversationId: input.conversationId,
+        triggerMessage: input.triggerMessage,
+        dispatchPlan: input.dispatchPlan,
+      });
 
   try {
     // Log swarm started

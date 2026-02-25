@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { activityLog } from "@/lib/db/schema";
-import { eq, and, desc, lt, sql } from "drizzle-orm";
+import { eq, and, desc, lt, sql, or } from "drizzle-orm";
 
 interface LogActivityParams {
   orgId: string;
@@ -57,23 +57,42 @@ export async function getActivityFeed(params: GetActivityFeedParams) {
   if (type) {
     conditions.push(eq(activityLog.type, type as typeof activityLog.$inferInsert.type));
   }
+  // Compound cursor: "ISO_TIMESTAMP_ID" for stable pagination
   if (cursor) {
-    conditions.push(lt(activityLog.id, cursor));
+    const sepIndex = cursor.indexOf("_");
+    if (sepIndex > 0) {
+      const cursorDate = new Date(cursor.slice(0, sepIndex));
+      const cursorId = cursor.slice(sepIndex + 1);
+      if (!isNaN(cursorDate.getTime())) {
+        conditions.push(
+          or(
+            sql`${activityLog.createdAt} < ${cursorDate}`,
+            and(sql`${activityLog.createdAt} = ${cursorDate}`, sql`${activityLog.id} < ${cursorId}`)
+          )!
+        );
+      }
+    } else {
+      // Backwards-compatible: plain UUID cursor (legacy)
+      conditions.push(lt(activityLog.id, cursor));
+    }
   }
 
   const entries = await db
     .select()
     .from(activityLog)
     .where(and(...conditions))
-    .orderBy(desc(activityLog.createdAt))
+    .orderBy(desc(activityLog.createdAt), desc(activityLog.id))
     .limit(limit + 1);
 
   const hasMore = entries.length > limit;
   const data = hasMore ? entries.slice(0, limit) : entries;
+  const lastItem = data[data.length - 1];
 
   return {
     data,
-    nextCursor: hasMore ? data[data.length - 1].id : null,
+    nextCursor: hasMore && lastItem
+      ? `${lastItem.createdAt.toISOString()}_${lastItem.id}`
+      : null,
     hasMore,
   };
 }

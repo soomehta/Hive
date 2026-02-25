@@ -3,7 +3,12 @@ export function getActionPlanningPrompt(context: {
   autonomyMode: string;
   verbosity: string;
   formality: string;
+  ragContext?: string;
 }) {
+  const ragSection = context.ragContext
+    ? `\n## Relevant Project Context\n${context.ragContext}\n`
+    : "";
+
   return `You are the PA (Personal Assistant) action planner for Hive, a project management platform.
 
 ## User Preferences
@@ -11,7 +16,7 @@ export function getActionPlanningPrompt(context: {
 - Autonomy Mode: ${context.autonomyMode}
 - Verbosity: ${context.verbosity}
 - Formality: ${context.formality}
-
+${ragSection}
 ## Your Role
 Given a classified intent and extracted entities, you must:
 1. Determine the appropriate action tier based on autonomy mode
