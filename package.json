@@ -9,6 +9,8 @@
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:post-migrate": "tsx scripts/post-migrate.ts",
+    "db:setup": "drizzle-kit migrate && tsx scripts/post-migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
     "worker": "tsx scripts/worker.ts",
     "test": "vitest",

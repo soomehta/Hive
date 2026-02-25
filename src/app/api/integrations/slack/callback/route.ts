@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
       { cookies: { getAll: () => req.cookies.getAll(), setAll: () => {} } }
     );
     const { data: { user } } = await supabase.auth.getUser();
-    if (user && user.id !== state.userId) {
+    if (!user || user.id !== state.userId) {
       return Response.redirect(new URL("/dashboard/integrations?error=user_mismatch", req.url));
     }
 

@@ -94,10 +94,10 @@ export async function saveDashboardLayout(data: {
   return created;
 }
 
-export async function deleteDashboardLayout(layoutId: string) {
+export async function deleteDashboardLayout(layoutId: string, orgId: string) {
   const [deleted] = await db
     .delete(dashboardLayouts)
-    .where(eq(dashboardLayouts.id, layoutId))
+    .where(and(eq(dashboardLayouts.id, layoutId), eq(dashboardLayouts.orgId, orgId)))
     .returning();
 
   return deleted;
