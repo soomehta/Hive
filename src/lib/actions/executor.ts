@@ -11,6 +11,7 @@ import { handlePostMessage } from "./handlers/post-message";
 import { handleFlagBlocker } from "./handlers/flag-blocker";
 import { handleCalendarBlock } from "./handlers/calendar-block";
 import { handleCalendarEvent } from "./handlers/calendar-event";
+import { handleCalendarReschedule } from "./handlers/calendar-reschedule";
 import { handleSendEmail } from "./handlers/send-email";
 import { handleSendSlack } from "./handlers/send-slack";
 import { handleGenerateReport } from "./handlers/generate-report";
@@ -32,6 +33,7 @@ const HANDLER_MAP: Record<string, (action: PAAction) => Promise<ExecutionResult>
   "flag-blocker": handleFlagBlocker,
   "calendar-block": handleCalendarBlock,
   "calendar-event": handleCalendarEvent,
+  "calendar-reschedule": handleCalendarReschedule,
   "send-email": handleSendEmail,
   "send-slack": handleSendSlack,
   "generate-report": handleGenerateReport,

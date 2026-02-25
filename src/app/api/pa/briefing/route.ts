@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { rateLimit, rateLimitResponse } from "@/lib/utils/rate-limit";
 import { getOrCreatePaProfile } from "@/lib/db/queries/pa-profiles";
 import { getTasks } from "@/lib/db/queries/tasks";
 import { getActivityFeed } from "@/lib/db/queries/activity";
@@ -8,12 +9,16 @@ import {
   type BriefingContext,
 } from "@/lib/ai/briefing-generator";
 import { createLogger } from "@/lib/logger";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 const log = createLogger("pa-briefing");
 
 export async function GET(req: NextRequest) {
   try {
     const auth = await authenticateRequest(req);
+    const rl = await rateLimit(`briefing:${auth.userId}`, 10, 60_000);
+    if (!rl.success) return rateLimitResponse(rl);
+
     const profile = await getOrCreatePaProfile(auth.userId, auth.orgId);
 
     const now = new Date();
@@ -120,10 +125,21 @@ export async function GET(req: NextRequest) {
     const dayOfWeek = days[userNow.getDay()];
     const dateStr = userNow.toISOString().split("T")[0];
 
+    // ── Resolve user display name ───────────────────
+    let userName = auth.userId.slice(0, 8);
+    let firstName = "there";
+    try {
+      const { data } = await supabaseAdmin.auth.admin.getUserById(auth.userId);
+      if (data?.user) {
+        userName = data.user.user_metadata?.full_name || data.user.email?.split("@")[0] || userName;
+        firstName = userName.split(" ")[0] ?? "there";
+      }
+    } catch { /* best-effort */ }
+
     // ── Generate AI briefing narrative ───────────────────
     const briefingContext: BriefingContext = {
-      userName: auth.userId,
-      firstName: auth.userId.split("_")[0] ?? "there",
+      userName,
+      firstName,
       date: dateStr,
       dayOfWeek,
       timezone: userTimezone,

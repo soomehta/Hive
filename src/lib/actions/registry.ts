@@ -29,7 +29,7 @@ export const ACTION_REGISTRY: Record<string, ActionRegistryEntry> = {
   // Tier 3: Draft + Approve
   post_message: { defaultTier: "draft_approve", handler: "post-message", description: "Post message" },
   calendar_event: { defaultTier: "draft_approve", handler: "calendar-event", description: "Schedule meeting", requiresIntegration: "google" },
-  calendar_reschedule: { defaultTier: "draft_approve", handler: "calendar-event", description: "Reschedule meeting", requiresIntegration: "google" },
+  calendar_reschedule: { defaultTier: "draft_approve", handler: "calendar-reschedule", description: "Reschedule meeting", requiresIntegration: "google" },
   send_email: { defaultTier: "draft_approve", handler: "send-email", description: "Send email", requiresIntegration: "google" },
   send_slack: { defaultTier: "draft_approve", handler: "send-slack", description: "Send Slack message", requiresIntegration: "slack" },
   delete_task: { defaultTier: "draft_approve", handler: "delete-task", description: "Delete a task" },

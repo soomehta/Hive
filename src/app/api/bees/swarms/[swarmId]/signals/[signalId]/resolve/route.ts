@@ -1,7 +1,9 @@
 import { NextRequest } from "next/server";
 import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
 import { getSwarmSession } from "@/lib/db/queries/swarm-sessions";
-import { resolveSignal } from "@/lib/bees/signals";
+import { resolveSignal, hasHoldSignal } from "@/lib/bees/signals";
+import { getSwarmExecutionQueue } from "@/lib/queue";
+import type { SwarmExecutionJob } from "@/lib/queue/jobs";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("api-signal-resolve");
@@ -23,6 +25,25 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     const resolved = await resolveSignal(signalId);
     if (!resolved) {
       return Response.json({ error: "Signal not found" }, { status: 404 });
+    }
+
+    // If the swarm was paused and no more hold signals remain, resume it
+    if (session.status === "paused") {
+      const stillHolding = await hasHoldSignal(swarmId);
+      if (!stillHolding) {
+        log.info({ swarmId }, "Resuming paused swarm after signal resolution");
+        const dispatchPlan = session.dispatchPlan as any;
+        const resumeJob: SwarmExecutionJob = {
+          swarmSessionId: swarmId,
+          userId: session.userId,
+          orgId: session.orgId,
+          triggerMessage: session.triggerMessage,
+          dispatchPlan,
+          verbosity: "normal",
+          formality: "neutral",
+        };
+        await getSwarmExecutionQueue().add("execute-swarm", resumeJob);
+      }
     }
 
     return Response.json(resolved);

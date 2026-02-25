@@ -10,6 +10,20 @@ import type { BeeTemplate, BeeInstance } from "@/types/bees";
 
 const log = createLogger("bee-runner");
 
+const BEE_RUN_TIMEOUT_MS = 30_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`Bee run timed out after ${ms}ms: ${label}`));
+    }, ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
 interface BeeRunInput {
   runId: string;
   swarmSessionId: string;
@@ -62,12 +76,16 @@ export async function executeBeeRun(input: BeeRunInput): Promise<{
     const config = getRoleConfig("bee-runner");
     const provider = getChatProvider("bee-runner");
 
-    const aiResult = await provider.chat({
-      model: config.model,
-      messages: [{ role: "user", content: prompt }],
-      temperature: config.temperature,
-      maxTokens: config.maxTokens,
-    });
+    const aiResult = await withTimeout(
+      provider.chat({
+        model: config.model,
+        messages: [{ role: "user", content: prompt }],
+        temperature: config.temperature,
+        maxTokens: config.maxTokens,
+      }),
+      BEE_RUN_TIMEOUT_MS,
+      input.instance.name
+    );
 
     const durationMs = Date.now() - startTime;
     const tokensUsed = aiResult.usage?.totalTokens ?? 0;

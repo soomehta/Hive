@@ -1,5 +1,8 @@
 import { createMessage } from "@/lib/db/queries/messages";
 import { logActivity } from "@/lib/db/queries/activity";
+import { db } from "@/lib/db";
+import { projectMembers } from "@/lib/db/schema";
+import { and, eq } from "drizzle-orm";
 import type { PAAction } from "@/types/pa";
 import type { ExecutionResult } from "../executor";
 
@@ -8,6 +11,16 @@ export async function handlePostMessage(action: PAAction): Promise<ExecutionResu
 
   if (!payload.projectId || !payload.content) {
     return { success: false, error: "Project ID and content are required" };
+  }
+
+  const membership = await db.query.projectMembers.findFirst({
+    where: and(
+      eq(projectMembers.projectId, payload.projectId),
+      eq(projectMembers.userId, action.userId)
+    ),
+  });
+  if (!membership) {
+    return { success: false, error: "You don't have access to this project" };
   }
 
   const message = await createMessage({

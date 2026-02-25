@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { usePAChat } from "@/hooks/use-pa";
+import { usePAChat, usePAConversationHistory } from "@/hooks/use-pa";
 import { PAMessage } from "./pa-message";
 import { PAInput } from "./pa-input";
 import { PAActionCard } from "./pa-action-card";
@@ -13,16 +13,31 @@ interface ChatMessage {
   action?: any;
 }
 
+const WELCOME_MESSAGE: ChatMessage = {
+  id: "welcome",
+  role: "assistant",
+  content: "Hi! I'm your Hive PA. Try asking me:\n\n• \"Create a task for design review by Friday\"\n• \"What's blocking the project?\"\n• \"Block my calendar for deep work tomorrow\"\n• \"How's the team doing this week?\"",
+};
+
 export function PAChat() {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "welcome",
-      role: "assistant",
-      content: "Hi! I'm your Hive PA. Try asking me:\n\n• \"Create a task for design review by Friday\"\n• \"What's blocking the project?\"\n• \"Block my calendar for deep work tomorrow\"\n• \"How's the team doing this week?\"",
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const { sendMessage, sendVoice } = usePAChat();
+  const { data: history } = usePAConversationHistory(20);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Load conversation history on mount
+  useEffect(() => {
+    if (history && history.length > 0 && !historyLoaded) {
+      const restored: ChatMessage[] = history.map((msg) => ({
+        id: msg.id,
+        role: msg.role as "user" | "assistant",
+        content: msg.content,
+      }));
+      setMessages([WELCOME_MESSAGE, ...restored]);
+      setHistoryLoaded(true);
+    }
+  }, [history, historyLoaded]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });

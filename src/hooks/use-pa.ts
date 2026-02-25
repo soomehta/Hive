@@ -119,3 +119,22 @@ export function usePABriefing() {
     staleTime: 5 * 60 * 1000,
   });
 }
+
+export function usePAConversationHistory(limit: number = 20) {
+  return useQuery({
+    queryKey: ["pa-conversations", limit],
+    queryFn: async () => {
+      const res = await apiClient(`/api/pa/chat?limit=${limit}`);
+      if (!res.ok) throw new Error("Failed to fetch conversations");
+      const json = await res.json();
+      return json.data as Array<{
+        id: string;
+        role: string;
+        content: string;
+        metadata: Record<string, any> | null;
+        createdAt: string;
+      }>;
+    },
+    staleTime: 30_000,
+  });
+}

@@ -262,3 +262,22 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+
+export async function GET(req: NextRequest) {
+  try {
+    const auth = await authenticateRequest(req);
+    const { searchParams } = new URL(req.url);
+    const limit = Math.min(Math.max(1, Number(searchParams.get("limit")) || 20), 50);
+
+    const messages = await getRecentConversations(auth.userId, auth.orgId, limit);
+
+    // Reverse to chronological order (getRecentConversations returns newest first)
+    return Response.json({ data: messages.reverse() });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return Response.json({ error: error.message }, { status: error.statusCode });
+    }
+    log.error({ err: error }, "PA chat history error");
+    return Response.json({ error: "Internal server error" }, { status: 500 });
+  }
+}

@@ -17,6 +17,8 @@ import type { DispatchPlan, DispatchBee } from "@/types/bees";
 
 const log = createLogger("swarm-executor");
 
+const SWARM_TIMEOUT_MS = 120_000; // 2 minutes max for entire swarm
+
 interface SwarmInput {
   orgId: string;
   userId: string;
@@ -113,6 +115,21 @@ export async function executeSwarm(input: SwarmInput): Promise<SwarmResult> {
     let previousPhaseRunIds: string[] = [];
 
     for (const [, phaseRuns] of sortedPhases) {
+      // Check overall swarm timeout
+      if (Date.now() - startTime > SWARM_TIMEOUT_MS) {
+        log.warn({ sessionId: session.id }, "Swarm timed out");
+        await updateSwarmSession(session.id, {
+          status: "failed",
+          result: { error: "Swarm execution timed out" },
+        });
+        return {
+          swarmSessionId: session.id,
+          synthesizedResponse: "The bee swarm timed out. Please try a simpler request.",
+          totalTokens,
+          totalDurationMs: Date.now() - startTime,
+        };
+      }
+
       // Check for hold signals before each phase
       if (await hasHoldSignal(session.id)) {
         await updateSwarmSession(session.id, { status: "paused" });

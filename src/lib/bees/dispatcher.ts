@@ -10,6 +10,7 @@ import { createLogger } from "@/lib/logger";
 const log = createLogger("bee-dispatcher");
 
 const SWARM_THRESHOLD = 30;
+const MAX_BEES_PER_SWARM = 6;
 
 interface DispatchInput {
   message: string;
@@ -99,6 +100,11 @@ function selectBees(
 
   // Sort by order, then relevance
   scored.sort((a, b) => a.order - b.order || b.relevanceScore - a.relevanceScore);
+
+  // Cap total bees to prevent runaway cost
+  if (scored.length > MAX_BEES_PER_SWARM) {
+    scored.splice(MAX_BEES_PER_SWARM);
+  }
 
   // Ensure assistant bee is last for synthesis
   const assistantIdx = scored.findIndex((b) => b.type === "assistant");
