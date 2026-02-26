@@ -493,6 +493,52 @@ export const messagesRelations = relations(messages, ({ one }) => ({
   }),
 }));
 
+// ─── Files ──────────────────────────────────────────────
+
+export const files = pgTable(
+  "files",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    orgId: uuid("org_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    projectId: uuid("project_id")
+      .references(() => projects.id, { onDelete: "cascade" })
+      .notNull(),
+    taskId: uuid("task_id").references(() => tasks.id, {
+      onDelete: "set null",
+    }),
+    uploadedBy: varchar("uploaded_by", { length: 255 }).notNull(),
+    fileName: varchar("file_name", { length: 500 }).notNull(),
+    fileSize: integer("file_size").notNull(),
+    mimeType: varchar("mime_type", { length: 255 }).notNull(),
+    r2Key: varchar("r2_key", { length: 1000 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("files_project_idx").on(table.projectId),
+    index("files_org_idx").on(table.orgId),
+    index("files_task_idx").on(table.taskId),
+  ]
+);
+
+export const filesRelations = relations(files, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [files.orgId],
+    references: [organizations.id],
+  }),
+  project: one(projects, {
+    fields: [files.projectId],
+    references: [projects.id],
+  }),
+  task: one(tasks, {
+    fields: [files.taskId],
+    references: [tasks.id],
+  }),
+}));
+
 // ─── Activity Log ────────────────────────────────────────
 
 export const activityLog = pgTable(

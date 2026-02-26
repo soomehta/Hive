@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod/v4";
 import { apiClient } from "@/lib/utils/api-client";
 import { useOrg } from "@/hooks/use-org";
+import { createClient } from "@/lib/supabase/client";
 import { createMessageSchema } from "@/lib/utils/validation";
 import { relativeDate } from "@/lib/utils/dates";
 import {
@@ -35,7 +36,23 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Plus, MessageSquare, Pin } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Plus, MessageSquare, Pin, MoreVertical, Pencil, Trash2, PinOff } from "lucide-react";
 import type { Message } from "@/types";
 import { getUserDisplayName, getUserInitials } from "@/lib/utils/user-display";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
@@ -50,6 +67,20 @@ export function PageClient() {
   const queryClient = useQueryClient();
 
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchUser() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setCurrentUserId(user.id);
+    }
+    fetchUser();
+  }, []);
 
   const { data: project } = useQuery({
     queryKey: ["project", projectId],
@@ -100,6 +131,89 @@ export function PageClient() {
       toast.error(error.message || "Failed to post message");
     },
   });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ messageId, data }: { messageId: string; data: { title?: string | null; content?: string } }) => {
+      const res = await apiClient(`/api/messages/${messageId}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || "Failed to update message");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast.success("Message updated");
+      queryClient.invalidateQueries({ queryKey: ["project-messages", projectId] });
+      setEditingId(null);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to update message");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (messageId: string) => {
+      const res = await apiClient(`/api/messages/${messageId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || "Failed to delete message");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast.success("Message deleted");
+      queryClient.invalidateQueries({ queryKey: ["project-messages", projectId] });
+      setDeleteConfirmId(null);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to delete message");
+    },
+  });
+
+  const pinMutation = useMutation({
+    mutationFn: async ({ messageId, isPinned }: { messageId: string; isPinned: boolean }) => {
+      const res = await apiClient(`/api/messages/${messageId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isPinned }),
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || "Failed to update pin");
+      }
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      toast.success(variables.isPinned ? "Message pinned" : "Message unpinned");
+      queryClient.invalidateQueries({ queryKey: ["project-messages", projectId] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to toggle pin");
+    },
+  });
+
+  function startEditing(msg: Message) {
+    setEditingId(msg.id);
+    setEditContent(msg.content);
+    setEditTitle(msg.title ?? "");
+  }
+
+  function cancelEditing() {
+    setEditingId(null);
+    setEditContent("");
+    setEditTitle("");
+  }
+
+  function saveEdit(messageId: string) {
+    updateMutation.mutate({
+      messageId,
+      data: { title: editTitle || null, content: editContent },
+    });
+  }
 
   const {
     register,
@@ -197,59 +311,158 @@ export function PageClient() {
         </div>
       ) : (
         <div className="space-y-4">
-          {sortedMessages.map((msg) => (
-            <Card key={msg.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <Avatar>
-                      <AvatarFallback>
-                        {getUserInitials(getUserDisplayName({ userId: msg.userId }))}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      {msg.title ? (
-                        <CardTitle className="text-base">
-                          {msg.title}
-                        </CardTitle>
-                      ) : (
-                        <CardTitle className="text-base text-muted-foreground italic">
-                          Untitled message
-                        </CardTitle>
-                      )}
-                      <CardDescription className="text-xs">
-                        {getUserDisplayName({ userId: msg.userId })} &middot;{" "}
-                        {relativeDate(msg.createdAt)}
-                        {msg.isFromPa && (
-                          <Badge
-                            variant="outline"
-                            className="ml-2 text-xs"
-                          >
-                            PA
-                          </Badge>
+          {sortedMessages.map((msg) => {
+            const isOwner = currentUserId === msg.userId;
+            const isEditing = editingId === msg.id;
+
+            return (
+              <Card key={msg.id}>
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <Avatar>
+                        <AvatarFallback>
+                          {getUserInitials(getUserDisplayName({ userId: msg.userId }))}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        {isEditing ? (
+                          <Input
+                            value={editTitle}
+                            onChange={(e) => setEditTitle(e.target.value)}
+                            placeholder="Title (optional)"
+                            className="h-8 text-base font-semibold"
+                          />
+                        ) : msg.title ? (
+                          <CardTitle className="text-base">
+                            {msg.title}
+                          </CardTitle>
+                        ) : (
+                          <CardTitle className="text-base text-muted-foreground italic">
+                            Untitled message
+                          </CardTitle>
                         )}
-                      </CardDescription>
+                        <CardDescription className="text-xs">
+                          {getUserDisplayName({ userId: msg.userId })} &middot;{" "}
+                          {relativeDate(msg.createdAt)}
+                          {msg.isFromPa && (
+                            <Badge
+                              variant="outline"
+                              className="ml-2 text-xs"
+                            >
+                              PA
+                            </Badge>
+                          )}
+                        </CardDescription>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {msg.isPinned && (
+                        <Badge variant="secondary" className="gap-1">
+                          <Pin className="h-3 w-3" />
+                          Pinned
+                        </Badge>
+                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon-xs" className="h-7 w-7">
+                            <MoreVertical className="h-4 w-4" />
+                            <span className="sr-only">Message actions</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {isOwner && (
+                            <DropdownMenuItem onClick={() => startEditing(msg)}>
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem
+                            onClick={() => pinMutation.mutate({ messageId: msg.id, isPinned: !msg.isPinned })}
+                          >
+                            {msg.isPinned ? (
+                              <>
+                                <PinOff className="h-4 w-4 mr-2" />
+                                Unpin
+                              </>
+                            ) : (
+                              <>
+                                <Pin className="h-4 w-4 mr-2" />
+                                Pin
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                          {isOwner && (
+                            <DropdownMenuItem
+                              onClick={() => setDeleteConfirmId(msg.id)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {msg.isPinned && (
-                      <Badge variant="secondary" className="gap-1">
-                        <Pin className="h-3 w-3" />
-                        Pinned
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="prose prose-sm max-w-none">
-                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardHeader>
+                <CardContent>
+                  {isEditing ? (
+                    <div className="space-y-3">
+                      <Textarea
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        rows={4}
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={cancelEditing}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          disabled={!editContent.trim() || updateMutation.isPending}
+                          onClick={() => saveEdit(msg.id)}
+                        >
+                          {updateMutation.isPending ? "Saving..." : "Save"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="prose prose-sm max-w-none">
+                      <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete message?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this message. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteConfirmId && deleteMutation.mutate(deleteConfirmId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* New Message Sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>

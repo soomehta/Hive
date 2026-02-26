@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -16,6 +16,7 @@ import {
   TASK_PRIORITY_LABELS,
 } from "@/lib/utils/constants";
 import { formatDate } from "@/lib/utils/dates";
+import { getDueDateClassName, isOverdue } from "@/lib/utils/due-date-styles";
 import { getUserDisplayName, getUserInitials } from "@/lib/utils/user-display";
 import {
   Card,
@@ -34,6 +35,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Sheet,
   SheetContent,
@@ -57,14 +64,44 @@ import {
   AvatarFallback,
 } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DndContext,
+  closestCorners,
+  DragOverlay,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  type DragStartEvent,
+  type DragEndEvent,
+  type DragOverEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   Plus,
   List,
   LayoutGrid,
   Filter,
   Trash2,
+  X,
+  CheckSquare,
+  ArrowUpDown,
+  UserPlus,
+  GripVertical,
+  AlertCircle,
+  MessageSquare,
+  ListTodo,
+  Send,
+  Activity,
 } from "lucide-react";
-import type { Task } from "@/types";
+import type { Task, TaskComment, ActivityLogEntry } from "@/types";
+import { relativeDate } from "@/lib/utils/dates";
+import { getActivityDescription } from "@/lib/utils/activity-descriptions";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { toast } from "sonner";
 
@@ -93,6 +130,144 @@ const PRIORITY_DOT_COLORS: Record<string, string> = {
   low: "bg-green-500",
 };
 
+const KANBAN_STATUSES = ["todo", "in_progress", "in_review", "done"] as const;
+type KanbanStatus = (typeof KANBAN_STATUSES)[number];
+
+// ─── Sortable Task Card ─────────────────────────────────
+
+function SortableTaskCard({
+  task,
+  isSelected,
+  onToggleSelect,
+  onOpenDetail,
+  subtaskCount,
+}: {
+  task: Task;
+  isSelected: boolean;
+  onToggleSelect: (id: string) => void;
+  onOpenDetail: (task: Task) => void;
+  subtaskCount?: number;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+
+  return (
+    <Card
+      ref={setNodeRef}
+      style={style}
+      className="cursor-pointer hover:shadow-md transition-shadow py-3"
+    >
+      <CardContent className="p-3 space-y-2">
+        <div className="flex items-start gap-2">
+          <button
+            type="button"
+            className="mt-0.5 shrink-0"
+            onClick={(e) => { e.stopPropagation(); onToggleSelect(task.id); }}
+            aria-label={isSelected ? "Deselect task" : "Select task"}
+          >
+            <div className={`h-4 w-4 rounded border ${isSelected ? "bg-primary border-primary" : "border-muted-foreground/40"} flex items-center justify-center`}>
+              {isSelected && <CheckSquare className="h-3 w-3 text-primary-foreground" />}
+            </div>
+          </button>
+          <div
+            {...attributes}
+            {...listeners}
+            className="mt-0.5 shrink-0 cursor-grab active:cursor-grabbing touch-none"
+            aria-label="Drag handle"
+          >
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div
+            className="flex-1 min-w-0"
+            role="button"
+            tabIndex={0}
+            onClick={() => onOpenDetail(task)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenDetail(task); } }}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-sm font-medium leading-snug">
+                {task.title}
+              </p>
+              <div
+                className={`h-2 w-2 rounded-full shrink-0 mt-1.5 ${
+                  PRIORITY_DOT_COLORS[task.priority] ?? "bg-gray-400"
+                }`}
+              />
+            </div>
+            <div className="flex items-center justify-between mt-1.5">
+              <Badge variant="secondary" className="text-xs">
+                {TASK_PRIORITY_LABELS[task.priority] ?? task.priority}
+              </Badge>
+              {task.dueDate && (
+                <span className={`text-xs flex items-center gap-1 ${getDueDateClassName(task.dueDate)}`}>
+                  {isOverdue(task.dueDate) && <AlertCircle className="h-3 w-3" />}
+                  {formatDate(task.dueDate, "MMM d")}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 mt-1.5">
+              {task.assigneeId && (
+                <div className="flex items-center gap-1.5">
+                  <Avatar size="sm">
+                    <AvatarFallback>
+                      {getUserInitials(getUserDisplayName({ userId: task.assigneeId }))}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-muted-foreground text-xs truncate">
+                    {getUserDisplayName({ userId: task.assigneeId })}
+                  </span>
+                </div>
+              )}
+              {subtaskCount && subtaskCount > 0 ? (
+                <span className="ml-auto flex items-center gap-0.5 text-muted-foreground text-xs">
+                  <ListTodo className="h-3 w-3" />
+                  {subtaskCount}
+                </span>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Kanban Task Card (non-sortable, for DragOverlay) ───
+
+function KanbanTaskCardOverlay({ task }: { task: Task }) {
+  return (
+    <Card className="shadow-lg py-3 rotate-2 w-56">
+      <CardContent className="p-3 space-y-2">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-sm font-medium leading-snug">{task.title}</p>
+          <div
+            className={`h-2 w-2 rounded-full shrink-0 mt-1.5 ${
+              PRIORITY_DOT_COLORS[task.priority] ?? "bg-gray-400"
+            }`}
+          />
+        </div>
+        <Badge variant="secondary" className="text-xs">
+          {TASK_PRIORITY_LABELS[task.priority] ?? task.priority}
+        </Badge>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Main Page Client ───────────────────────────────────
+
 export function PageClient() {
   const params = useParams();
   const projectId = params.projectId as string;
@@ -105,6 +280,28 @@ export function PageClient() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+
+  // Bulk selection state
+  const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkOperating, setBulkOperating] = useState(false);
+
+  // Comment state
+  const [commentText, setCommentText] = useState("");
+
+  // Subtask add state
+  const [subtaskTitle, setSubtaskTitle] = useState("");
+
+  // Quick-add state for kanban columns
+  const [quickAddColumn, setQuickAddColumn] = useState<string | null>(null);
+  const [quickAddTitle, setQuickAddTitle] = useState("");
+
+  // DnD state
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
 
   const { data: project } = useQuery({
     queryKey: ["project", projectId],
@@ -140,6 +337,87 @@ export function PageClient() {
       return json.data as ProjectMember[];
     },
     enabled: !!orgId && !!projectId,
+  });
+
+  // Comments for selected task
+  const { data: comments } = useQuery({
+    queryKey: ["task-comments", selectedTask?.id],
+    queryFn: async () => {
+      const res = await apiClient(`/api/tasks/${selectedTask!.id}/comments`);
+      if (!res.ok) throw new Error("Failed to fetch comments");
+      const json = await res.json();
+      return json.data as TaskComment[];
+    },
+    enabled: !!selectedTask && detailOpen,
+  });
+
+  // Activity for selected task
+  const { data: taskActivity } = useQuery({
+    queryKey: ["task-activity", selectedTask?.id],
+    queryFn: async () => {
+      const res = await apiClient(`/api/activity?taskId=${selectedTask!.id}&limit=20`);
+      if (!res.ok) throw new Error("Failed to fetch activity");
+      const json = await res.json();
+      return json.data as ActivityLogEntry[];
+    },
+    enabled: !!selectedTask && detailOpen,
+  });
+
+  const addCommentMutation = useMutation({
+    mutationFn: async (content: string) => {
+      const res = await apiClient(`/api/tasks/${selectedTask!.id}/comments`, {
+        method: "POST",
+        body: JSON.stringify({ content }),
+      });
+      if (!res.ok) throw new Error("Failed to add comment");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["task-comments", selectedTask?.id] });
+      setCommentText("");
+      toast.success("Comment added");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to add comment");
+    },
+  });
+
+  // Subtasks for selected task
+  const { data: subtasks } = useQuery({
+    queryKey: ["task-subtasks", selectedTask?.id],
+    queryFn: async () => {
+      const res = await apiClient(`/api/tasks/${selectedTask!.id}/subtasks`);
+      if (!res.ok) throw new Error("Failed to fetch subtasks");
+      const json = await res.json();
+      return json.data as Task[];
+    },
+    enabled: !!selectedTask && detailOpen,
+  });
+
+  const addSubtaskMutation = useMutation({
+    mutationFn: async (title: string) => {
+      const res = await apiClient("/api/tasks", {
+        method: "POST",
+        body: JSON.stringify({
+          projectId,
+          title,
+          status: "todo",
+          priority: "medium",
+          parentTaskId: selectedTask!.id,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to create subtask");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["task-subtasks", selectedTask?.id] });
+      queryClient.invalidateQueries({ queryKey: ["project-tasks", projectId] });
+      setSubtaskTitle("");
+      toast.success("Subtask created");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to create subtask");
+    },
   });
 
   const createMutation = useMutation({
@@ -188,7 +466,6 @@ export function PageClient() {
       toast.success("Task updated");
       queryClient.invalidateQueries({ queryKey: ["project-tasks", projectId] });
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      // Sync the selectedTask state with the updated field
       setSelectedTask((prev) =>
         prev && prev.id === variables.taskId
           ? { ...prev, ...variables.data }
@@ -244,6 +521,122 @@ export function PageClient() {
     createMutation.mutate(data);
   }
 
+  // ─── Bulk Operations ──────────────────────────────────
+
+  const toggleTaskSelection = useCallback((taskId: string) => {
+    setSelectedTasks((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) {
+        next.delete(taskId);
+      } else {
+        next.add(taskId);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    if (!filteredTasks) return;
+    setSelectedTasks((prev) => {
+      if (prev.size === filteredTasks.length) {
+        return new Set();
+      }
+      return new Set(filteredTasks.map((t) => t.id));
+    });
+  }, [tasks, statusFilter, priorityFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const clearSelection = useCallback(() => {
+    setSelectedTasks(new Set());
+  }, []);
+
+  async function executeBulkOperation(
+    op: "patch" | "delete",
+    data?: Record<string, unknown>
+  ) {
+    const ids = Array.from(selectedTasks);
+    if (ids.length === 0) return;
+
+    setBulkOperating(true);
+    try {
+      const results = await Promise.allSettled(
+        ids.map((id) => {
+          if (op === "delete") {
+            return apiClient(`/api/tasks/${id}`, { method: "DELETE" });
+          }
+          return apiClient(`/api/tasks/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify(data),
+          });
+        })
+      );
+
+      const succeeded = results.filter((r) => r.status === "fulfilled").length;
+      const failed = results.length - succeeded;
+
+      if (failed === 0) {
+        toast.success(`${succeeded} task${succeeded > 1 ? "s" : ""} updated`);
+      } else {
+        toast.warning(`${succeeded} succeeded, ${failed} failed`);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["project-tasks", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      setSelectedTasks(new Set());
+      setBulkDeleteOpen(false);
+    } finally {
+      setBulkOperating(false);
+    }
+  }
+
+  // ─── DnD Handlers ────────────────────────────────────
+
+  function handleDragStart(event: DragStartEvent) {
+    const task = tasks?.find((t) => t.id === event.active.id);
+    if (task) setActiveTask(task);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    setActiveTask(null);
+    const { active, over } = event;
+    if (!over || !tasks) return;
+
+    const taskId = active.id as string;
+    const overId = over.id as string;
+
+    // Determine target status: could be a column ID or a task ID
+    let targetStatus: KanbanStatus | undefined;
+    let targetPosition: number | undefined;
+
+    if (KANBAN_STATUSES.includes(overId as KanbanStatus)) {
+      // Dropped on an empty column
+      targetStatus = overId as KanbanStatus;
+      targetPosition = 0;
+    } else {
+      // Dropped on another task — find its status and position
+      const overTask = tasks.find((t) => t.id === overId);
+      if (overTask) {
+        targetStatus = overTask.status as KanbanStatus;
+        targetPosition = overTask.position;
+      }
+    }
+
+    if (!targetStatus) return;
+
+    const draggedTask = tasks.find((t) => t.id === taskId);
+    if (!draggedTask) return;
+
+    // Only update if something changed
+    if (draggedTask.status === targetStatus && draggedTask.position === targetPosition) return;
+
+    updateMutation.mutate({
+      taskId,
+      data: {
+        status: targetStatus,
+        position: targetPosition ?? 0,
+      },
+    });
+  }
+
   // Filter tasks
   const filteredTasks = tasks?.filter((task) => {
     if (statusFilter !== "all" && task.status !== statusFilter) return false;
@@ -253,7 +646,7 @@ export function PageClient() {
   });
 
   // Group tasks by status for kanban view
-  const kanbanColumns: Record<string, Task[]> = {
+  const kanbanColumns: Record<KanbanStatus, Task[]> = {
     todo: [],
     in_progress: [],
     in_review: [],
@@ -262,7 +655,20 @@ export function PageClient() {
 
   filteredTasks?.forEach((task) => {
     if (task.status in kanbanColumns) {
-      kanbanColumns[task.status].push(task);
+      kanbanColumns[task.status as KanbanStatus].push(task);
+    }
+  });
+
+  // Sort each column by position
+  for (const status of KANBAN_STATUSES) {
+    kanbanColumns[status].sort((a, b) => a.position - b.position);
+  }
+
+  // Compute subtask counts from loaded tasks
+  const subtaskCounts = new Map<string, number>();
+  tasks?.forEach((t) => {
+    if (t.parentTaskId) {
+      subtaskCounts.set(t.parentTaskId, (subtaskCounts.get(t.parentTaskId) ?? 0) + 1);
     }
   });
 
@@ -376,55 +782,103 @@ export function PageClient() {
         <Card>
           <CardContent className="p-0">
             <div className="divide-y">
-              {filteredTasks.map((task) => (
+              {/* Select All Header */}
+              <div className="flex items-center gap-4 px-4 py-2 bg-muted/30">
                 <button
                   type="button"
-                  key={task.id}
-                  className="flex w-full items-center gap-4 px-4 py-3 hover:bg-accent/50 transition-colors cursor-pointer text-left"
-                  onClick={() => { setSelectedTask(task); setDetailOpen(true); }}
-                  aria-label={`View task: ${task.title}`}
+                  onClick={toggleSelectAll}
+                  className="shrink-0"
+                  aria-label={selectedTasks.size === filteredTasks.length ? "Deselect all" : "Select all"}
                 >
-                  <div
-                    className={`h-2.5 w-2.5 rounded-full shrink-0 ${
-                      PRIORITY_DOT_COLORS[task.priority] ?? "bg-gray-400"
-                    }`}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {task.title}
-                    </p>
-                    {task.description && (
-                      <p className="text-muted-foreground text-xs truncate">
-                        {task.description}
-                      </p>
+                  <div className={`h-4 w-4 rounded border ${
+                    selectedTasks.size > 0 && selectedTasks.size === filteredTasks.length
+                      ? "bg-primary border-primary"
+                      : selectedTasks.size > 0
+                        ? "bg-primary/50 border-primary"
+                        : "border-muted-foreground/40"
+                  } flex items-center justify-center`}>
+                    {selectedTasks.size > 0 && (
+                      <CheckSquare className="h-3 w-3 text-primary-foreground" />
                     )}
                   </div>
-                  <Badge variant="outline" className="text-xs shrink-0">
-                    {TASK_STATUS_LABELS[task.status] ?? task.status}
-                  </Badge>
-                  <Badge variant="secondary" className="text-xs shrink-0">
-                    {TASK_PRIORITY_LABELS[task.priority] ?? task.priority}
-                  </Badge>
-                  {task.assigneeId && (
-                    <Avatar size="sm">
-                      <AvatarFallback>
-                        {getUserInitials(getUserDisplayName({ userId: task.assigneeId }))}
-                      </AvatarFallback>
-                    </Avatar>
-                  )}
-                  <span className="text-muted-foreground text-xs shrink-0 w-24 text-right">
-                    {task.dueDate ? formatDate(task.dueDate) : "No date"}
-                  </span>
                 </button>
+                <span className="text-xs text-muted-foreground">
+                  {selectedTasks.size > 0
+                    ? `${selectedTasks.size} selected`
+                    : "Select all"}
+                </span>
+              </div>
+              {filteredTasks.map((task) => (
+                <div
+                  key={task.id}
+                  className="flex w-full items-center gap-4 px-4 py-3 hover:bg-accent/50 transition-colors"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleTaskSelection(task.id)}
+                    className="shrink-0"
+                    aria-label={selectedTasks.has(task.id) ? "Deselect task" : "Select task"}
+                  >
+                    <div className={`h-4 w-4 rounded border ${selectedTasks.has(task.id) ? "bg-primary border-primary" : "border-muted-foreground/40"} flex items-center justify-center`}>
+                      {selectedTasks.has(task.id) && (
+                        <CheckSquare className="h-3 w-3 text-primary-foreground" />
+                      )}
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    className="flex flex-1 items-center gap-4 cursor-pointer text-left min-w-0"
+                    onClick={() => { setSelectedTask(task); setDetailOpen(true); }}
+                    aria-label={`View task: ${task.title}`}
+                  >
+                    <div
+                      className={`h-2.5 w-2.5 rounded-full shrink-0 ${
+                        PRIORITY_DOT_COLORS[task.priority] ?? "bg-gray-400"
+                      }`}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {task.title}
+                      </p>
+                      {task.description && (
+                        <p className="text-muted-foreground text-xs truncate">
+                          {task.description}
+                        </p>
+                      )}
+                    </div>
+                    <Badge variant="outline" className="text-xs shrink-0">
+                      {TASK_STATUS_LABELS[task.status] ?? task.status}
+                    </Badge>
+                    <Badge variant="secondary" className="text-xs shrink-0">
+                      {TASK_PRIORITY_LABELS[task.priority] ?? task.priority}
+                    </Badge>
+                    {task.assigneeId && (
+                      <Avatar size="sm">
+                        <AvatarFallback>
+                          {getUserInitials(getUserDisplayName({ userId: task.assigneeId }))}
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
+                    <span className={`text-xs shrink-0 w-24 text-right flex items-center justify-end gap-1 ${getDueDateClassName(task.dueDate)}`}>
+                      {task.dueDate && isOverdue(task.dueDate) && <AlertCircle className="h-3 w-3" />}
+                      {task.dueDate ? formatDate(task.dueDate) : "No date"}
+                    </span>
+                  </button>
+                </div>
               ))}
             </div>
           </CardContent>
         </Card>
       ) : (
-        /* Kanban View */
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {(["todo", "in_progress", "in_review", "done"] as const).map(
-            (status) => (
+        /* Kanban View with DnD */
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {KANBAN_STATUSES.map((status) => (
               <div
                 key={status}
                 className={`rounded-lg border border-t-4 ${STATUS_COLUMN_COLORS[status]} bg-muted/30`}
@@ -437,70 +891,204 @@ export function PageClient() {
                     {kanbanColumns[status].length}
                   </span>
                 </div>
-                <div className="space-y-2 p-2 pt-0 min-h-[120px]">
-                  {kanbanColumns[status].length === 0 ? (
-                    <p className="text-muted-foreground text-xs text-center py-6">
-                      No tasks
-                    </p>
-                  ) : (
-                    kanbanColumns[status].map((task) => (
-                      <Card
-                        key={task.id}
-                        className="cursor-pointer hover:shadow-md transition-shadow py-3"
-                        tabIndex={0}
-                        role="button"
-                        aria-label={`Task: ${task.title}, ${TASK_PRIORITY_LABELS[task.priority] ?? task.priority} priority`}
-                        onClick={() => { setSelectedTask(task); setDetailOpen(true); }}
-                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedTask(task); setDetailOpen(true); } }}
+                <SortableContext
+                  items={kanbanColumns[status].map((t) => t.id)}
+                  strategy={verticalListSortingStrategy}
+                  id={status}
+                >
+                  <div className="space-y-2 p-2 pt-0 min-h-[120px]" data-column={status}>
+                    {kanbanColumns[status].length === 0 ? (
+                      <div
+                        className="text-muted-foreground text-xs text-center py-6"
+                        data-column={status}
                       >
-                        <CardContent className="p-3 space-y-2">
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="text-sm font-medium leading-snug">
-                              {task.title}
-                            </p>
-                            <div
-                              className={`h-2 w-2 rounded-full shrink-0 mt-1.5 ${
-                                PRIORITY_DOT_COLORS[task.priority] ??
-                                "bg-gray-400"
-                              }`}
-                            />
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <Badge
-                              variant="secondary"
-                              className="text-xs"
-                            >
-                              {TASK_PRIORITY_LABELS[task.priority] ??
-                                task.priority}
-                            </Badge>
-                            {task.dueDate && (
-                              <span className="text-muted-foreground text-xs">
-                                {formatDate(task.dueDate, "MMM d")}
-                              </span>
-                            )}
-                          </div>
-                          {task.assigneeId && (
-                            <div className="flex items-center gap-1.5">
-                              <Avatar size="sm">
-                                <AvatarFallback>
-                                  {getUserInitials(getUserDisplayName({ userId: task.assigneeId }))}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span className="text-muted-foreground text-xs truncate">
-                                {getUserDisplayName({ userId: task.assigneeId })}
-                              </span>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))
+                        No tasks
+                      </div>
+                    ) : (
+                      kanbanColumns[status].map((task) => (
+                        <SortableTaskCard
+                          key={task.id}
+                          task={task}
+                          isSelected={selectedTasks.has(task.id)}
+                          onToggleSelect={toggleTaskSelection}
+                          onOpenDetail={(t) => { setSelectedTask(t); setDetailOpen(true); }}
+                          subtaskCount={subtaskCounts.get(task.id)}
+                        />
+                      ))
+                    )}
+                  </div>
+                </SortableContext>
+                {/* Quick-add inline input */}
+                <div className="px-2 pb-2">
+                  {quickAddColumn === status ? (
+                    <Input
+                      autoFocus
+                      placeholder="Task title..."
+                      value={quickAddTitle}
+                      onChange={(e) => setQuickAddTitle(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && quickAddTitle.trim()) {
+                          createMutation.mutate({
+                            projectId,
+                            title: quickAddTitle.trim(),
+                            status,
+                            priority: "medium",
+                          });
+                          setQuickAddTitle("");
+                        }
+                        if (e.key === "Escape") {
+                          setQuickAddColumn(null);
+                          setQuickAddTitle("");
+                        }
+                      }}
+                      onBlur={() => {
+                        setQuickAddColumn(null);
+                        setQuickAddTitle("");
+                      }}
+                      className="h-8 text-sm"
+                    />
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start text-muted-foreground text-xs"
+                      onClick={() => {
+                        setQuickAddColumn(status);
+                        setQuickAddTitle("");
+                      }}
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add task
+                    </Button>
                   )}
                 </div>
               </div>
-            )
-          )}
+            ))}
+          </div>
+          <DragOverlay>
+            {activeTask ? <KanbanTaskCardOverlay task={activeTask} /> : null}
+          </DragOverlay>
+        </DndContext>
+      )}
+
+      {/* Bulk Action Toolbar */}
+      {selectedTasks.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-lg border bg-background p-3 shadow-lg">
+          <span className="text-sm font-medium mr-2">
+            {selectedTasks.size} selected
+          </span>
+          <Separator orientation="vertical" className="h-6" />
+
+          {/* Status */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" disabled={bulkOperating}>
+                <ArrowUpDown className="h-3.5 w-3.5 mr-1.5" />
+                Status
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              {TASK_STATUSES.filter((s) => s !== "cancelled").map((status) => (
+                <DropdownMenuItem
+                  key={status}
+                  onClick={() => executeBulkOperation("patch", { status })}
+                >
+                  {TASK_STATUS_LABELS[status]}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Priority */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" disabled={bulkOperating}>
+                <ArrowUpDown className="h-3.5 w-3.5 mr-1.5" />
+                Priority
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              {TASK_PRIORITIES.map((priority) => (
+                <DropdownMenuItem
+                  key={priority}
+                  onClick={() => executeBulkOperation("patch", { priority })}
+                >
+                  {TASK_PRIORITY_LABELS[priority]}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Assign */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" disabled={bulkOperating}>
+                <UserPlus className="h-3.5 w-3.5 mr-1.5" />
+                Assign
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem
+                onClick={() => executeBulkOperation("patch", { assigneeId: null })}
+              >
+                Unassigned
+              </DropdownMenuItem>
+              {members?.map((member) => (
+                <DropdownMenuItem
+                  key={member.userId}
+                  onClick={() => executeBulkOperation("patch", { assigneeId: member.userId })}
+                >
+                  {getUserDisplayName({ userId: member.userId })}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Separator orientation="vertical" className="h-6" />
+
+          {/* Delete */}
+          <Button
+            variant="destructive"
+            size="sm"
+            disabled={bulkOperating}
+            onClick={() => setBulkDeleteOpen(true)}
+          >
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+            Delete
+          </Button>
+
+          {/* Clear selection */}
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={clearSelection}
+            aria-label="Clear selection"
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </div>
       )}
+
+      {/* Bulk Delete Confirmation */}
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedTasks.size} task{selectedTasks.size > 1 ? "s" : ""}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the selected tasks. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => executeBulkOperation("delete")}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {bulkOperating ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Task Detail Sheet */}
       <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
@@ -646,6 +1234,129 @@ export function PageClient() {
                   </p>
                 </div>
               )}
+
+              <Separator />
+
+              {/* Comments & Activity Tabs */}
+              <Tabs defaultValue="comments">
+                <TabsList className="w-full">
+                  <TabsTrigger value="comments" className="flex-1 gap-1.5">
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    Comments ({comments?.length ?? 0})
+                  </TabsTrigger>
+                  <TabsTrigger value="activity" className="flex-1 gap-1.5">
+                    <Activity className="h-3.5 w-3.5" />
+                    Activity
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="comments" className="space-y-3 mt-3">
+                  {comments && comments.length > 0 ? (
+                    <div className="space-y-2">
+                      {comments.map((c) => (
+                        <div key={c.id} className="rounded-lg bg-muted p-3">
+                          <p className="text-sm">{c.content}</p>
+                          <p className="text-muted-foreground mt-1 text-xs">
+                            {relativeDate(c.createdAt)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground py-2">No comments yet.</p>
+                  )}
+                  <div className="flex gap-2">
+                    <Textarea
+                      placeholder="Add a comment..."
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      rows={2}
+                      className="flex-1"
+                    />
+                    <Button
+                      size="sm"
+                      className="self-end"
+                      onClick={() => commentText.trim() && addCommentMutation.mutate(commentText.trim())}
+                      disabled={!commentText.trim() || addCommentMutation.isPending}
+                    >
+                      <Send className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="activity" className="mt-3">
+                  {taskActivity && taskActivity.length > 0 ? (
+                    <div className="space-y-2">
+                      {taskActivity.map((entry) => (
+                        <div key={entry.id} className="flex items-start gap-2 py-1.5">
+                          <Activity className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-sm">
+                              {getActivityDescription(
+                                entry.type as Parameters<typeof getActivityDescription>[0],
+                                entry.metadata as Parameters<typeof getActivityDescription>[1]
+                              )}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {relativeDate(entry.createdAt)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground py-2">No activity yet.</p>
+                  )}
+                </TabsContent>
+              </Tabs>
+
+              {/* Subtasks */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                  <ListTodo className="h-3.5 w-3.5" />
+                  Subtasks {subtasks && subtasks.length > 0 && `(${subtasks.length})`}
+                </h4>
+                {subtasks && subtasks.length > 0 && (
+                  <div className="space-y-1">
+                    {subtasks.map((st) => (
+                      <button
+                        key={st.id}
+                        type="button"
+                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent/50 transition-colors"
+                        onClick={() => { setSelectedTask(st); setCommentText(""); setSubtaskTitle(""); }}
+                      >
+                        <div className={`h-2 w-2 rounded-full shrink-0 ${
+                          st.status === "done" ? "bg-green-500" : st.status === "in_progress" ? "bg-blue-500" : "bg-gray-400"
+                        }`} />
+                        <span className={st.status === "done" ? "line-through text-muted-foreground" : ""}>
+                          {st.title}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Add subtask..."
+                    value={subtaskTitle}
+                    onChange={(e) => setSubtaskTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && subtaskTitle.trim()) {
+                        addSubtaskMutation.mutate(subtaskTitle.trim());
+                      }
+                    }}
+                    className="h-8 text-sm"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => subtaskTitle.trim() && addSubtaskMutation.mutate(subtaskTitle.trim())}
+                    disabled={!subtaskTitle.trim() || addSubtaskMutation.isPending}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
 
               {/* Delete button */}
               <div className="pt-2 border-t">

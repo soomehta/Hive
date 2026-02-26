@@ -10,6 +10,7 @@ import type {
   messages,
   activityLog,
   notifications,
+  files,
 } from "@/lib/db/schema";
 
 export type Organization = InferSelectModel<typeof organizations>;
@@ -22,3 +23,4 @@ export type TaskComment = InferSelectModel<typeof taskComments>;
 export type Message = InferSelectModel<typeof messages>;
 export type ActivityLogEntry = InferSelectModel<typeof activityLog>;
 export type Notification = InferSelectModel<typeof notifications>;
+export type FileRecord = InferSelectModel<typeof files>;

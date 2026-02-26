@@ -96,12 +96,12 @@ export function SidebarContent({ orgs, user, onNavigate }: SidebarContentProps) 
         </Link>
       </div>
 
-      <Separator className="bg-zinc-800" />
+      <Separator className="bg-sidebar-border" />
 
       {/* Org switcher */}
       <div className="px-3 py-3">
         <Select value={orgId ?? undefined} onValueChange={handleOrgChange}>
-          <SelectTrigger className="w-full border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800">
+          <SelectTrigger className="w-full border-sidebar-border bg-sidebar-accent text-sidebar-foreground hover:bg-sidebar-accent/80">
             <SelectValue placeholder="Select organization" />
           </SelectTrigger>
           <SelectContent>
@@ -114,7 +114,7 @@ export function SidebarContent({ orgs, user, onNavigate }: SidebarContentProps) 
         </Select>
       </div>
 
-      <Separator className="bg-zinc-800" />
+      <Separator className="bg-sidebar-border" />
 
       {/* Navigation */}
       <nav aria-label="Main navigation" className="flex-1 space-y-1 px-3 py-3">
@@ -131,8 +131,8 @@ export function SidebarContent({ orgs, user, onNavigate }: SidebarContentProps) 
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                 active
-                  ? "bg-zinc-800 text-white"
-                  : "text-zinc-300 hover:bg-zinc-900 hover:text-zinc-100"
+                  ? "bg-sidebar-accent text-sidebar-primary-foreground"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-primary-foreground"
               )}
             >
               <Icon className="size-4 shrink-0" aria-hidden="true" />
@@ -142,14 +142,14 @@ export function SidebarContent({ orgs, user, onNavigate }: SidebarContentProps) 
         })}
       </nav>
 
-      <Separator className="bg-zinc-800" />
+      <Separator className="bg-sidebar-border" />
 
       {/* Quick actions */}
       <div className="px-3 py-3">
         <Button
           variant="outline"
           size="sm"
-          className="w-full justify-start gap-2 border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+          className="w-full justify-start gap-2 border-sidebar-border bg-sidebar-accent text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-sidebar-primary-foreground"
           asChild
         >
           <Link href="/dashboard/projects/new" onClick={onNavigate}>
@@ -160,11 +160,11 @@ export function SidebarContent({ orgs, user, onNavigate }: SidebarContentProps) 
       </div>
 
       {/* User info */}
-      <div className="border-t border-zinc-800 px-4 py-3" aria-label="Current user">
-        <p className="truncate text-sm font-medium text-zinc-200">
+      <div className="border-t border-sidebar-border px-4 py-3" aria-label="Current user">
+        <p className="truncate text-sm font-medium text-sidebar-primary-foreground">
           {user.fullName}
         </p>
-        <p className="truncate text-xs text-zinc-400">{user.email}</p>
+        <p className="truncate text-xs text-sidebar-foreground">{user.email}</p>
       </div>
     </>
   );
@@ -172,7 +172,7 @@ export function SidebarContent({ orgs, user, onNavigate }: SidebarContentProps) 
 
 export function Sidebar({ orgs, user }: SidebarProps) {
   return (
-    <aside className="hidden w-64 flex-col border-r bg-zinc-950 text-zinc-100 lg:flex">
+    <aside className="hidden w-64 flex-col border-r bg-sidebar text-sidebar-foreground lg:flex">
       <SidebarContent orgs={orgs} user={user} />
     </aside>
   );

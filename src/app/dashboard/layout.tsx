@@ -6,6 +6,7 @@ import { Header } from "@/components/layout/header";
 import { PAPanel } from "@/components/pa/pa-panel";
 import { MainContent } from "@/components/layout/main-content";
 import { MobileSidebar } from "@/components/layout/mobile-sidebar";
+import { KeyboardShortcutsProvider } from "@/components/shared/keyboard-shortcuts-provider";
 
 export default async function DashboardLayout({
   children,
@@ -37,6 +38,7 @@ export default async function DashboardLayout({
         <MainContent>{children}</MainContent>
       </div>
       <PAPanel />
+      <KeyboardShortcutsProvider />
     </div>
   );
 }

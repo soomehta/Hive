@@ -12,6 +12,7 @@ import {
   type TaskTimeGroup,
   formatDate,
 } from "@/lib/utils/dates";
+import { getDueDateClassName, isOverdue } from "@/lib/utils/due-date-styles";
 import { formatMinutes } from "@/lib/utils/user-display";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,7 @@ import {
   Circle,
   Clock,
   AlertTriangle,
+  AlertCircle,
   XCircle,
   CalendarDays,
   ClipboardList,
@@ -217,8 +219,8 @@ function TaskRow({ task, onClick }: { task: Task; onClick: () => void }) {
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{task.title}</p>
         {task.dueDate && (
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            <CalendarDays className="mr-1 inline size-3" />
+          <p className={`mt-0.5 text-xs flex items-center gap-1 ${getDueDateClassName(task.dueDate)}`}>
+            {isOverdue(task.dueDate) ? <AlertCircle className="size-3" /> : <CalendarDays className="size-3" />}
             {formatDate(task.dueDate)}
           </p>
         )}

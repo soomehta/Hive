@@ -9,9 +9,11 @@ import {
   TASK_PRIORITY_LABELS,
 } from "@/lib/utils/constants";
 import { getUserInitials, getUserDisplayName } from "@/lib/utils/user-display";
+import { formatDate } from "@/lib/utils/dates";
+import { getDueDateClassName, isOverdue } from "@/lib/utils/due-date-styles";
 import type { WidgetProps } from "@/types/bees";
 import type { Task } from "@/types";
-import { LayoutGrid } from "lucide-react";
+import { LayoutGrid, AlertCircle } from "lucide-react";
 
 const STATUS_COLUMNS = ["todo", "in_progress", "in_review", "done"] as const;
 type KanbanStatus = (typeof STATUS_COLUMNS)[number];
@@ -110,13 +112,19 @@ export function BoardWidget({ orgId, projectId, isEditing }: WidgetProps) {
                       />
                       <p className="text-xs font-medium leading-snug">{task.title}</p>
                     </div>
-                    {task.assigneeId && (
-                      <div className="flex items-center gap-1">
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-[10px] font-semibold text-violet-700">
+                    <div className="flex items-center justify-between">
+                      {task.dueDate ? (
+                        <span className={`text-[10px] flex items-center gap-0.5 ${getDueDateClassName(task.dueDate)}`}>
+                          {isOverdue(task.dueDate) && <AlertCircle className="h-2.5 w-2.5" />}
+                          {formatDate(task.dueDate, "MMM d")}
+                        </span>
+                      ) : <span />}
+                      {task.assigneeId && (
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-[10px] font-semibold text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
                           {getUserInitials(getUserDisplayName({ userId: task.assigneeId }))}
                         </span>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               ))

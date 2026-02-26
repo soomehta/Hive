@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { Bell, LogOut, Menu, User } from "lucide-react";
+import { useTheme } from "next-themes";
+import { Bell, LogOut, Menu, Moon, Search, Sun, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useMobileNav } from "@/hooks/use-mobile-nav";
 import { useNotifications } from "@/hooks/use-notifications";
@@ -21,6 +22,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { relativeDate } from "@/lib/utils/dates";
+import { CommandPalette } from "@/components/shared/command-palette";
 
 interface HeaderProps {
   user: { id: string; email: string; fullName: string };
@@ -83,8 +85,15 @@ export function Header({ user }: HeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { notifications, unreadCount, markAsRead } = useNotifications();
+  const { theme, setTheme } = useTheme();
   const pageTitle = getPageTitle(pathname);
   const toggleMobileNav = useMobileNav((s) => s.toggle);
+
+  function cycleTheme() {
+    if (theme === "light") setTheme("dark");
+    else if (theme === "dark") setTheme("system");
+    else setTheme("light");
+  }
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -117,8 +126,36 @@ export function Header({ user }: HeaderProps) {
         <h1 className="text-lg font-semibold">{pageTitle}</h1>
       </div>
 
-      {/* Right: Notifications + User menu */}
+      {/* Right: Search + Theme + Notifications + User menu */}
       <div className="flex items-center gap-2">
+        {/* Command palette (rendered once) */}
+        <CommandPalette />
+
+        {/* Search trigger */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="hidden sm:inline-flex text-muted-foreground gap-2"
+          onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
+        >
+          <Search className="size-3.5" />
+          <span className="text-xs">Search...</span>
+          <kbd className="pointer-events-none ml-1 hidden select-none rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-block">
+            ⌘K
+          </kbd>
+        </Button>
+
+        {/* Theme toggle */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={cycleTheme}
+          aria-label="Toggle theme"
+        >
+          <Sun className="size-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+          <Moon className="absolute size-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+        </Button>
+
         {/* Notification bell */}
         <Popover>
           <PopoverTrigger asChild>
@@ -197,6 +234,16 @@ export function Header({ user }: HeaderProps) {
                 })
               )}
             </div>
+            {notifications.length > 0 && (
+              <div className="border-t px-4 py-2">
+                <button
+                  onClick={() => router.push("/dashboard/notifications")}
+                  className="text-xs font-medium text-muted-foreground hover:text-foreground w-full text-center"
+                >
+                  View all notifications
+                </button>
+              </div>
+            )}
           </PopoverContent>
         </Popover>
 
