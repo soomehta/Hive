@@ -58,7 +58,7 @@ export default function SignInPage() {
           <CardTitle className="text-2xl font-bold">Welcome back to Hive</CardTitle>
           <CardDescription>Sign in to your Hive account</CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
           <CardContent className="space-y-4">
             {error && (
               <Alert variant="destructive">

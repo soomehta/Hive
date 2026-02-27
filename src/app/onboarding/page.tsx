@@ -65,7 +65,7 @@ export default function OnboardingPage() {
         throw new Error(data.error || "Failed to create organization");
       }
 
-      const org = await res.json();
+      const { data: org } = await res.json();
       sessionStorage.setItem("hive-org-id", org.id);
       setOrgId(org.id);
       setStep("pathway");
@@ -167,6 +167,7 @@ export default function OnboardingPage() {
                 </CardDescription>
               </CardHeader>
               <form
+                className="flex flex-col gap-6"
                 onSubmit={(e) => {
                   e.preventDefault();
                   handleCreateOrg();
