@@ -143,11 +143,12 @@ test.describe("API Routes — Method Not Allowed", () => {
     expect(response.status()).toBe(405);
   });
 
-  test("GET /api/pa/chat returns 405 (only POST is exported)", async ({
+  test("GET /api/pa/chat returns 401 (auth required)", async ({
     request,
   }) => {
+    // pa/chat exports both GET and POST, but both require authentication
     const response = await request.get("/api/pa/chat");
-    expect(response.status()).toBe(405);
+    expect(response.status()).toBe(401);
   });
 });
 

@@ -2,9 +2,12 @@
 
 ## Current Focus
 
-- **All 5 phases code complete.** 70+ routes, 0 TypeScript errors, 70 tests pass.
-- **Phase 5 complete:** Multi-Bee Agent System & Configurable Dashboards — all 7 sub-phases (5A-5G) implemented.
-- **Next step:** Set up Supabase project, run Drizzle migrations, and perform end-to-end testing with real data.
+- **DEPLOYED TO PRODUCTION.** Live at https://hive-app-beryl.vercel.app
+- **All 5 phases + QoL + prod hardening + database + deployment: COMPLETE.** 70+ routes, 0 TypeScript errors, 70 unit tests pass, 90/90 e2e pass.
+- **Health check verified:** Database connectivity confirmed from Vercel production.
+- **Vercel env vars configured:** Supabase, DATABASE_URL, ENCRYPTION_KEY, CRON_SECRET, OpenAI, Anthropic, Deepgram, Gladia.
+- **Cron jobs active:** morning-briefing (15min), overdue-nudge (hourly), stale-tasks (daily 10am), weekly-digest (Fri 10am), data-cleanup (Sun 3am).
+- **Remaining env vars:** REDIS_URL, OAuth credentials (Google/Microsoft/Slack), R2 storage, NEXT_PUBLIC_SENTRY_DSN.
 
 ## Recent Changes (Review Fixes)
 
@@ -107,6 +110,53 @@
 - E2E tests for bee API auth enforcement, dashboard layout API auth, onboarding auth guard
 - Drizzle migration generated (0001_flimsy_zarek.sql)
 - 0 TypeScript errors, 70 tests pass, clean production build
+
+## Recent Changes (QoL/UX Enhancements)
+
+### F1 — Dark Mode Toggle
+- Created ThemeProvider wrapping next-themes (attribute="class", defaultTheme="system")
+- Sun/Moon cycle button in header
+- Sidebar refactored from hardcoded bg-zinc-* to CSS variable sidebar tokens (bg-sidebar, text-sidebar-foreground, border-sidebar-border, bg-sidebar-accent)
+- Mobile sidebar also updated
+
+### F2 — Command Palette (Cmd+K)
+- New command-palette.tsx using existing cmdk CommandDialog
+- Groups: Navigation (all 8 sidebar items), Actions (New Project), Theme (Light/Dark/System)
+- Search trigger button with ⌘K hint in header
+
+### F3 — Keyboard Shortcuts
+- use-keyboard-shortcuts.ts hook with input focus guard
+- Shortcuts: ? (help dialog), g→d/p/t (go to pages), n (context-dependent new)
+- KeyboardShortcutsProvider mounted in dashboard layout
+
+### F4 — Task Quick-Add in Kanban
+- Inline "+ Add task" button at bottom of each kanban column
+- Enter to create (with status matching column), Escape/blur to cancel
+
+### F5 — Comments & Activity on Task Detail
+- Tabs (Comments + Activity) added to task detail Sheet
+- Comments: fetch/post via /api/tasks/{id}/comments, textarea + send button
+- Activity: fetch via /api/activity?taskId={id}, timeline with icons + descriptions
+
+### F6 — Due Date Warnings
+- due-date-styles.ts: getDueDateClassName() and isOverdue() helpers using getTaskTimeGroup()
+- Overdue → red + AlertCircle icon, today → orange, tomorrow → yellow
+- Applied across tasks-client (list + kanban), my-tasks-client, board-widget
+
+### F7 — Subtask UI
+- New GET /api/tasks/{id}/subtasks endpoint
+- Subtask list in detail sheet with status dots, clickable to navigate
+- Inline "Add subtask" input creating via POST /api/tasks with parentTaskId
+- Subtask count badges on kanban cards (computed from loaded tasks array)
+
+### F8+F9 — Drag-and-Drop + Multi-File Upload
+- onDragOver/onDragEnter/onDragLeave/onDrop handlers on files widget
+- Blue dashed border drop overlay with "Drop files here"
+- multiple attribute on file input
+- uploadMultipleFiles() with Promise.allSettled and summary toast
+
+### F10 — Notification Enhancement
+- "View all notifications" link at bottom of notification popover
 
 ## Active Decisions & Considerations
 

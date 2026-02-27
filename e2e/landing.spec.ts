@@ -22,14 +22,14 @@ test.describe("Landing Page", () => {
     await expect(headerBrand).toBeVisible();
   });
 
-  test("hero section shows AI-Native badge", async ({ page }) => {
-    await expect(page.getByText("AI-Native Project Management")).toBeVisible();
+  test("hero section shows badge text", async ({ page }) => {
+    await expect(page.getByText("Project management that feels simpler")).toBeVisible();
   });
 
   test("hero section shows main h1 heading", async ({ page }) => {
     await expect(
       page.getByRole("heading", {
-        name: /Your AI Assistant That Actually/i,
+        name: /Less busywork\. More meaningful progress/i,
         level: 1,
       })
     ).toBeVisible();
@@ -39,7 +39,7 @@ test.describe("Landing Page", () => {
     page,
   }) => {
     await expect(
-      page.getByText(/Hive gives every team member a personal AI assistant/i)
+      page.getByText(/Hive keeps everything you need in one place/i)
     ).toBeVisible();
   });
 
@@ -105,14 +105,14 @@ test.describe("Landing Page", () => {
 
   // ── Social Proof Bar ──────────────────────────────────────────────────────
 
-  test("philosophy bar shows 'Voice-First' and 'Your Dashboards' and 'Graduated Autonomy'", async ({
+  test("philosophy bar shows 'Voice-First', 'Your Workspace', and 'You Stay in Control'", async ({
     page,
   }) => {
     // Scope to the philosophy bar section (between hero and #features)
     const philBar = page.locator("section.border-y").first();
     await expect(philBar.getByText("Voice-First")).toBeVisible();
-    await expect(philBar.getByText("Your Dashboards")).toBeVisible();
-    await expect(philBar.getByText("Graduated Autonomy")).toBeVisible();
+    await expect(philBar.getByText("Your Workspace")).toBeVisible();
+    await expect(philBar.getByText("You Stay in Control")).toBeVisible();
   });
 
   // ── Features Section ──────────────────────────────────────────────────────
@@ -159,7 +159,7 @@ test.describe("Landing Page", () => {
     ).toBeVisible();
 
     await expect(howSection.getByText("Speak or Type")).toBeVisible();
-    await expect(howSection.getByText("PA Plans & Acts")).toBeVisible();
+    await expect(howSection.getByText("Hive Coordinates the Work")).toBeVisible();
     await expect(howSection.getByText("You Stay in Control")).toBeVisible();
   });
 
@@ -217,12 +217,12 @@ test.describe("Landing Page", () => {
 
   // ── Final CTA Section ─────────────────────────────────────────────────────
 
-  test("final CTA section has 'Ready to work with your AI assistant?' heading", async ({
+  test("final CTA section has 'Ready to make work feel lighter?' heading", async ({
     page,
   }) => {
     await expect(
       page.getByRole("heading", {
-        name: /Ready to work with your AI assistant\?/i,
+        name: /Ready to make work feel lighter\?/i,
       })
     ).toBeVisible();
   });
@@ -258,7 +258,7 @@ test.describe("Landing Page", () => {
     await page.setViewportSize({ width: 375, height: 667 });
     await expect(
       page.getByRole("heading", {
-        name: /Your AI Assistant That Actually/i,
+        name: /Less busywork\. More meaningful progress/i,
         level: 1,
       })
     ).toBeVisible();

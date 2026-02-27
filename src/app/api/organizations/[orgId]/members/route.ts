@@ -118,7 +118,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       metadata: { email: parsed.data.email, role: parsed.data.role, action: "invited" },
     });
 
-    return Response.json({ data: invitation }, { status: 201 });
+    // Strip token from response to prevent leaking invitation secrets
+    const { token: _token, ...safeInvitation } = invitation;
+    return Response.json({ data: safeInvitation }, { status: 201 });
   } catch (error) {
     if (error instanceof AuthError) {
       return Response.json(
