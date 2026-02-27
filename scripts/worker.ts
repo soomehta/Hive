@@ -56,7 +56,12 @@ async function startWorker() {
   );
   log.info("Registered: swarm-execution");
 
-  log.info("All 9 workers registered. Waiting for jobs...");
+  const { calendarSyncWorker } = await import(
+    "../src/lib/queue/workers/calendar-sync.worker"
+  );
+  log.info("Registered: calendar-sync");
+
+  log.info("All 10 workers registered. Waiting for jobs...");
 
   const workers = [
     transcriptionWorker,
@@ -68,6 +73,7 @@ async function startWorker() {
     weeklyDigestWorker,
     profileLearningWorker,
     swarmExecutionWorker,
+    calendarSyncWorker,
   ];
 
   async function shutdown(signal: string) {

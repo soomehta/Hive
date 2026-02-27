@@ -72,6 +72,7 @@ export const QUEUE_NAMES = {
   DIGEST: "weekly-digest",
   LEARNING: "profile-learning",
   SWARM_EXECUTION: "swarm-execution",
+  CALENDAR_SYNC: "calendar-sync",
 } as const;
 
 // ─── Pre-defined Queues (lazy getters) ──────────────────
@@ -85,6 +86,7 @@ let _briefingQueue: Queue | null = null;
 let _digestQueue: Queue | null = null;
 let _learningQueue: Queue | null = null;
 let _swarmExecutionQueue: Queue | null = null;
+let _calendarSyncQueue: Queue | null = null;
 
 export function getTranscriptionQueue(): Queue {
   if (!_transcriptionQueue) {
@@ -149,6 +151,13 @@ export function getSwarmExecutionQueue(): Queue {
   return _swarmExecutionQueue;
 }
 
+export function getCalendarSyncQueue(): Queue {
+  if (!_calendarSyncQueue) {
+    _calendarSyncQueue = createQueue(QUEUE_NAMES.CALENDAR_SYNC);
+  }
+  return _calendarSyncQueue;
+}
+
 // ─── Graceful Shutdown Helper ───────────────────────────
 
 export async function closeAllQueues(): Promise<void> {
@@ -162,6 +171,7 @@ export async function closeAllQueues(): Promise<void> {
     _digestQueue,
     _learningQueue,
     _swarmExecutionQueue,
+    _calendarSyncQueue,
   ].filter(Boolean) as Queue[];
 
   await Promise.all(queues.map((q) => q.close()));

@@ -3,6 +3,7 @@ import { createLogger } from "@/lib/logger";
 import { createIntegration } from "@/lib/db/queries/integrations";
 import { verifyOAuthState } from "@/lib/integrations/oauth-state";
 import { createServerClient } from "@supabase/ssr";
+import { createMicrosoftSubscription } from "@/lib/integrations/calendar-sync";
 
 const log = createLogger("microsoft-callback");
 
@@ -68,7 +69,7 @@ export async function GET(req: NextRequest) {
       }
     } catch {}
 
-    await createIntegration({
+    const integration = await createIntegration({
       userId: state.userId,
       orgId: state.orgId,
       provider: "microsoft",
@@ -78,6 +79,13 @@ export async function GET(req: NextRequest) {
       scopes: tokens.scope?.split(" "),
       providerAccountEmail: email,
     });
+
+    // Set up two-way calendar sync (non-blocking)
+    if (integration) {
+      createMicrosoftSubscription(state.userId, state.orgId, integration.id).catch((err) =>
+        log.warn({ err }, "Failed to set up Microsoft calendar subscription (non-critical)")
+      );
+    }
 
     return Response.redirect(new URL("/dashboard/integrations?connected=microsoft", req.url));
   } catch (error) {

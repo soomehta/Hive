@@ -89,6 +89,19 @@ export interface LearningJob {
   wasEdited: boolean;
 }
 
+export interface CalendarSyncJob {
+  /** The calendar_subscriptions row ID */
+  subscriptionId: string;
+  /** Integration row ID */
+  integrationId: string;
+  /** Clerk user ID */
+  userId: string;
+  /** Organization UUID */
+  orgId: string;
+  /** Provider: google or microsoft */
+  provider: "google" | "microsoft";
+}
+
 export interface SwarmExecutionJob {
   /** Pre-created swarm session UUID — the session row already exists when this job is enqueued */
   swarmSessionId: string;

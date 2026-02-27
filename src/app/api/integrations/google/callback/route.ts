@@ -3,6 +3,7 @@ import { createLogger } from "@/lib/logger";
 import { createIntegration } from "@/lib/db/queries/integrations";
 import { verifyOAuthState } from "@/lib/integrations/oauth-state";
 import { createServerClient } from "@supabase/ssr";
+import { createGoogleWatch } from "@/lib/integrations/calendar-sync";
 
 const log = createLogger("google-callback");
 
@@ -63,7 +64,7 @@ export async function GET(req: NextRequest) {
     });
     const userInfo = userInfoRes.ok ? await userInfoRes.json() : {};
 
-    await createIntegration({
+    const integration = await createIntegration({
       userId: state.userId,
       orgId: state.orgId,
       provider: "google",
@@ -74,6 +75,13 @@ export async function GET(req: NextRequest) {
       providerAccountId: userInfo.id,
       providerAccountEmail: userInfo.email,
     });
+
+    // Set up two-way calendar sync (non-blocking)
+    if (integration) {
+      createGoogleWatch(state.userId, state.orgId, integration.id).catch((err) =>
+        log.warn({ err }, "Failed to set up Google calendar watch (non-critical)")
+      );
+    }
 
     return Response.redirect(new URL("/dashboard/integrations?connected=google", req.url));
   } catch (error) {

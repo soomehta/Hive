@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
 import { deleteIntegration } from "@/lib/db/queries/integrations";
+import { stopAllSubscriptionsForIntegration } from "@/lib/integrations/calendar-sync";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("integrations");
@@ -12,6 +13,11 @@ export async function DELETE(
   try {
     const auth = await authenticateRequest(req);
     const { integrationId } = await params;
+
+    // Stop calendar webhook subscriptions before deleting
+    await stopAllSubscriptionsForIntegration(integrationId).catch((err) =>
+      log.warn({ err, integrationId }, "Failed to stop calendar subscriptions during disconnect")
+    );
 
     const deleted = await deleteIntegration(integrationId, auth.userId, auth.orgId);
     if (!deleted) {
