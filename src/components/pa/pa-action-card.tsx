@@ -64,7 +64,7 @@ export function PAActionCard({ action }: PAActionCardProps) {
   const isPending = decision.isPending;
 
   return (
-    <div className="mt-2 ml-9 rounded-lg border border-border bg-card p-3">
+    <div className="mt-2 ml-2 sm:ml-9 rounded-lg border border-border bg-card p-3">
       <div className="flex items-center gap-2 mb-2">
         <Badge variant="outline" className="text-xs text-violet-400 border-violet-400/30">
           {registry?.description ?? action.actionType}

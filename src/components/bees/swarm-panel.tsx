@@ -78,7 +78,7 @@ export function SwarmPanel() {
       </div>
 
       {/* Content */}
-      <div className="max-h-[300px] overflow-y-auto p-3 space-y-2">
+      <div className="max-h-[200px] sm:max-h-[300px] overflow-y-auto p-3 space-y-2">
         {/* Signals */}
         {signals.map((signal) => (
           <SwarmSignalBadge

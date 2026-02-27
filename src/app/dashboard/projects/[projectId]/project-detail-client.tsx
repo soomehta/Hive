@@ -474,7 +474,7 @@ export function PageClient() {
                           {task.title}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                         <Badge variant="outline" className="text-xs">
                           {TASK_STATUS_LABELS[task.status] ?? task.status}
                         </Badge>
@@ -482,7 +482,7 @@ export function PageClient() {
                           {TASK_PRIORITY_LABELS[task.priority] ?? task.priority}
                         </Badge>
                         {task.dueDate && (
-                          <span className="text-muted-foreground text-xs">
+                          <span className="text-muted-foreground text-xs hidden sm:inline">
                             {formatDate(task.dueDate)}
                           </span>
                         )}

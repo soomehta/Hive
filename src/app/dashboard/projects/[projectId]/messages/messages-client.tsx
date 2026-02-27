@@ -298,7 +298,7 @@ export function PageClient() {
           ))}
         </div>
       ) : sortedMessages.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-8 sm:py-16">
           <MessageSquare className="text-muted-foreground mb-4 h-12 w-12" />
           <h3 className="text-lg font-medium">No messages yet</h3>
           <p className="text-muted-foreground mt-1 text-sm">

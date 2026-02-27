@@ -77,10 +77,10 @@ export function LayoutStep({
       </div>
 
       {/* Layout preview */}
-      <div className="rounded-lg border border-border bg-muted/30 p-4">
+      <div className="rounded-lg border border-border bg-muted/30 p-2 sm:p-4 overflow-x-auto">
         <p className="text-sm font-medium mb-3 text-center">{preset.name}</p>
         <div
-          className="grid grid-cols-4 gap-2"
+          className="grid min-w-[320px] grid-cols-4 gap-1.5 sm:gap-2"
           style={{
             gridTemplateRows: `repeat(4, 60px)`,
           }}

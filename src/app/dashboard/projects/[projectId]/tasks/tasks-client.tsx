@@ -248,7 +248,7 @@ function SortableTaskCard({
 
 function KanbanTaskCardOverlay({ task }: { task: Task }) {
   return (
-    <Card className="shadow-lg py-3 rotate-2 w-56">
+    <Card className="shadow-lg py-3 rotate-2 w-48 sm:w-56">
       <CardContent className="p-3 space-y-2">
         <div className="flex items-start justify-between gap-2">
           <p className="text-sm font-medium leading-snug">{task.title}</p>
@@ -705,11 +705,11 @@ export function PageClient() {
       </div>
 
       {/* Filters and View Toggle */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="flex w-full items-center gap-2 sm:w-auto">
           <Filter className="text-muted-foreground h-4 w-4" />
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-full sm:w-[140px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -722,7 +722,7 @@ export function PageClient() {
             </SelectContent>
           </Select>
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-full sm:w-[140px]">
               <SelectValue placeholder="Priority" />
             </SelectTrigger>
             <SelectContent>
@@ -736,7 +736,7 @@ export function PageClient() {
           </Select>
         </div>
 
-        <div className="ml-auto flex items-center gap-1 rounded-lg border p-1">
+        <div className="self-end flex items-center gap-1 rounded-lg border p-1 sm:ml-auto sm:self-auto">
           <Button
             variant={viewMode === "list" ? "secondary" : "ghost"}
             size="icon-xs"
@@ -846,20 +846,20 @@ export function PageClient() {
                         </p>
                       )}
                     </div>
-                    <Badge variant="outline" className="text-xs shrink-0">
+                    <Badge variant="outline" className="text-xs shrink-0 hidden sm:inline-flex">
                       {TASK_STATUS_LABELS[task.status] ?? task.status}
                     </Badge>
-                    <Badge variant="secondary" className="text-xs shrink-0">
+                    <Badge variant="secondary" className="text-xs shrink-0 hidden sm:inline-flex">
                       {TASK_PRIORITY_LABELS[task.priority] ?? task.priority}
                     </Badge>
                     {task.assigneeId && (
-                      <Avatar size="sm">
+                      <Avatar size="sm" className="hidden sm:flex">
                         <AvatarFallback>
                           {getUserInitials(getUserDisplayName({ userId: task.assigneeId }))}
                         </AvatarFallback>
                       </Avatar>
                     )}
-                    <span className={`text-xs shrink-0 w-24 text-right flex items-center justify-end gap-1 ${getDueDateClassName(task.dueDate)}`}>
+                    <span className={`text-xs shrink-0 w-24 text-right items-center justify-end gap-1 hidden sm:flex ${getDueDateClassName(task.dueDate)}`}>
                       {task.dueDate && isOverdue(task.dueDate) && <AlertCircle className="h-3 w-3" />}
                       {task.dueDate ? formatDate(task.dueDate) : "No date"}
                     </span>
@@ -877,11 +877,11 @@ export function PageClient() {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="flex gap-4 overflow-x-auto pb-4 snap-x md:grid md:grid-cols-2 md:overflow-visible md:pb-0 lg:grid-cols-4">
             {KANBAN_STATUSES.map((status) => (
               <div
                 key={status}
-                className={`rounded-lg border border-t-4 ${STATUS_COLUMN_COLORS[status]} bg-muted/30`}
+                className={`min-w-[280px] shrink-0 snap-center rounded-lg border border-t-4 md:min-w-0 md:shrink ${STATUS_COLUMN_COLORS[status]} bg-muted/30`}
               >
                 <div className="flex items-center justify-between p-3 pb-2">
                   <h3 className="text-sm font-semibold">
@@ -973,7 +973,7 @@ export function PageClient() {
 
       {/* Bulk Action Toolbar */}
       {selectedTasks.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-lg border bg-background p-3 shadow-lg">
+        <div className="fixed bottom-4 left-2 right-2 z-50 flex flex-wrap justify-center items-center gap-2 rounded-lg border bg-background p-3 shadow-lg sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:bottom-6 sm:flex-nowrap">
           <span className="text-sm font-medium mr-2">
             {selectedTasks.size} selected
           </span>

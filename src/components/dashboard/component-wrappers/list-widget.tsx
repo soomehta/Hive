@@ -82,39 +82,39 @@ export function ListWidget({ orgId, projectId, isEditing }: WidgetProps) {
   return (
     <div className={`h-full overflow-auto ${isEditing ? "pointer-events-none select-none" : ""}`}>
       {/* Table header */}
-      <div className="sticky top-0 z-10 grid grid-cols-[1rem_1fr_5rem_5rem_5.5rem_2rem] items-center gap-2 border-b bg-muted/60 px-3 py-2 text-xs font-semibold text-muted-foreground">
+      <div className="sticky top-0 z-10 grid grid-cols-[1rem_1fr_4rem] sm:grid-cols-[1rem_1fr_5rem_5rem_5.5rem_2rem] items-center gap-2 border-b bg-muted/60 px-3 py-2 text-xs font-semibold text-muted-foreground">
         <span />
         <span>Title</span>
-        <span>Status</span>
-        <span>Priority</span>
-        <span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" />Due</span>
-        <span>Who</span>
+        <span className="hidden sm:block">Status</span>
+        <span className="hidden sm:block">Priority</span>
+        <span className="hidden sm:flex items-center gap-1"><CalendarDays className="h-3 w-3" />Due</span>
+        <span className="hidden sm:block">Who</span>
       </div>
       <div className="divide-y">
         {tasks.map((task) => (
           <div
             key={task.id}
-            className="grid grid-cols-[1rem_1fr_5rem_5rem_5.5rem_2rem] items-center gap-2 px-3 py-2 hover:bg-accent/40 transition-colors"
+            className="grid grid-cols-[1rem_1fr_4rem] sm:grid-cols-[1rem_1fr_5rem_5rem_5.5rem_2rem] items-center gap-2 px-3 py-2 hover:bg-accent/40 transition-colors"
           >
             <span
               className={`h-2.5 w-2.5 rounded-full ${PRIORITY_DOT[task.priority] ?? "bg-gray-400"}`}
             />
             <p className="truncate text-xs font-medium">{task.title}</p>
-            <Badge variant={STATUS_VARIANT[task.status] ?? "outline"} className="truncate text-[10px]">
+            <Badge variant={STATUS_VARIANT[task.status] ?? "outline"} className="hidden sm:inline-flex truncate text-[10px]">
               {TASK_STATUS_LABELS[task.status] ?? task.status}
             </Badge>
-            <Badge variant="secondary" className="truncate text-[10px]">
+            <Badge variant="secondary" className="hidden sm:inline-flex truncate text-[10px]">
               {TASK_PRIORITY_LABELS[task.priority] ?? task.priority}
             </Badge>
-            <span className="text-[11px] text-muted-foreground">
+            <span className="hidden sm:block text-[11px] text-muted-foreground">
               {task.dueDate ? formatDate(task.dueDate, "MMM d") : "--"}
             </span>
             {task.assigneeId ? (
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-100 text-[10px] font-semibold text-violet-700">
+              <span className="hidden sm:flex h-6 w-6 items-center justify-center rounded-full bg-violet-100 text-[10px] font-semibold text-violet-700">
                 {getUserInitials(getUserDisplayName({ userId: task.assigneeId }))}
               </span>
             ) : (
-              <span className="h-6 w-6" />
+              <span className="hidden sm:block h-6 w-6" />
             )}
           </div>
         ))}

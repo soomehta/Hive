@@ -131,7 +131,16 @@ export function Header({ user }: HeaderProps) {
         {/* Command palette (rendered once) */}
         <CommandPalette />
 
-        {/* Search trigger */}
+        {/* Search trigger — icon-only on mobile, full button on sm+ */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="sm:hidden"
+          onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
+          aria-label="Search"
+        >
+          <Search className="size-4" />
+        </Button>
         <Button
           variant="outline"
           size="sm"
@@ -176,7 +185,7 @@ export function Header({ user }: HeaderProps) {
               )}
             </Button>
           </PopoverTrigger>
-          <PopoverContent align="end" className="w-80 p-0">
+          <PopoverContent align="end" className="w-[calc(100vw-2rem)] sm:w-80 p-0">
             <div className="flex items-center justify-between border-b px-4 py-3">
               <p className="text-sm font-semibold">Notifications</p>
               {unreadCount > 0 && (
@@ -255,7 +264,7 @@ export function Header({ user }: HeaderProps) {
               <span className="sr-only">User menu</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuContent align="end" className="w-48 sm:w-56">
             <DropdownMenuLabel>
               <p className="font-medium">{user.fullName}</p>
               <p className="text-xs font-normal text-muted-foreground">

@@ -99,7 +99,7 @@ export function CalendarWidget({ orgId, projectId, isEditing }: WidgetProps) {
       {/* Weekday labels */}
       <div className="mb-1 grid grid-cols-7 shrink-0">
         {WEEKDAYS.map((d) => (
-          <span key={d} className="text-center text-[10px] font-medium text-muted-foreground">
+          <span key={d} className="text-center text-xs sm:text-[10px] font-medium text-muted-foreground">
             {d}
           </span>
         ))}
@@ -132,7 +132,7 @@ export function CalendarWidget({ orgId, projectId, isEditing }: WidgetProps) {
                 } ${!isCurrentMonth ? "opacity-30" : ""}`}
               >
                 <span
-                  className={`text-[11px] font-medium leading-tight ${
+                  className={`text-xs sm:text-[11px] font-medium leading-tight ${
                     isToday ? "text-violet-700 dark:text-violet-300" : "text-foreground/80"
                   }`}
                 >
@@ -142,7 +142,7 @@ export function CalendarWidget({ orgId, projectId, isEditing }: WidgetProps) {
                   {dayTasks.slice(0, 3).map((task) => (
                     <span
                       key={task.id}
-                      className={`h-1.5 w-1.5 rounded-full ${PRIORITY_DOT[task.priority] ?? "bg-gray-400"}`}
+                      className={`h-2 w-2 sm:h-1.5 sm:w-1.5 rounded-full ${PRIORITY_DOT[task.priority] ?? "bg-gray-400"}`}
                       title={task.title}
                     />
                   ))}

@@ -37,7 +37,7 @@ export function MobileSidebar({ orgs, user }: MobileSidebarProps) {
       <SheetContent
         side="left"
         showCloseButton={false}
-        className="w-64 p-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col gap-0"
+        className="w-[85vw] max-w-64 p-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col gap-0"
       >
         {/* Visually hidden title for accessibility */}
         <SheetTitle className="sr-only">Navigation menu</SheetTitle>

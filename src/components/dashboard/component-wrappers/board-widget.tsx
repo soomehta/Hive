@@ -57,9 +57,9 @@ export function BoardWidget({ orgId, projectId, isEditing }: WidgetProps) {
 
   if (isLoading) {
     return (
-      <div className="grid h-full grid-cols-4 gap-2 p-3">
+      <div className="flex h-full gap-2 overflow-x-auto p-3">
         {STATUS_COLUMNS.map((col) => (
-          <div key={col} className="space-y-2">
+          <div key={col} className="min-w-[180px] shrink-0 sm:min-w-0 sm:shrink sm:flex-1 space-y-2">
             <Skeleton className="h-5 w-20" />
             {Array.from({ length: 3 }).map((_, i) => (
               <Skeleton key={i} className="h-16 w-full rounded-md" />
@@ -84,13 +84,11 @@ export function BoardWidget({ orgId, projectId, isEditing }: WidgetProps) {
   });
 
   return (
-    <div className={`grid h-full gap-2 p-3 ${isEditing ? "pointer-events-none select-none" : ""}`}
-      style={{ gridTemplateColumns: `repeat(${STATUS_COLUMNS.length}, minmax(0, 1fr))` }}
-    >
+    <div className={`flex h-full gap-2 overflow-x-auto p-3 ${isEditing ? "pointer-events-none select-none" : ""}`}>
       {STATUS_COLUMNS.map((status) => (
         <div
           key={status}
-          className={`flex flex-col rounded-lg border border-t-4 bg-muted/30 ${COLUMN_ACCENT[status]}`}
+          className={`min-w-[180px] shrink-0 sm:min-w-0 sm:shrink sm:flex-1 flex flex-col rounded-lg border border-t-4 bg-muted/30 ${COLUMN_ACCENT[status]}`}
         >
           <div className="flex items-center justify-between px-3 py-2">
             <span className="text-xs font-semibold">{TASK_STATUS_LABELS[status]}</span>

@@ -225,7 +225,7 @@ function TaskRow({ task, onClick }: { task: Task; onClick: () => void }) {
           </p>
         )}
       </div>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 items-center gap-1 sm:gap-2">
         <PriorityBadge priority={task.priority} />
         <StatusBadge status={task.status} />
       </div>

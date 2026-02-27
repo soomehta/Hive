@@ -26,7 +26,7 @@ export function PAPanel() {
 
       {/* Panel */}
       {isOpen && (
-        <div className="fixed right-0 top-0 z-50 flex h-full w-[400px] flex-col border-l border-border bg-card shadow-2xl">
+        <div className="fixed inset-0 z-50 flex w-full flex-col border-l border-border bg-card shadow-2xl sm:inset-auto sm:right-0 sm:top-0 sm:h-full sm:w-[400px]">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <div className="flex items-center gap-2">
