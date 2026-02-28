@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
-import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { authenticateRequest } from "@/lib/auth/api-auth";
 import {
   getNotifications,
   markNotificationsRead,
 } from "@/lib/notifications/in-app";
+import { errorResponse } from "@/lib/utils/errors";
 
 export async function GET(req: NextRequest) {
   try {
@@ -19,16 +20,7 @@ export async function GET(req: NextRequest) {
 
     return Response.json({ data });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json(
-        { error: error.message },
-        { status: error.statusCode }
-      );
-    }
-    return Response.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return errorResponse(error);
   }
 }
 
@@ -47,17 +39,8 @@ export async function PATCH(req: NextRequest) {
 
     await markNotificationsRead(ids, auth.userId, auth.orgId);
 
-    return Response.json({ success: true });
+    return Response.json({ data: { success: true } });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json(
-        { error: error.message },
-        { status: error.statusCode }
-      );
-    }
-    return Response.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return errorResponse(error);
   }
 }

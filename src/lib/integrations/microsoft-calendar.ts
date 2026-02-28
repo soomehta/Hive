@@ -1,12 +1,7 @@
-import { Client } from "@microsoft/microsoft-graph-client";
 import { getActiveIntegration } from "./oauth";
 import type { CalendarEvent } from "@/types/integrations";
-
-function getGraphClient(accessToken: string) {
-  return Client.init({
-    authProvider: (done) => done(null, accessToken),
-  });
-}
+import { withRetry } from "@/lib/utils/retry";
+import { getGraphClient } from "./microsoft-client";
 
 export async function getEvents(
   userId: string,
@@ -17,12 +12,15 @@ export async function getEvents(
   if (!integration) throw new Error("Microsoft integration not connected");
 
   const client = getGraphClient(integration.decryptedAccessToken);
-  const res = await client
-    .api("/me/calendarview")
-    .query({ startDateTime: params.timeMin, endDateTime: params.timeMax })
-    .top(params.maxResults ?? 20)
-    .orderby("start/dateTime")
-    .get();
+  const res = await withRetry(
+    () => client
+      .api("/me/calendarview")
+      .query({ startDateTime: params.timeMin, endDateTime: params.timeMax })
+      .top(params.maxResults ?? 20)
+      .orderby("start/dateTime")
+      .get(),
+    { label: "ms-calendar:getEvents" }
+  );
 
   return (res.value ?? []).map((e: any) => ({
     id: e.id,
@@ -44,7 +42,8 @@ export async function createEvent(
   if (!integration) throw new Error("Microsoft integration not connected");
 
   const client = getGraphClient(integration.decryptedAccessToken);
-  const res = await client.api("/me/events").post({
+  const res = await withRetry(
+    () => client.api("/me/events").post({
     subject: event.summary,
     body: event.description ? { contentType: "Text", content: event.description } : undefined,
     start: { dateTime: event.startTime, timeZone: "UTC" },
@@ -54,7 +53,9 @@ export async function createEvent(
       emailAddress: { address: email },
       type: "required",
     })),
-  });
+  }),
+    { label: "ms-calendar:createEvent" }
+  );
 
   return {
     id: res.id,
@@ -85,7 +86,10 @@ export async function updateEvent(
   if (updates.location) body.location = { displayName: updates.location };
   if (updates.attendees) body.attendees = updates.attendees.map((email) => ({ emailAddress: { address: email }, type: "required" }));
 
-  const res = await client.api(`/me/events/${eventId}`).patch(body);
+  const res = await withRetry(
+    () => client.api(`/me/events/${eventId}`).patch(body),
+    { label: "ms-calendar:updateEvent" }
+  );
 
   return {
     id: res.id,
@@ -103,5 +107,8 @@ export async function deleteEvent(userId: string, orgId: string, eventId: string
   if (!integration) throw new Error("Microsoft integration not connected");
 
   const client = getGraphClient(integration.decryptedAccessToken);
-  await client.api(`/me/events/${eventId}`).delete();
+  await withRetry(
+    () => client.api(`/me/events/${eventId}`).delete(),
+    { label: "ms-calendar:deleteEvent" }
+  );
 }

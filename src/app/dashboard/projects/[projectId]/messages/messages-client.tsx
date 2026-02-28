@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod/v4";
 import { apiClient } from "@/lib/utils/api-client";
 import { useOrg } from "@/hooks/use-org";
+import { useMessagesQuery } from "@/hooks/queries/use-messages";
 import { createClient } from "@/lib/supabase/client";
 import { createMessageSchema } from "@/lib/utils/validation";
 import { relativeDate } from "@/lib/utils/dates";
@@ -93,19 +94,7 @@ export function PageClient() {
     enabled: !!orgId && !!projectId,
   });
 
-  const {
-    data: messages,
-    isLoading,
-  } = useQuery({
-    queryKey: ["project-messages", projectId, orgId],
-    queryFn: async () => {
-      const res = await apiClient(`/api/messages?projectId=${projectId}`);
-      if (!res.ok) throw new Error("Failed to fetch messages");
-      const json = await res.json();
-      return json.data as Message[];
-    },
-    enabled: !!orgId && !!projectId,
-  });
+  const { data: messages, isLoading } = useMessagesQuery(projectId);
 
   const createMutation = useMutation({
     mutationFn: async (data: MessageFormValues) => {
@@ -146,7 +135,7 @@ export function PageClient() {
     },
     onSuccess: () => {
       toast.success("Message updated");
-      queryClient.invalidateQueries({ queryKey: ["project-messages", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["messages", projectId] });
       setEditingId(null);
     },
     onError: (error: Error) => {
@@ -167,7 +156,7 @@ export function PageClient() {
     },
     onSuccess: () => {
       toast.success("Message deleted");
-      queryClient.invalidateQueries({ queryKey: ["project-messages", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["messages", projectId] });
       setDeleteConfirmId(null);
     },
     onError: (error: Error) => {
@@ -189,7 +178,7 @@ export function PageClient() {
     },
     onSuccess: (_, variables) => {
       toast.success(variables.isPinned ? "Message pinned" : "Message unpinned");
-      queryClient.invalidateQueries({ queryKey: ["project-messages", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["messages", projectId] });
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to toggle pin");

@@ -1,15 +1,13 @@
 import { NextRequest } from "next/server";
-import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { authenticateRequest } from "@/lib/auth/api-auth";
 import { hasPermission } from "@/lib/auth/permissions";
 import {
   getBeeInstance,
   updateBeeInstance,
   deleteBeeInstance,
 } from "@/lib/db/queries/bee-instances";
-import { createLogger } from "@/lib/logger";
+import { errorResponse } from "@/lib/utils/errors";
 import { z } from "zod";
-
-const log = createLogger("api-bee-instance-detail");
 
 const updateInstanceSchema = z.object({
   name: z.string().min(1).max(255).optional(),
@@ -47,11 +45,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     const updated = await updateBeeInstance(instanceId, parsed.data);
     return Response.json(updated);
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json({ error: error.message }, { status: error.statusCode });
-    }
-    log.error({ err: error }, "Failed to update bee instance");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }
 
@@ -72,10 +66,6 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     await deleteBeeInstance(instanceId);
     return Response.json({ success: true });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json({ error: error.message }, { status: error.statusCode });
-    }
-    log.error({ err: error }, "Failed to delete bee instance");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }

@@ -1,9 +1,7 @@
 import { NextRequest } from "next/server";
-import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { authenticateRequest } from "@/lib/auth/api-auth";
 import { getEvents, createEvent } from "@/lib/integrations/microsoft-calendar";
-import { createLogger } from "@/lib/logger";
-
-const log = createLogger("microsoft-calendar");
+import { errorResponse } from "@/lib/utils/errors";
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,12 +13,7 @@ export async function GET(req: NextRequest) {
     const events = await getEvents(auth.userId, auth.orgId, { timeMin, timeMax, maxResults });
     return Response.json({ data: events });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json({ error: error.message }, { status: error.statusCode });
-    }
-    log.error({ err: error }, "Microsoft calendar error");
-    const message = error instanceof Error ? error.message : "Internal server error";
-    return Response.json({ error: message }, { status: 500 });
+    return errorResponse(error);
   }
 }
 
@@ -31,11 +24,6 @@ export async function POST(req: NextRequest) {
     const event = await createEvent(auth.userId, auth.orgId, body);
     return Response.json({ data: event }, { status: 201 });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json({ error: error.message }, { status: error.statusCode });
-    }
-    log.error({ err: error }, "Microsoft calendar create error");
-    const message = error instanceof Error ? error.message : "Internal server error";
-    return Response.json({ error: message }, { status: 500 });
+    return errorResponse(error);
   }
 }

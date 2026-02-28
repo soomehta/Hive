@@ -1,5 +1,5 @@
-import { chatCompletion } from "./providers";
 import { getMessageDraftingPrompt } from "./prompts/drafting";
+import { draftContent } from "./content-drafter";
 
 export interface MessageDraftParams {
   intent: string;
@@ -17,32 +17,13 @@ export interface MessageDraftResult {
 export async function draftMessage(
   params: MessageDraftParams
 ): Promise<MessageDraftResult> {
-  const systemPrompt = getMessageDraftingPrompt(params.context);
-
-  const userMessage = `## Intent
-${params.intent}
-
-## Details
-${JSON.stringify(params.entities, null, 2)}
-
-## Sender
-${params.context.userName}`;
-
-  const content = await chatCompletion("msg-drafter", {
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userMessage },
-    ],
+  const result = await draftContent<MessageDraftResult>({
+    callerId: "msg-drafter",
+    systemPrompt: getMessageDraftingPrompt(params.context),
+    intent: params.intent,
+    entities: params.entities,
+    userName: params.context.userName,
   });
-
-  // Parse JSON response
-  let jsonStr = content;
-  const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (jsonMatch) {
-    jsonStr = jsonMatch[1].trim();
-  }
-
-  const result = JSON.parse(jsonStr) as MessageDraftResult;
 
   if (!result.content) {
     throw new Error("Invalid message draft result: missing content");

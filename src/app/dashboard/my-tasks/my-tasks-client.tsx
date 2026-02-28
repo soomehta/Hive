@@ -12,7 +12,7 @@ import {
   type TaskTimeGroup,
   formatDate,
 } from "@/lib/utils/dates";
-import { getDueDateClassName, isOverdue } from "@/lib/utils/due-date-styles";
+import { getDueDateClassName, isOverdue } from "@/components/shared/due-date-styles";
 import { formatMinutes } from "@/lib/utils/user-display";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

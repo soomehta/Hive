@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { authenticateRequest } from "@/lib/auth/api-auth";
 import { hasPermission } from "@/lib/auth/permissions";
 import {
   getProject,
@@ -10,9 +10,7 @@ import {
 } from "@/lib/db/queries/projects";
 import { logActivity } from "@/lib/db/queries/activity";
 import { createNotification } from "@/lib/notifications/in-app";
-import { createLogger } from "@/lib/logger";
-
-const log = createLogger("project-members");
+import { errorResponse } from "@/lib/utils/errors";
 
 type RouteParams = { params: Promise<{ projectId: string }> };
 
@@ -35,14 +33,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     return Response.json({ data: members });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json(
-        { error: error.message },
-        { status: error.statusCode }
-      );
-    }
-    log.error({ err: error }, "GET /api/projects/[projectId]/members error");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }
 
@@ -110,14 +101,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
     return Response.json({ data: member }, { status: 201 });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json(
-        { error: error.message },
-        { status: error.statusCode }
-      );
-    }
-    log.error({ err: error }, "POST /api/projects/[projectId]/members error");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }
 
@@ -178,13 +162,6 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
 
     return Response.json({ data: { success: true } });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json(
-        { error: error.message },
-        { status: error.statusCode }
-      );
-    }
-    log.error({ err: error }, "DELETE /api/projects/[projectId]/members error");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }

@@ -1,13 +1,12 @@
 import { NextRequest } from "next/server";
-import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { authenticateRequest } from "@/lib/auth/api-auth";
 import { hasPermission } from "@/lib/auth/permissions";
 import { createProjectSchema } from "@/lib/utils/validation";
 import { getProjects, createProject } from "@/lib/db/queries/projects";
 import { logActivity } from "@/lib/db/queries/activity";
 import { createNotification } from "@/lib/notifications/in-app";
-import { createLogger } from "@/lib/logger";
-
-const log = createLogger("projects");
+import { rateLimit, rateLimitResponse } from "@/lib/utils/rate-limit";
+import { errorResponse } from "@/lib/utils/errors";
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,20 +15,15 @@ export async function GET(req: NextRequest) {
 
     return Response.json({ data: projectList });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json(
-        { error: error.message },
-        { status: error.statusCode }
-      );
-    }
-    log.error({ err: error }, "GET /api/projects error");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
     const auth = await authenticateRequest(req);
+    const rl = await rateLimit(`projects:create:${auth.userId}`, 10, 60_000);
+    if (!rl.success) return rateLimitResponse(rl);
 
     if (!hasPermission(auth.memberRole, "project:create")) {
       return Response.json(
@@ -84,13 +78,6 @@ export async function POST(req: NextRequest) {
 
     return Response.json({ data: project }, { status: 201 });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json(
-        { error: error.message },
-        { status: error.statusCode }
-      );
-    }
-    log.error({ err: error }, "POST /api/projects error");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }

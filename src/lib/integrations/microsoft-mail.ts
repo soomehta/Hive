@@ -1,12 +1,7 @@
-import { Client } from "@microsoft/microsoft-graph-client";
 import { getActiveIntegration } from "./oauth";
 import type { EmailMessage } from "@/types/integrations";
-
-function getGraphClient(accessToken: string) {
-  return Client.init({
-    authProvider: (done) => done(null, accessToken),
-  });
-}
+import { withRetry } from "@/lib/utils/retry";
+import { getGraphClient } from "./microsoft-client";
 
 export async function getUnreadEmails(
   userId: string,
@@ -23,7 +18,10 @@ export async function getUnreadEmails(
     apiCall = client.api("/me/messages").search(`"${params.query}"`).top(params.maxResults ?? 10);
   }
 
-  const res = await apiCall.get();
+  const res = await withRetry(
+    () => apiCall.get(),
+    { label: "ms-mail:getUnread" }
+  );
 
   return (res.value ?? []).map((m: any) => ({
     id: m.id,
@@ -52,7 +50,10 @@ export async function sendEmail(
     message.ccRecipients = [{ emailAddress: { address: email.cc } }];
   }
 
-  await client.api("/me/sendMail").post({ message });
+  await withRetry(
+    () => client.api("/me/sendMail").post({ message }),
+    { label: "ms-mail:send" }
+  );
 
   return { messageId: "sent" };
 }

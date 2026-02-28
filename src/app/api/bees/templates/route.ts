@@ -1,15 +1,13 @@
 import { NextRequest } from "next/server";
-import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { authenticateRequest } from "@/lib/auth/api-auth";
 import { hasPermission } from "@/lib/auth/permissions";
 import { rateLimit, rateLimitResponse } from "@/lib/utils/rate-limit";
 import {
   getBeeTemplates,
   createBeeTemplate,
 } from "@/lib/db/queries/bee-templates";
-import { createLogger } from "@/lib/logger";
+import { errorResponse } from "@/lib/utils/errors";
 import { z } from "zod";
-
-const log = createLogger("api-bee-templates");
 
 const createTemplateSchema = z.object({
   name: z.string().min(1).max(255),
@@ -36,11 +34,7 @@ export async function GET(req: NextRequest) {
     const templates = await getBeeTemplates(auth.orgId);
     return Response.json({ data: templates });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json({ error: error.message }, { status: error.statusCode });
-    }
-    log.error({ err: error }, "Failed to list bee templates");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }
 
@@ -71,10 +65,6 @@ export async function POST(req: NextRequest) {
 
     return Response.json(template, { status: 201 });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json({ error: error.message }, { status: error.statusCode });
-    }
-    log.error({ err: error }, "Failed to create bee template");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }

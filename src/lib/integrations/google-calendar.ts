@@ -1,6 +1,7 @@
 import { google } from "googleapis";
 import { getActiveIntegration } from "./oauth";
 import type { CalendarEvent } from "@/types/integrations";
+import { withRetry } from "@/lib/utils/retry";
 
 function getCalendarClient(accessToken: string) {
   const auth = new google.auth.OAuth2();
@@ -17,14 +18,17 @@ export async function getEvents(
   if (!integration) throw new Error("Google integration not connected");
 
   const calendar = getCalendarClient(integration.decryptedAccessToken);
-  const res = await calendar.events.list({
-    calendarId: "primary",
-    timeMin: params.timeMin,
-    timeMax: params.timeMax,
-    maxResults: params.maxResults ?? 20,
-    singleEvents: true,
-    orderBy: "startTime",
-  });
+  const res = await withRetry(
+    () => calendar.events.list({
+      calendarId: "primary",
+      timeMin: params.timeMin,
+      timeMax: params.timeMax,
+      maxResults: params.maxResults ?? 20,
+      singleEvents: true,
+      orderBy: "startTime",
+    }),
+    { label: "google-calendar:getEvents" }
+  );
 
   return (res.data.items ?? []).map((e) => ({
     id: e.id!,
@@ -46,9 +50,10 @@ export async function createEvent(
   if (!integration) throw new Error("Google integration not connected");
 
   const calendar = getCalendarClient(integration.decryptedAccessToken);
-  const res = await calendar.events.insert({
-    calendarId: "primary",
-    requestBody: {
+  const res = await withRetry(
+    () => calendar.events.insert({
+      calendarId: "primary",
+      requestBody: {
       summary: event.summary,
       description: event.description,
       location: event.location,
@@ -56,7 +61,9 @@ export async function createEvent(
       end: { dateTime: event.endTime },
       attendees: event.attendees?.map((email) => ({ email })),
     },
-  });
+  }),
+    { label: "google-calendar:createEvent" }
+  );
 
   return {
     id: res.data.id!,
@@ -79,18 +86,21 @@ export async function updateEvent(
   if (!integration) throw new Error("Google integration not connected");
 
   const calendar = getCalendarClient(integration.decryptedAccessToken);
-  const res = await calendar.events.patch({
-    calendarId: "primary",
-    eventId,
-    requestBody: {
-      summary: updates.summary,
-      description: updates.description,
-      location: updates.location,
-      start: updates.startTime ? { dateTime: updates.startTime } : undefined,
-      end: updates.endTime ? { dateTime: updates.endTime } : undefined,
-      attendees: updates.attendees?.map((email) => ({ email })),
-    },
-  });
+  const res = await withRetry(
+    () => calendar.events.patch({
+      calendarId: "primary",
+      eventId,
+      requestBody: {
+        summary: updates.summary,
+        description: updates.description,
+        location: updates.location,
+        start: updates.startTime ? { dateTime: updates.startTime } : undefined,
+        end: updates.endTime ? { dateTime: updates.endTime } : undefined,
+        attendees: updates.attendees?.map((email) => ({ email })),
+      },
+    }),
+    { label: "google-calendar:updateEvent" }
+  );
 
   return {
     id: res.data.id!,
@@ -108,5 +118,8 @@ export async function deleteEvent(userId: string, orgId: string, eventId: string
   if (!integration) throw new Error("Google integration not connected");
 
   const calendar = getCalendarClient(integration.decryptedAccessToken);
-  await calendar.events.delete({ calendarId: "primary", eventId });
+  await withRetry(
+    () => calendar.events.delete({ calendarId: "primary", eventId }),
+    { label: "google-calendar:deleteEvent" }
+  );
 }

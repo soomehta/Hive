@@ -1,16 +1,14 @@
 import { Job } from "bullmq";
-import { createWorker, QUEUE_NAMES, getNotificationQueue } from "@/lib/queue";
+import { QUEUE_NAMES, getNotificationQueue } from "@/lib/queue";
+import { createTypedWorker } from "@/lib/queue/create-typed-worker";
 import type { SwarmExecutionJob, NotificationJob } from "@/lib/queue/jobs";
 import { executeSwarm } from "@/lib/bees/swarm-executor";
 import { updateSwarmSession } from "@/lib/db/queries/swarm-sessions";
-import { createLogger } from "@/lib/logger";
-import * as Sentry from "@sentry/nextjs";
-
-const log = createLogger("swarm-execution");
 
 // Swarm jobs can run for 15-30 s each; keep concurrency low to avoid
 // exhausting DB connections and AI provider rate limits.
-const worker = createWorker<SwarmExecutionJob>(
+const { worker, log } = createTypedWorker<SwarmExecutionJob>(
+  "swarm-execution",
   QUEUE_NAMES.SWARM_EXECUTION,
   async (job: Job<SwarmExecutionJob>) => {
     const {
@@ -105,14 +103,5 @@ const worker = createWorker<SwarmExecutionJob>(
     lockDuration: 120_000,
   }
 );
-
-worker.on("completed", (job) => {
-  log.info({ jobId: job.id }, "Job completed successfully");
-});
-
-worker.on("failed", (job, err) => {
-  log.error({ jobId: job?.id, err }, "Job failed");
-  Sentry.captureException(err);
-});
 
 export { worker as swarmExecutionWorker };

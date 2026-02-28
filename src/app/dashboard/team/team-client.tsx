@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/utils/api-client";
 import { useOrg } from "@/hooks/use-org";
+import { useCurrentOrgTeamQuery, type OrgMember } from "@/hooks/queries/use-team";
 import {
   Card,
   CardContent,
@@ -35,21 +36,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { UserPlus, Users, Mail, Briefcase, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/shared/empty-state";
-
-// ─── Types ──────────────────────────────────────────────
-
-interface OrgMember {
-  id: string;
-  orgId: string;
-  userId: string;
-  role: "owner" | "admin" | "member";
-  jobTitle: string | null;
-  department: string | null;
-  joinedAt: string;
-  displayName?: string;
-  email?: string | null;
-  avatarUrl?: string | null;
-}
 
 // ─── Role Badge ─────────────────────────────────────────
 
@@ -261,20 +247,7 @@ export function PageClient() {
     data: membersData,
     isLoading,
     error,
-  } = useQuery({
-    queryKey: ["org-members", orgId],
-    queryFn: async () => {
-      const res = await apiClient(
-        `/api/organizations/${orgId}/members`
-      );
-      if (!res.ok) {
-        throw new Error("Failed to fetch team members");
-      }
-      const json = await res.json();
-      return json.data as OrgMember[];
-    },
-    enabled: !!orgId,
-  });
+  } = useCurrentOrgTeamQuery();
 
   const members = membersData ?? [];
 

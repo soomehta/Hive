@@ -1,10 +1,10 @@
 import { Job } from "bullmq";
 import {
-  createWorker,
   QUEUE_NAMES,
   getNotificationQueue,
   getLearningQueue,
 } from "@/lib/queue";
+import { createTypedWorker } from "@/lib/queue/create-typed-worker";
 import type {
   ActionExecutionJob,
   NotificationJob,
@@ -14,12 +14,9 @@ import { executeAction } from "@/lib/actions/executor";
 import { getPaAction, updatePaAction } from "@/lib/db/queries/pa-actions";
 import { logActivity } from "@/lib/db/queries/activity";
 import type { PAAction } from "@/types/pa";
-import { createLogger } from "@/lib/logger";
-import * as Sentry from "@sentry/nextjs";
 
-const log = createLogger("action-execution");
-
-const worker = createWorker<ActionExecutionJob>(
+const { worker, log } = createTypedWorker<ActionExecutionJob>(
+  "action-execution",
   QUEUE_NAMES.ACTION_EXECUTION,
   async (job: Job<ActionExecutionJob>) => {
     const { actionId, userId, orgId } = job.data;
@@ -111,18 +108,7 @@ const worker = createWorker<ActionExecutionJob>(
       return { success: false, actionId, error: result.error };
     }
   },
-  {
-    concurrency: 5,
-  }
+  { concurrency: 5 }
 );
-
-worker.on("completed", (job) => {
-  log.info({ jobId: job.id }, "Job completed successfully");
-});
-
-worker.on("failed", (job, err) => {
-  log.error({ jobId: job?.id, err }, "Job failed");
-  Sentry.captureException(err);
-});
 
 export { worker as actionExecutionWorker };

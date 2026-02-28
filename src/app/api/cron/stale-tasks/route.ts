@@ -1,10 +1,8 @@
 import { NextRequest } from "next/server";
 import { createLogger } from "@/lib/logger";
-import { db } from "@/lib/db";
-import { tasks, notifications } from "@/lib/db/schema";
-import { and, lt, eq, gte, desc } from "drizzle-orm";
 import { createNotification } from "@/lib/notifications/in-app";
 import { verifyCronSecret } from "@/lib/auth/cron-auth";
+import { getStaleTasks, getRecentNudge } from "@/lib/db/queries/cron-queries";
 
 const log = createLogger("stale-tasks");
 
@@ -22,15 +20,7 @@ export async function POST(req: NextRequest) {
     const dedupeWindowStart = sevenDaysAgo;
 
     // ── Find stale tasks: in_progress and not updated in 7+ days ──
-    const staleTasks = await db
-      .select()
-      .from(tasks)
-      .where(
-        and(
-          eq(tasks.status, "in_progress"),
-          lt(tasks.updatedAt, sevenDaysAgo)
-        )
-      );
+    const staleTasks = await getStaleTasks(7);
 
     let sent = 0;
     let skipped = 0;
@@ -45,18 +35,7 @@ export async function POST(req: NextRequest) {
         }
 
         // ── Deduplication: skip if already notified in last 7 days ──
-        const recentNudge = await db
-          .select()
-          .from(notifications)
-          .where(
-            and(
-              eq(notifications.userId, task.assigneeId),
-              eq(notifications.type, "pa_nudge"),
-              gte(notifications.createdAt, dedupeWindowStart)
-            )
-          )
-          .orderBy(desc(notifications.createdAt))
-          .limit(10);
+        const recentNudge = await getRecentNudge(task.assigneeId, dedupeWindowStart, 10);
 
         const alreadyNudged = recentNudge.some((n) => {
           const meta = n.metadata as Record<string, unknown> | null;

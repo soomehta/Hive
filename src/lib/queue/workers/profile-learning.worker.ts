@@ -1,15 +1,12 @@
 import { Job } from "bullmq";
-import { createWorker, QUEUE_NAMES } from "@/lib/queue";
+import { QUEUE_NAMES } from "@/lib/queue";
+import { createTypedWorker } from "@/lib/queue/create-typed-worker";
 import type { LearningJob } from "@/lib/queue/jobs";
 import {
   getPaProfile,
   updatePaProfile,
   incrementInteractions,
 } from "@/lib/db/queries/pa-profiles";
-import { createLogger } from "@/lib/logger";
-import * as Sentry from "@sentry/nextjs";
-
-const log = createLogger("profile-learning");
 
 /**
  * Profile learning worker.
@@ -24,7 +21,8 @@ const log = createLogger("profile-learning");
  * - Tier demotions (move to draft_approve if often edited)
  * - Surfacing frequently-used intents in quick-action UI
  */
-const worker = createWorker<LearningJob>(
+const { worker, log } = createTypedWorker<LearningJob>(
+  "profile-learning",
   QUEUE_NAMES.LEARNING,
   async (job: Job<LearningJob>) => {
     const { userId, orgId, intent, actionType, wasApproved, wasEdited } =
@@ -130,18 +128,7 @@ const worker = createWorker<LearningJob>(
       suggestedTier: actionStats.suggestedTier ?? null,
     };
   },
-  {
-    concurrency: 5,
-  }
+  { concurrency: 5 }
 );
-
-worker.on("completed", (job) => {
-  log.info({ jobId: job.id }, "Job completed successfully");
-});
-
-worker.on("failed", (job, err) => {
-  log.error({ jobId: job?.id, err }, "Job failed");
-  Sentry.captureException(err);
-});
 
 export { worker as profileLearningWorker };

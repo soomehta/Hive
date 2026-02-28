@@ -1,16 +1,16 @@
 import { NextRequest } from "next/server";
 import { createLogger } from "@/lib/logger";
 import { db } from "@/lib/db";
-import { paProfiles, notifications } from "@/lib/db/schema";
+import { notifications } from "@/lib/db/schema";
 import { eq, and, gte, desc } from "drizzle-orm";
-import { getTasks } from "@/lib/db/queries/tasks";
-import { getActivityFeed } from "@/lib/db/queries/activity";
 import { createNotification } from "@/lib/notifications/in-app";
 import {
   generateBriefing,
   type BriefingContext,
 } from "@/lib/ai/briefing-generator";
 import { verifyCronSecret } from "@/lib/auth/cron-auth";
+import { getProfilesWithBriefingEnabled } from "@/lib/db/queries/cron-queries";
+import { aggregateBriefingData } from "@/lib/data/briefing-data";
 
 const log = createLogger("morning-briefing");
 
@@ -21,10 +21,7 @@ export async function POST(req: NextRequest) {
 
   try {
     // ── Get all profiles with morning briefing enabled ──
-    const profiles = await db
-      .select()
-      .from(paProfiles)
-      .where(eq(paProfiles.morningBriefingEnabled, true));
+    const profiles = await getProfilesWithBriefingEnabled();
 
     const now = new Date();
     let sent = 0;
@@ -81,89 +78,14 @@ export async function POST(req: NextRequest) {
         }
 
         // ── Aggregate data for this user ────────────────
-        const todayStart = new Date(
-          userNow.getFullYear(),
-          userNow.getMonth(),
-          userNow.getDate()
+        const briefingData = await aggregateBriefingData(
+          profile.userId,
+          profile.orgId,
+          userTimezone
         );
-        const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
-        const weekEnd = new Date(todayStart.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-        const [myTasksResult, activityResult] = await Promise.all([
-          getTasks({
-            orgId: profile.orgId,
-            assigneeId: profile.userId,
-            limit: 100,
-          }),
-          getActivityFeed({ orgId: profile.orgId, limit: 20 }),
-        ]);
-
-        const myTasks = myTasksResult.data;
-
-        const todayTasks = myTasks
-          .filter((t) => {
-            if (!t.dueDate || t.status === "done" || t.status === "cancelled")
-              return false;
-            const due = new Date(t.dueDate);
-            return due >= todayStart && due < todayEnd;
-          })
-          .map((t) => ({
-            id: t.id,
-            title: t.title,
-            status: t.status,
-            priority: t.priority,
-            dueDate: t.dueDate
-              ? new Date(t.dueDate).toISOString().split("T")[0]
-              : undefined,
-          }));
-
-        const weekTasks = myTasks
-          .filter((t) => {
-            if (!t.dueDate || t.status === "done" || t.status === "cancelled")
-              return false;
-            const due = new Date(t.dueDate);
-            return due >= todayEnd && due < weekEnd;
-          })
-          .map((t) => ({
-            id: t.id,
-            title: t.title,
-            status: t.status,
-            priority: t.priority,
-            dueDate: t.dueDate
-              ? new Date(t.dueDate).toISOString().split("T")[0]
-              : undefined,
-          }));
-
-        const overdueTasks = myTasks
-          .filter((t) => {
-            if (!t.dueDate || t.status === "done" || t.status === "cancelled")
-              return false;
-            return new Date(t.dueDate) < todayStart;
-          })
-          .map((t) => ({
-            id: t.id,
-            title: t.title,
-            dueDate: new Date(t.dueDate!).toISOString().split("T")[0],
-          }));
-
-        const blockers = myTasks
-          .filter((t) => t.isBlocked)
-          .map((t) => ({
-            id: t.id,
-            title: t.title,
-            reason: t.blockedReason ?? undefined,
-          }));
-
-        const recentActivity = activityResult.data
-          .filter((a) => {
-            const created = new Date(a.createdAt);
-            return created >= new Date(now.getTime() - 24 * 60 * 60 * 1000);
-          })
-          .map((a) => ({
-            type: a.type,
-            description: `${a.type} on ${a.taskId ?? a.projectId ?? "org"}`,
-            createdAt: new Date(a.createdAt).toISOString(),
-          }));
+        const { todayTasks, weekTasks, overdueTasks, blockers, recentActivity } =
+          briefingData;
 
         // ── Determine day of week ───────────────────────
         const days = [

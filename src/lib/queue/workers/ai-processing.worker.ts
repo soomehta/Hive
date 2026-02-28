@@ -1,5 +1,6 @@
 import { Job } from "bullmq";
-import { createWorker, QUEUE_NAMES, getActionExecutionQueue } from "@/lib/queue";
+import { QUEUE_NAMES, getActionExecutionQueue } from "@/lib/queue";
+import { createTypedWorker } from "@/lib/queue/create-typed-worker";
 import type { AIProcessingJob, ActionExecutionJob } from "@/lib/queue/jobs";
 import { classifyIntent } from "@/lib/ai/intent-classifier";
 import { planAction } from "@/lib/ai/action-planner";
@@ -9,10 +10,7 @@ import { resolveActionTier } from "@/lib/actions/registry";
 import { db } from "@/lib/db";
 import { projects, tasks, organizationMembers } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import { createLogger } from "@/lib/logger";
-import * as Sentry from "@sentry/nextjs";
-
-const log = createLogger("ai-processing");
+import { resolveUserMeta, resolveUserMetaBatch } from "@/lib/utils/user-resolver";
 
 /**
  * Builds the classification context required by classifyIntent.
@@ -26,15 +24,18 @@ async function buildClassificationContext(userId: string, orgId: string) {
     .where(eq(projects.orgId, orgId))
     .limit(20);
 
-  // Fetch team members (just user IDs — Clerk resolves names on the frontend)
-  const members = await db
-    .select({
-      id: organizationMembers.userId,
-      name: organizationMembers.userId,
-    })
+  // Fetch team members and resolve display names
+  const memberRows = await db
+    .select({ id: organizationMembers.userId })
     .from(organizationMembers)
     .where(eq(organizationMembers.orgId, orgId))
     .limit(50);
+
+  const metaMap = await resolveUserMetaBatch(memberRows.map((m) => m.id));
+  const members = memberRows.map((m) => ({
+    id: m.id,
+    name: metaMap.get(m.id)?.displayName ?? m.id,
+  }));
 
   // Fetch recent tasks assigned to the user
   const recentTasks = await db
@@ -48,8 +49,9 @@ async function buildClassificationContext(userId: string, orgId: string) {
     .orderBy(desc(tasks.createdAt))
     .limit(10);
 
+  const userMeta = await resolveUserMeta(userId);
   return {
-    userName: userId, // Clerk user ID; display name resolved on frontend
+    userName: userMeta.displayName,
     projects: orgProjects,
     teamMembers: members,
     recentTasks: recentTasks.map((t) => ({
@@ -60,7 +62,8 @@ async function buildClassificationContext(userId: string, orgId: string) {
   };
 }
 
-const worker = createWorker<AIProcessingJob>(
+const { worker, log } = createTypedWorker<AIProcessingJob>(
+  "ai-processing",
   QUEUE_NAMES.AI_PROCESSING,
   async (job: Job<AIProcessingJob>) => {
     const { transcript, userId, orgId, voiceTranscriptId } = job.data;
@@ -146,18 +149,7 @@ const worker = createWorker<AIProcessingJob>(
       tier: resolvedTier,
     };
   },
-  {
-    concurrency: 3,
-  }
+  { concurrency: 3 }
 );
-
-worker.on("completed", (job) => {
-  log.info({ jobId: job.id }, "Job completed successfully");
-});
-
-worker.on("failed", (job, err) => {
-  log.error({ jobId: job?.id, err }, "Job failed");
-  Sentry.captureException(err);
-});
 
 export { worker as aiProcessingWorker };

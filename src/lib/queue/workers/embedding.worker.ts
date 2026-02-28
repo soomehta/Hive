@@ -1,13 +1,11 @@
 import { Job } from "bullmq";
-import { createWorker, QUEUE_NAMES } from "@/lib/queue";
+import { QUEUE_NAMES } from "@/lib/queue";
+import { createTypedWorker } from "@/lib/queue/create-typed-worker";
 import type { EmbeddingJob } from "@/lib/queue/jobs";
 import { storeEmbedding } from "@/lib/ai/embeddings";
-import { createLogger } from "@/lib/logger";
-import * as Sentry from "@sentry/nextjs";
 
-const log = createLogger("embedding");
-
-const worker = createWorker<EmbeddingJob>(
+const { worker, log } = createTypedWorker<EmbeddingJob>(
+  "embedding",
   QUEUE_NAMES.EMBEDDING,
   async (job: Job<EmbeddingJob>) => {
     const { orgId, sourceType, sourceId, content } = job.data;
@@ -37,18 +35,7 @@ const worker = createWorker<EmbeddingJob>(
 
     return { sourceType, sourceId };
   },
-  {
-    concurrency: 5,
-  }
+  { concurrency: 5 }
 );
-
-worker.on("completed", (job) => {
-  log.info({ jobId: job.id }, "Job completed successfully");
-});
-
-worker.on("failed", (job, err) => {
-  log.error({ jobId: job?.id, err }, "Job failed");
-  Sentry.captureException(err);
-});
 
 export { worker as embeddingWorker };

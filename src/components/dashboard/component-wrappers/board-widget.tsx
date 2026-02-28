@@ -10,7 +10,7 @@ import {
 } from "@/lib/utils/constants";
 import { getUserInitials, getUserDisplayName } from "@/lib/utils/user-display";
 import { formatDate } from "@/lib/utils/dates";
-import { getDueDateClassName, isOverdue } from "@/lib/utils/due-date-styles";
+import { getDueDateClassName, isOverdue } from "@/components/shared/due-date-styles";
 import type { WidgetProps } from "@/types/bees";
 import type { Task } from "@/types";
 import { LayoutGrid, AlertCircle } from "lucide-react";

@@ -1,12 +1,10 @@
 import { Job } from "bullmq";
-import { createWorker, QUEUE_NAMES } from "@/lib/queue";
+import { QUEUE_NAMES } from "@/lib/queue";
+import { createTypedWorker } from "@/lib/queue/create-typed-worker";
 import type { NotificationJob } from "@/lib/queue/jobs";
 import { createNotification } from "@/lib/notifications/in-app";
 import type { Resend } from "resend";
-import { createLogger } from "@/lib/logger";
-import * as Sentry from "@sentry/nextjs";
-
-const log = createLogger("notification");
+import { resolveUserMeta } from "@/lib/utils/user-resolver";
 
 // ─── Lazy SDK Initialization ────────────────────────────
 
@@ -21,7 +19,8 @@ function getResend(): Resend {
 
 // ─── Worker ─────────────────────────────────────────────
 
-const worker = createWorker<NotificationJob>(
+const { worker, log } = createTypedWorker<NotificationJob>(
+  "notification",
   QUEUE_NAMES.NOTIFICATION,
   async (job: Job<NotificationJob>) => {
     const {
@@ -63,9 +62,7 @@ const worker = createWorker<NotificationJob>(
 
     return { notificationId: notification.id, channel };
   },
-  {
-    concurrency: 10,
-  }
+  { concurrency: 10 }
 );
 
 // ─── Email via Resend ───────────────────────────────────
@@ -76,18 +73,24 @@ async function sendEmailNotification(
   body?: string
 ) {
   try {
+    const userMeta = await resolveUserMeta(userId);
+    if (!userMeta.email) {
+      log.warn({ userId }, "Skipping email notification: no email found for user");
+      return;
+    }
+
     const resend = getResend();
     const fromEmail =
       process.env.EMAIL_FROM ?? "Hive PA <notifications@hive.app>";
 
     await resend.emails.send({
       from: fromEmail,
-      to: userId,
+      to: userMeta.email,
       subject: title,
       text: body ?? title,
     });
 
-    log.info({ userId, title }, "Email sent");
+    log.info({ userId, email: userMeta.email, title }, "Email sent");
   } catch (err) {
     log.error({ err, userId }, "Failed to send email");
   }
@@ -116,16 +119,5 @@ async function sendSlackNotification(
     log.error({ err, userId }, "Failed to send Slack message");
   }
 }
-
-// ─── Events ─────────────────────────────────────────────
-
-worker.on("completed", (job) => {
-  log.info({ jobId: job.id }, "Job completed successfully");
-});
-
-worker.on("failed", (job, err) => {
-  log.error({ jobId: job?.id, err }, "Job failed");
-  Sentry.captureException(err);
-});
 
 export { worker as notificationWorker };

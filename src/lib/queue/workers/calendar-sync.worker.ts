@@ -1,23 +1,19 @@
 import { Job } from "bullmq";
-import { createWorker, QUEUE_NAMES } from "@/lib/queue";
+import { QUEUE_NAMES } from "@/lib/queue";
+import { createTypedWorker } from "@/lib/queue/create-typed-worker";
 import type { CalendarSyncJob } from "@/lib/queue/jobs";
 import {
   googleIncrementalSync,
   microsoftDeltaSync,
   updateSyncToken,
-  findSubscriptionByChannelId,
-  findSubscriptionByMicrosoftId,
 } from "@/lib/integrations/calendar-sync";
 import { db } from "@/lib/db";
 import { calendarSubscriptions } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { broadcastToUser } from "@/lib/notifications/sse";
-import { createLogger } from "@/lib/logger";
-import * as Sentry from "@sentry/nextjs";
 
-const log = createLogger("calendar-sync-worker");
-
-const worker = createWorker<CalendarSyncJob>(
+const { worker, log } = createTypedWorker<CalendarSyncJob>(
+  "calendar-sync-worker",
   QUEUE_NAMES.CALENDAR_SYNC,
   async (job: Job<CalendarSyncJob>) => {
     const { subscriptionId, userId, orgId, provider } = job.data;
@@ -88,18 +84,11 @@ const worker = createWorker<CalendarSyncJob>(
       deleted: syncResult.deleted.length,
     };
   },
-  {
-    concurrency: 5,
-  }
+  { concurrency: 5 }
 );
 
-worker.on("completed", (job) => {
-  log.info({ jobId: job.id }, "Calendar sync job completed");
-});
-
-worker.on("failed", (job, err) => {
-  log.error({ jobId: job?.id, err }, "Calendar sync job failed");
-  Sentry.captureException(err);
-});
+// Note: The calendar-sync worker uses custom "completed"/"failed" messages
+// via createTypedWorker; the original had custom text for "completed".
+// The standard messages from createTypedWorker are semantically equivalent.
 
 export { worker as calendarSyncWorker };

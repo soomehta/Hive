@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
-import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { authenticateRequest } from "@/lib/auth/api-auth";
 import { getActivityFeed } from "@/lib/db/queries/activity";
+import { errorResponse } from "@/lib/utils/errors";
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,15 +19,6 @@ export async function GET(req: NextRequest) {
 
     return Response.json(result);
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json(
-        { error: error.message },
-        { status: error.statusCode }
-      );
-    }
-    return Response.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return errorResponse(error);
   }
 }

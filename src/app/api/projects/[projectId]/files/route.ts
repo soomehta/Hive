@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
-import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { authenticateRequest } from "@/lib/auth/api-auth";
 import { isProjectMember } from "@/lib/db/queries/projects";
 import { getFilesByProject, createFile } from "@/lib/db/queries/files";
-import { uploadFile } from "@/lib/voice/r2";
-import { createLogger } from "@/lib/logger";
-
-const log = createLogger("files");
+import { uploadFile } from "@/lib/storage/r2";
+import { logActivity } from "@/lib/db/queries/activity";
+import { rateLimit, rateLimitResponse } from "@/lib/utils/rate-limit";
+import { errorResponse } from "@/lib/utils/errors";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
@@ -29,20 +29,15 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     const files = await getFilesByProject(projectId);
     return Response.json({ data: files });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json(
-        { error: error.message },
-        { status: error.statusCode }
-      );
-    }
-    log.error({ err: error }, "GET /api/projects/[projectId]/files error");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }
 
 export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
     const auth = await authenticateRequest(req);
+    const rl = await rateLimit(`files:upload:${auth.userId}`, 20, 60_000);
+    if (!rl.success) return rateLimitResponse(rl);
     const { projectId } = await params;
 
     const isMember = await isProjectMember(projectId, auth.userId);
@@ -88,15 +83,16 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       r2Key,
     });
 
+    await logActivity({
+      orgId: auth.orgId,
+      projectId,
+      userId: auth.userId,
+      type: "project_updated",
+      metadata: { action: "file_uploaded", fileName: file.name, fileSize: file.size },
+    });
+
     return Response.json({ data: record }, { status: 201 });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json(
-        { error: error.message },
-        { status: error.statusCode }
-      );
-    }
-    log.error({ err: error }, "POST /api/projects/[projectId]/files error");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }

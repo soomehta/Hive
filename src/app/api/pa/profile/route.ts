@@ -1,10 +1,8 @@
 import { NextRequest } from "next/server";
-import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { authenticateRequest } from "@/lib/auth/api-auth";
 import { updatePaProfileSchema } from "@/lib/utils/validation";
 import { getOrCreatePaProfile, updatePaProfile } from "@/lib/db/queries/pa-profiles";
-import { createLogger } from "@/lib/logger";
-
-const log = createLogger("pa-profile");
+import { errorResponse } from "@/lib/utils/errors";
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,10 +10,7 @@ export async function GET(req: NextRequest) {
     const profile = await getOrCreatePaProfile(auth.userId, auth.orgId);
     return Response.json({ data: profile });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json({ error: error.message }, { status: error.statusCode });
-    }
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }
 
@@ -39,10 +34,6 @@ export async function PATCH(req: NextRequest) {
 
     return Response.json({ data: profile });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json({ error: error.message }, { status: error.statusCode });
-    }
-    log.error({ err: error }, "PA profile error");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }

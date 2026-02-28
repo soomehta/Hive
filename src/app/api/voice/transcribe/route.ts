@@ -1,14 +1,12 @@
 import { NextRequest } from "next/server";
-import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { authenticateRequest } from "@/lib/auth/api-auth";
 import { rateLimit, rateLimitResponse } from "@/lib/utils/rate-limit";
 import { transcribeAudio as deepgramTranscribe } from "@/lib/voice/deepgram";
 import { transcribeAudio as gladiaTranscribe } from "@/lib/voice/gladia";
-import { uploadAudio } from "@/lib/voice/r2";
+import { uploadAudio } from "@/lib/storage/r2";
 import { createVoiceTranscript } from "@/lib/db/queries/pa-actions";
 import { nanoid } from "nanoid";
-import { createLogger } from "@/lib/logger";
-
-const log = createLogger("voice-transcribe");
+import { errorResponse } from "@/lib/utils/errors";
 
 export async function POST(req: NextRequest) {
   try {
@@ -109,10 +107,6 @@ export async function POST(req: NextRequest) {
       durationMs: transcript.durationMs,
     });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json({ error: error.message }, { status: error.statusCode });
-    }
-    log.error({ err: error }, "Voice transcribe error");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }

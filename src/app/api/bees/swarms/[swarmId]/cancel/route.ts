@@ -1,12 +1,10 @@
 import { NextRequest } from "next/server";
-import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { authenticateRequest } from "@/lib/auth/api-auth";
 import {
   getSwarmSession,
   updateSwarmSession,
 } from "@/lib/db/queries/swarm-sessions";
-import { createLogger } from "@/lib/logger";
-
-const log = createLogger("api-swarm-cancel");
+import { errorResponse } from "@/lib/utils/errors";
 
 interface RouteParams {
   params: Promise<{ swarmId: string }>;
@@ -32,10 +30,6 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     const updated = await updateSwarmSession(swarmId, { status: "failed" });
     return Response.json(updated);
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json({ error: error.message }, { status: error.statusCode });
-    }
-    log.error({ err: error }, "Failed to cancel swarm");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }

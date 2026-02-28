@@ -1,10 +1,8 @@
 import { NextRequest } from "next/server";
 import { createLogger } from "@/lib/logger";
-import { db } from "@/lib/db";
-import { tasks, notifications } from "@/lib/db/schema";
-import { and, lt, notInArray, eq, gte, desc } from "drizzle-orm";
 import { createNotification } from "@/lib/notifications/in-app";
 import { verifyCronSecret } from "@/lib/auth/cron-auth";
+import { getOverdueTasks, getRecentNudge } from "@/lib/db/queries/cron-queries";
 
 const log = createLogger("overdue-nudge");
 
@@ -20,15 +18,7 @@ export async function POST(req: NextRequest) {
     );
 
     // ── Find overdue tasks (dueDate < now, not done/cancelled) ──
-    const overdueTasks = await db
-      .select()
-      .from(tasks)
-      .where(
-        and(
-          lt(tasks.dueDate, now),
-          notInArray(tasks.status, ["done", "cancelled"])
-        )
-      );
+    const overdueTasks = await getOverdueTasks();
 
     let sent = 0;
     let skipped = 0;
@@ -43,18 +33,7 @@ export async function POST(req: NextRequest) {
         }
 
         // ── Check if already nudged within last 24 hours ─
-        const recentNudge = await db
-          .select()
-          .from(notifications)
-          .where(
-            and(
-              eq(notifications.userId, task.assigneeId),
-              eq(notifications.type, "pa_nudge"),
-              gte(notifications.createdAt, twentyFourHoursAgo)
-            )
-          )
-          .orderBy(desc(notifications.createdAt))
-          .limit(5);
+        const recentNudge = await getRecentNudge(task.assigneeId, twentyFourHoursAgo, 5);
 
         // Check if any recent nudge is about this specific task
         const alreadyNudged = recentNudge.some((n) => {

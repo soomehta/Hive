@@ -1,5 +1,6 @@
 import { chatCompletion } from "./providers";
 import { getIntentClassificationPrompt } from "./prompts/intent-classification";
+import { parseAIResponseOrThrow } from "./parse-response";
 
 interface ClassificationContext {
   userName: string;
@@ -28,7 +29,7 @@ export async function classifyIntent(
     jsonMode: true,
   });
 
-  const result = JSON.parse(content) as ClassificationResult;
+  const result = parseAIResponseOrThrow<ClassificationResult>(content, "intent classification");
 
   // Validate required fields
   if (!result.intent || result.confidence === undefined) {

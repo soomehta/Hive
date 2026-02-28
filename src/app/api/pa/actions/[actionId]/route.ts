@@ -1,11 +1,10 @@
 import { NextRequest } from "next/server";
-import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { authenticateRequest } from "@/lib/auth/api-auth";
 import { actionDecisionSchema } from "@/lib/utils/validation";
 import { getPaAction, updatePaAction, createPaCorrection } from "@/lib/db/queries/pa-actions";
 import { executeAction } from "@/lib/actions/executor";
-import { createLogger } from "@/lib/logger";
-
-const log = createLogger("pa-actions");
+import { logActivity } from "@/lib/db/queries/activity";
+import { errorResponse } from "@/lib/utils/errors";
 
 interface RouteParams {
   params: Promise<{ actionId: string }>;
@@ -69,6 +68,12 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     }
 
     // reject
+    await logActivity({
+      orgId: action.orgId,
+      userId: auth.userId,
+      type: "pa_action_executed",
+      metadata: { actionId, decision: "rejected", actionType: action.actionType },
+    });
     await updatePaAction(actionId, {
       status: "rejected",
       rejectionReason,
@@ -83,10 +88,6 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     });
     return Response.json({ status: "rejected" });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json({ error: error.message }, { status: error.statusCode });
-    }
-    log.error({ err: error }, "PA action decision error");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }

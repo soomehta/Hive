@@ -1,3 +1,4 @@
+import { AuthError } from "@/lib/auth/api-auth";
 import { createLogger } from "@/lib/logger";
 import * as Sentry from "@sentry/nextjs";
 
@@ -42,6 +43,13 @@ export class UnauthorizedError extends AppError {
 }
 
 export function errorResponse(error: unknown) {
+  if (error instanceof AuthError) {
+    return Response.json(
+      { error: error.message },
+      { status: error.statusCode }
+    );
+  }
+
   if (error instanceof AppError) {
     return Response.json(
       { error: error.message },

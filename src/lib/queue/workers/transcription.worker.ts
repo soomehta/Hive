@@ -1,14 +1,12 @@
 import { Job } from "bullmq";
-import { createWorker, QUEUE_NAMES, getAIProcessingQueue } from "@/lib/queue";
+import { QUEUE_NAMES, getAIProcessingQueue } from "@/lib/queue";
+import { createTypedWorker } from "@/lib/queue/create-typed-worker";
 import type { TranscriptionJob, AIProcessingJob } from "@/lib/queue/jobs";
 import { transcribeAudio } from "@/lib/voice/deepgram";
 import { createVoiceTranscript } from "@/lib/db/queries/pa-actions";
-import { createLogger } from "@/lib/logger";
-import * as Sentry from "@sentry/nextjs";
 
-const log = createLogger("transcription");
-
-const worker = createWorker<TranscriptionJob>(
+const { worker, log } = createTypedWorker<TranscriptionJob>(
+  "transcription",
   QUEUE_NAMES.TRANSCRIPTION,
   async (job: Job<TranscriptionJob>) => {
     const { audioUrl, userId, orgId, format } = job.data;
@@ -71,18 +69,7 @@ const worker = createWorker<TranscriptionJob>(
 
     return { transcriptId: transcript.id, text: result.transcript };
   },
-  {
-    concurrency: 3,
-  }
+  { concurrency: 3 }
 );
-
-worker.on("completed", (job) => {
-  log.info({ jobId: job.id }, "Job completed successfully");
-});
-
-worker.on("failed", (job, err) => {
-  log.error({ jobId: job?.id, err }, "Job failed");
-  Sentry.captureException(err);
-});
 
 export { worker as transcriptionWorker };

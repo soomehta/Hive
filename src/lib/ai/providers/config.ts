@@ -107,10 +107,16 @@ export function resolveApiKey(config: AIRoleConfig): string {
 
   switch (config.provider) {
     case "openai":
-    case "openai-compatible":
-      return process.env.OPENAI_API_KEY ?? "";
-    case "anthropic":
-      return process.env.ANTHROPIC_API_KEY ?? "";
+    case "openai-compatible": {
+      const key = process.env.OPENAI_API_KEY;
+      if (!key) throw new Error("OPENAI_API_KEY environment variable is not set");
+      return key;
+    }
+    case "anthropic": {
+      const key = process.env.ANTHROPIC_API_KEY;
+      if (!key) throw new Error("ANTHROPIC_API_KEY environment variable is not set");
+      return key;
+    }
     default:
       throw new Error(`Unknown provider: ${config.provider}`);
   }

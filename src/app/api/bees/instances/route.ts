@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { authenticateRequest } from "@/lib/auth/api-auth";
 import { hasPermission } from "@/lib/auth/permissions";
 import { rateLimit, rateLimitResponse } from "@/lib/utils/rate-limit";
 import {
@@ -7,10 +7,8 @@ import {
   createBeeInstance,
 } from "@/lib/db/queries/bee-instances";
 import { getBeeTemplate } from "@/lib/db/queries/bee-templates";
-import { createLogger } from "@/lib/logger";
+import { errorResponse } from "@/lib/utils/errors";
 import { z } from "zod";
-
-const log = createLogger("api-bee-instances");
 
 const createInstanceSchema = z.object({
   templateId: z.string().uuid(),
@@ -28,11 +26,7 @@ export async function GET(req: NextRequest) {
     const instances = await getBeeInstances(auth.orgId, projectId);
     return Response.json({ data: instances });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json({ error: error.message }, { status: error.statusCode });
-    }
-    log.error({ err: error }, "Failed to list bee instances");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }
 
@@ -72,10 +66,6 @@ export async function POST(req: NextRequest) {
 
     return Response.json(instance, { status: 201 });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json({ error: error.message }, { status: error.statusCode });
-    }
-    log.error({ err: error }, "Failed to create bee instance");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }

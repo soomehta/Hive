@@ -1,16 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { apiClient } from "@/lib/utils/api-client";
 import { useOrg } from "@/hooks/use-org";
+import { useProjectsQuery } from "@/hooks/queries/use-projects";
 import { ProjectCard } from "@/components/projects/project-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Plus, FolderKanban } from "lucide-react";
-import type { Project } from "@/types";
 import { PROJECT_STATUS_LABELS } from "@/lib/utils/constants";
 import { EmptyState } from "@/components/shared/empty-state";
 
@@ -20,19 +18,7 @@ export function PageClient() {
   const { orgId } = useOrg();
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const {
-    data: projects,
-    isLoading,
-  } = useQuery({
-    queryKey: ["projects", orgId],
-    queryFn: async () => {
-      const res = await apiClient("/api/projects");
-      if (!res.ok) throw new Error("Failed to fetch projects");
-      const json = await res.json();
-      return json.data as Project[];
-    },
-    enabled: !!orgId,
-  });
+  const { data: projects, isLoading } = useProjectsQuery();
 
   const filteredProjects =
     statusFilter === "all"

@@ -1,16 +1,15 @@
 import { Job } from "bullmq";
-import { createWorker, QUEUE_NAMES, getNotificationQueue } from "@/lib/queue";
+import { QUEUE_NAMES, getNotificationQueue } from "@/lib/queue";
+import { createTypedWorker } from "@/lib/queue/create-typed-worker";
 import type { BriefingJob, NotificationJob } from "@/lib/queue/jobs";
 import { generateBriefing, type BriefingContext } from "@/lib/ai/briefing-generator";
 import { getTasks } from "@/lib/db/queries/tasks";
 import { getOrCreatePaProfile } from "@/lib/db/queries/pa-profiles";
 import { getActivityFeed } from "@/lib/db/queries/activity";
-import { createLogger } from "@/lib/logger";
-import * as Sentry from "@sentry/nextjs";
+import { resolveUserMeta } from "@/lib/utils/user-resolver";
 
-const log = createLogger("morning-briefing");
-
-const worker = createWorker<BriefingJob>(
+const { worker, log } = createTypedWorker<BriefingJob>(
+  "morning-briefing",
   QUEUE_NAMES.BRIEFING,
   async (job: Job<BriefingJob>) => {
     const { userId, orgId } = job.data;
@@ -65,11 +64,14 @@ const worker = createWorker<BriefingJob>(
       limit: 20,
     });
 
-    // 3. Generate the briefing using AI
+    // 3. Resolve user display name
+    const userMeta = await resolveUserMeta(userId);
+
+    // 4. Generate the briefing using AI
     const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const briefingContext: BriefingContext = {
-      userName: userId,
-      firstName: userId.split("-")[0] ?? "there",
+      userName: userMeta.displayName,
+      firstName: userMeta.firstName,
       date: todayStr,
       dayOfWeek: days[now.getDay()],
       timezone: profile.timezone,
@@ -142,18 +144,7 @@ const worker = createWorker<BriefingJob>(
       },
     };
   },
-  {
-    concurrency: 3,
-  }
+  { concurrency: 3 }
 );
-
-worker.on("completed", (job) => {
-  log.info({ jobId: job.id }, "Job completed successfully");
-});
-
-worker.on("failed", (job, err) => {
-  log.error({ jobId: job?.id, err }, "Job failed");
-  Sentry.captureException(err);
-});
 
 export { worker as morningBriefingWorker };

@@ -1,5 +1,6 @@
 import { chatCompletion } from "./providers";
 import { getActionPlanningPrompt } from "./prompts/action-planning";
+import { parseAIResponseOrThrow } from "./parse-response";
 
 interface PlanContext {
   userName: string;
@@ -33,14 +34,7 @@ export async function planAction(
     ],
   });
 
-  // Extract JSON from response (may be wrapped in markdown code block)
-  let jsonStr = content;
-  const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (jsonMatch) {
-    jsonStr = jsonMatch[1].trim();
-  }
-
-  const result = JSON.parse(jsonStr) as PlanResult;
+  const result = parseAIResponseOrThrow<PlanResult>(content, "action planning");
 
   if (!result.tier || !result.payload || !result.confirmationMessage) {
     throw new Error("Invalid action plan result");

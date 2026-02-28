@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { authenticateRequest } from "@/lib/auth/api-auth";
 import { hasPermission } from "@/lib/auth/permissions";
 import { updateOrgSchema } from "@/lib/utils/validation";
 import {
@@ -7,9 +7,8 @@ import {
   updateOrganization,
   deleteOrganization,
 } from "@/lib/db/queries/organizations";
-import { createLogger } from "@/lib/logger";
-
-const log = createLogger("organizations");
+import { logActivity } from "@/lib/db/queries/activity";
+import { errorResponse } from "@/lib/utils/errors";
 
 interface RouteParams {
   params: Promise<{ orgId: string }>;
@@ -38,14 +37,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     return Response.json({ data: org });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json(
-        { error: error.message },
-        { status: error.statusCode }
-      );
-    }
-    log.error({ err: error }, "GET /api/organizations/[orgId] error");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }
 
@@ -87,16 +79,16 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       );
     }
 
+    await logActivity({
+      orgId,
+      userId: auth.userId,
+      type: "project_updated",
+      metadata: { action: "org_updated", fields: Object.keys(parsed.data) },
+    });
+
     return Response.json({ data: updated });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json(
-        { error: error.message },
-        { status: error.statusCode }
-      );
-    }
-    log.error({ err: error }, "PATCH /api/organizations/[orgId] error");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }
 
@@ -128,15 +120,15 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       );
     }
 
+    await logActivity({
+      orgId,
+      userId: auth.userId,
+      type: "member_left",
+      metadata: { action: "org_deleted", orgName: deleted.name },
+    });
+
     return Response.json({ data: { id: deleted.id } });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json(
-        { error: error.message },
-        { status: error.statusCode }
-      );
-    }
-    log.error({ err: error }, "DELETE /api/organizations/[orgId] error");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }

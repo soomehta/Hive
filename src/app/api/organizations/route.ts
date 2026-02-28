@@ -6,7 +6,8 @@ import {
   getUserOrganizations,
   createOrganization,
 } from "@/lib/db/queries/organizations";
-import { AuthError } from "@/lib/auth/api-auth";
+import { rateLimit, rateLimitResponse } from "@/lib/utils/rate-limit";
+import { errorResponse } from "@/lib/utils/errors";
 import { logActivity } from "@/lib/db/queries/activity";
 
 const log = createLogger("organizations");
@@ -26,14 +27,7 @@ export async function GET() {
 
     return Response.json({ data: orgs });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json(
-        { error: error.message },
-        { status: error.statusCode }
-      );
-    }
-    log.error({ err: error }, "GET /api/organizations error");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }
 
@@ -47,6 +41,9 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const rl = await rateLimit(`orgs:create:${user.id}`, 5, 60_000);
+    if (!rl.success) return rateLimitResponse(rl);
 
     const body = await req.json();
     const parsed = createOrgSchema.safeParse(body);
@@ -73,13 +70,6 @@ export async function POST(req: NextRequest) {
 
     return Response.json({ data: org }, { status: 201 });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json(
-        { error: error.message },
-        { status: error.statusCode }
-      );
-    }
-    log.error({ err: error }, "POST /api/organizations error");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }

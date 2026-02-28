@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { authenticateRequest } from "@/lib/auth/api-auth";
 import { paChatSchema } from "@/lib/utils/validation";
 import { rateLimit, rateLimitResponse } from "@/lib/utils/rate-limit";
 import { classifyIntent } from "@/lib/ai/intent-classifier";
@@ -24,6 +24,7 @@ import { eq } from "drizzle-orm";
 import { createLogger } from "@/lib/logger";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getContextForPrompt } from "@/lib/ai/rag";
+import { errorResponse } from "@/lib/utils/errors";
 
 const log = createLogger("pa-chat");
 
@@ -255,11 +256,7 @@ export async function POST(req: NextRequest) {
       dispatchMode: dispatchResult.mode,
     });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json({ error: error.message }, { status: error.statusCode });
-    }
-    log.error({ err: error }, "PA chat error");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }
 
@@ -274,10 +271,6 @@ export async function GET(req: NextRequest) {
     // Reverse to chronological order (getRecentConversations returns newest first)
     return Response.json({ data: messages.reverse() });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json({ error: error.message }, { status: error.statusCode });
-    }
-    log.error({ err: error }, "PA chat history error");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }

@@ -1,8 +1,10 @@
 import { NextRequest } from "next/server";
-import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { authenticateRequest } from "@/lib/auth/api-auth";
 import { deleteIntegration } from "@/lib/db/queries/integrations";
 import { stopAllSubscriptionsForIntegration } from "@/lib/integrations/calendar-sync";
+import { logActivity } from "@/lib/db/queries/activity";
 import { createLogger } from "@/lib/logger";
+import { errorResponse } from "@/lib/utils/errors";
 
 const log = createLogger("integrations");
 
@@ -23,12 +25,15 @@ export async function DELETE(
     if (!deleted) {
       return Response.json({ error: "Integration not found" }, { status: 404 });
     }
-    return Response.json({ success: true });
+    await logActivity({
+      orgId: auth.orgId,
+      userId: auth.userId,
+      type: "member_left",
+      metadata: { action: "integration_deleted", integrationId },
+    });
+
+    return Response.json({ data: { success: true } });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json({ error: error.message }, { status: error.statusCode });
-    }
-    log.error({ err: error }, "Integration delete error");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }

@@ -61,6 +61,22 @@ function loadEnv() {
     SENTRY_ORG: optional("SENTRY_ORG"),
     SENTRY_PROJECT: optional("SENTRY_PROJECT"),
 
+    // Email
+    RESEND_API_KEY: optional("RESEND_API_KEY"),
+    EMAIL_FROM: optional("EMAIL_FROM"),
+
+    // R2 Storage (additional)
+    R2_ACCOUNT_ID: optional("R2_ACCOUNT_ID"),
+    R2_BUCKET_NAME: optional("R2_BUCKET_NAME"),
+    R2_PUBLIC_URL: optional("R2_PUBLIC_URL"),
+
+    // Microsoft
+    MICROSOFT_WEBHOOK_SECRET: optional("MICROSOFT_WEBHOOK_SECRET"),
+
+    // App URLs
+    VERCEL_URL: optional("VERCEL_URL"),
+    NEXT_PUBLIC_APP_URL: optional("NEXT_PUBLIC_APP_URL"),
+
     // Logging
     LOG_LEVEL: optional("LOG_LEVEL"),
 

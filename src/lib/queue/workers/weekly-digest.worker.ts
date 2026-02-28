@@ -1,5 +1,6 @@
 import { Job } from "bullmq";
-import { createWorker, QUEUE_NAMES, getNotificationQueue } from "@/lib/queue";
+import { QUEUE_NAMES, getNotificationQueue } from "@/lib/queue";
+import { createTypedWorker } from "@/lib/queue/create-typed-worker";
 import type { DigestJob, NotificationJob } from "@/lib/queue/jobs";
 import { generateReport, type ReportData } from "@/lib/ai/report-generator";
 import { getTasks } from "@/lib/db/queries/tasks";
@@ -8,12 +9,9 @@ import { getActivityFeed } from "@/lib/db/queries/activity";
 import { db } from "@/lib/db";
 import { tasks } from "@/lib/db/schema";
 import { eq, and, gte, lte } from "drizzle-orm";
-import { createLogger } from "@/lib/logger";
-import * as Sentry from "@sentry/nextjs";
 
-const log = createLogger("weekly-digest");
-
-const worker = createWorker<DigestJob>(
+const { worker, log } = createTypedWorker<DigestJob>(
+  "weekly-digest",
   QUEUE_NAMES.DIGEST,
   async (job: Job<DigestJob>) => {
     const { userId, orgId } = job.data;
@@ -183,18 +181,7 @@ const worker = createWorker<DigestJob>(
       },
     };
   },
-  {
-    concurrency: 3,
-  }
+  { concurrency: 3 }
 );
-
-worker.on("completed", (job) => {
-  log.info({ jobId: job.id }, "Job completed successfully");
-});
-
-worker.on("failed", (job, err) => {
-  log.error({ jobId: job?.id, err }, "Job failed");
-  Sentry.captureException(err);
-});
 
 export { worker as weeklyDigestWorker };

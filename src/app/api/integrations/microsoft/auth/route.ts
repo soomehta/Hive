@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
-import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { authenticateRequest } from "@/lib/auth/api-auth";
 import { createOAuthState } from "@/lib/integrations/oauth-state";
+import { rateLimit, rateLimitResponse } from "@/lib/utils/rate-limit";
+import { errorResponse } from "@/lib/utils/errors";
 
 const MICROSOFT_SCOPES = [
   "openid",
@@ -15,6 +17,8 @@ const MICROSOFT_SCOPES = [
 export async function GET(req: NextRequest) {
   try {
     const auth = await authenticateRequest(req);
+    const rl = await rateLimit(`oauth:microsoft:${auth.userId}`, 10, 60_000);
+    if (!rl.success) return rateLimitResponse(rl);
 
     const params = new URLSearchParams({
       client_id: process.env.MICROSOFT_CLIENT_ID!,
@@ -27,9 +31,6 @@ export async function GET(req: NextRequest) {
 
     return Response.redirect(`https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params}`);
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json({ error: error.message }, { status: error.statusCode });
-    }
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }

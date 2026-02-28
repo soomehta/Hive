@@ -1,6 +1,6 @@
 import { createTask } from "@/lib/db/queries/tasks";
 import { logActivity } from "@/lib/db/queries/activity";
-import { createNotification } from "@/lib/notifications/in-app";
+import { notifyOnTaskAssignment } from "@/lib/notifications/task-notifications";
 import { db } from "@/lib/db";
 import { projectMembers } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -42,14 +42,15 @@ export async function handleCreateTask(action: PAAction): Promise<ExecutionResul
     metadata: { title: task.title, createdByPa: true },
   });
 
-  if (payload.assigneeId && payload.assigneeId !== action.userId) {
-    await createNotification({
-      userId: payload.assigneeId,
+  if (payload.assigneeId) {
+    await notifyOnTaskAssignment({
+      assigneeId: payload.assigneeId,
+      actorUserId: action.userId,
       orgId: action.orgId,
-      type: "task_assigned",
-      title: "New task assigned by PA",
-      body: `"${task.title}" was created and assigned to you.`,
-      metadata: { taskId: task.id, projectId: payload.projectId },
+      taskId: task.id,
+      projectId: payload.projectId,
+      taskTitle: task.title,
+      body: `"${task.title}" was created and assigned to you by PA.`,
     });
   }
 

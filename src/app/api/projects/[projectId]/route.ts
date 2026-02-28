@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { authenticateRequest } from "@/lib/auth/api-auth";
 import { hasPermission } from "@/lib/auth/permissions";
 import { updateProjectSchema } from "@/lib/utils/validation";
 import {
@@ -10,9 +10,7 @@ import {
   isProjectLead,
 } from "@/lib/db/queries/projects";
 import { logActivity } from "@/lib/db/queries/activity";
-import { createLogger } from "@/lib/logger";
-
-const log = createLogger("projects");
+import { errorResponse } from "@/lib/utils/errors";
 
 type RouteParams = { params: Promise<{ projectId: string }> };
 
@@ -44,14 +42,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     return Response.json({ data: project });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json(
-        { error: error.message },
-        { status: error.statusCode }
-      );
-    }
-    log.error({ err: error }, "GET /api/projects/[projectId] error");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }
 
@@ -105,14 +96,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
     return Response.json({ data: updated });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json(
-        { error: error.message },
-        { status: error.statusCode }
-      );
-    }
-    log.error({ err: error }, "PATCH /api/projects/[projectId] error");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }
 
@@ -144,17 +128,18 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       );
     }
 
+    await logActivity({
+      orgId: auth.orgId,
+      projectId,
+      userId: auth.userId,
+      type: "project_updated",
+      metadata: { action: "deleted", projectName: project.name },
+    });
+
     await deleteProject(projectId);
 
     return Response.json({ data: { success: true } });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json(
-        { error: error.message },
-        { status: error.statusCode }
-      );
-    }
-    log.error({ err: error }, "DELETE /api/projects/[projectId] error");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }

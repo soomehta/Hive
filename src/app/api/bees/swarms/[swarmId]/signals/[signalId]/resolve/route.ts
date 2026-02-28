@@ -1,10 +1,11 @@
 import { NextRequest } from "next/server";
-import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { authenticateRequest } from "@/lib/auth/api-auth";
 import { getSwarmSession } from "@/lib/db/queries/swarm-sessions";
 import { resolveSignal, hasHoldSignal } from "@/lib/bees/signals";
 import { getSwarmExecutionQueue } from "@/lib/queue";
 import type { SwarmExecutionJob } from "@/lib/queue/jobs";
 import { createLogger } from "@/lib/logger";
+import { errorResponse } from "@/lib/utils/errors";
 
 const log = createLogger("api-signal-resolve");
 
@@ -48,10 +49,6 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
     return Response.json(resolved);
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json({ error: error.message }, { status: error.statusCode });
-    }
-    log.error({ err: error }, "Failed to resolve signal");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }

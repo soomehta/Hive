@@ -1,5 +1,8 @@
 import { db } from "@/lib/db";
 import { sql } from "drizzle-orm";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("health-route");
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +13,8 @@ export async function GET() {
   try {
     await db.execute(sql`SELECT 1`);
     checks.database = "ok";
-  } catch {
+  } catch (err) {
+    log.error({ err }, "Health check: database error");
     checks.database = "error";
   }
 

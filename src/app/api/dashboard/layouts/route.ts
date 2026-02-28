@@ -1,14 +1,12 @@
 import { NextRequest } from "next/server";
-import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { authenticateRequest } from "@/lib/auth/api-auth";
 import {
   getDashboardLayout,
   saveDashboardLayout,
   deleteDashboardLayout,
 } from "@/lib/db/queries/dashboard-layouts";
-import { createLogger } from "@/lib/logger";
+import { errorResponse } from "@/lib/utils/errors";
 import { z } from "zod";
-
-const log = createLogger("api-dashboard-layouts");
 
 const saveLayoutSchema = z.object({
   projectId: z.string().uuid().optional(),
@@ -42,11 +40,7 @@ export async function GET(req: NextRequest) {
 
     return Response.json({ data: layout });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json({ error: error.message }, { status: error.statusCode });
-    }
-    log.error({ err: error }, "Failed to get dashboard layout");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }
 
@@ -69,13 +63,9 @@ export async function POST(req: NextRequest) {
       ...parsed.data,
     });
 
-    return Response.json(layout, { status: 201 });
+    return Response.json({ data: layout }, { status: 201 });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json({ error: error.message }, { status: error.statusCode });
-    }
-    log.error({ err: error }, "Failed to save dashboard layout");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }
 
@@ -96,12 +86,8 @@ export async function DELETE(req: NextRequest) {
       return Response.json({ error: "Layout not found" }, { status: 404 });
     }
 
-    return Response.json({ deleted: true });
+    return Response.json({ data: { deleted: true } });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json({ error: error.message }, { status: error.statusCode });
-    }
-    log.error({ err: error }, "Failed to delete dashboard layout");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }

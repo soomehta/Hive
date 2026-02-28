@@ -1,10 +1,8 @@
 import { NextRequest } from "next/server";
-import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { authenticateRequest } from "@/lib/auth/api-auth";
 import { getFile, deleteFile } from "@/lib/db/queries/files";
-import { getSignedDownloadUrl, deleteR2File } from "@/lib/voice/r2";
-import { createLogger } from "@/lib/logger";
-
-const log = createLogger("files");
+import { getSignedDownloadUrl, deleteR2File } from "@/lib/storage/r2";
+import { errorResponse } from "@/lib/utils/errors";
 
 interface RouteParams {
   params: Promise<{ projectId: string; fileId: string }>;
@@ -23,14 +21,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     const downloadUrl = await getSignedDownloadUrl(file.r2Key);
     return Response.json({ data: { ...file, downloadUrl } });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json(
-        { error: error.message },
-        { status: error.statusCode }
-      );
-    }
-    log.error({ err: error }, "GET /api/projects/[projectId]/files/[fileId] error");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }
 
@@ -61,13 +52,6 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
 
     return Response.json({ data: { id: deleted.id } });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json(
-        { error: error.message },
-        { status: error.statusCode }
-      );
-    }
-    log.error({ err: error }, "DELETE /api/projects/[projectId]/files/[fileId] error");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }

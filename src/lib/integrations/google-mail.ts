@@ -1,6 +1,7 @@
 import { google } from "googleapis";
 import { getActiveIntegration } from "./oauth";
 import type { EmailMessage } from "@/types/integrations";
+import { withRetry } from "@/lib/utils/retry";
 
 function getGmailClient(accessToken: string) {
   const auth = new google.auth.OAuth2();
@@ -17,11 +18,14 @@ export async function getUnreadEmails(
   if (!integration) throw new Error("Google integration not connected");
 
   const gmail = getGmailClient(integration.decryptedAccessToken);
-  const res = await gmail.users.messages.list({
+  const res = await withRetry(
+    () => gmail.users.messages.list({
     userId: "me",
     q: params.query ?? "is:unread",
     maxResults: params.maxResults ?? 10,
-  });
+  }),
+    { label: "google-mail:getUnread" }
+  );
 
   const messages: EmailMessage[] = [];
   for (const msg of res.data.messages ?? []) {
@@ -66,10 +70,13 @@ export async function sendEmail(
 
   const encodedMessage = Buffer.from(headers).toString("base64url");
 
-  const res = await gmail.users.messages.send({
-    userId: "me",
-    requestBody: { raw: encodedMessage },
-  });
+  const res = await withRetry(
+    () => gmail.users.messages.send({
+      userId: "me",
+      requestBody: { raw: encodedMessage },
+    }),
+    { label: "google-mail:send" }
+  );
 
   return { messageId: res.data.id! };
 }

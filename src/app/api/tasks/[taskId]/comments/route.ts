@@ -1,12 +1,11 @@
 import { NextRequest } from "next/server";
-import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
+import { authenticateRequest } from "@/lib/auth/api-auth";
 import { createCommentSchema } from "@/lib/utils/validation";
 import { getTask, getTaskComments, createTaskComment } from "@/lib/db/queries/tasks";
 import { logActivity } from "@/lib/db/queries/activity";
 import { createNotification } from "@/lib/notifications/in-app";
-import { createLogger } from "@/lib/logger";
-
-const log = createLogger("task-comments");
+import { rateLimit, rateLimitResponse } from "@/lib/utils/rate-limit";
+import { errorResponse } from "@/lib/utils/errors";
 
 interface RouteParams {
   params: Promise<{ taskId: string }>;
@@ -27,20 +26,15 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     return Response.json({ data: comments });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json(
-        { error: error.message },
-        { status: error.statusCode }
-      );
-    }
-    log.error({ err: error }, "GET /api/tasks/[taskId]/comments error");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }
 
 export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
     const auth = await authenticateRequest(req);
+    const rl = await rateLimit(`comments:create:${auth.userId}`, 20, 60_000);
+    if (!rl.success) return rateLimitResponse(rl);
     const { taskId } = await params;
 
     // Verify task belongs to org
@@ -96,13 +90,6 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
     return Response.json({ data: comment }, { status: 201 });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return Response.json(
-        { error: error.message },
-        { status: error.statusCode }
-      );
-    }
-    log.error({ err: error }, "POST /api/tasks/[taskId]/comments error");
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }
