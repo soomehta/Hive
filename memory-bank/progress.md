@@ -105,6 +105,17 @@
   - 5 cron jobs active via vercel.json
   - Landing page renders correctly
 
+- **Comprehensive Test Coverage & Error Resilience: COMPLETE**
+  - 8 error boundaries: global-error.tsx + 7 dashboard segment boundaries (dashboard, projects, my-tasks, reports, settings, team, integrations)
+  - Shared test helpers: src/__tests__/helpers.ts with factory functions and constants
+  - Action handler tests: 55 tests covering all 14 handlers (create/update/complete/delete task, comment, message, flag blocker, calendar, email, slack, report, query)
+  - API route tests: 30 tests covering tasks CRUD, projects CRUD, messages CRUD
+  - Negative path tests: 43 tests covering auth errors, permission matrix, validation edge cases, rate limiting, cron auth
+  - AI provider tests: 62 tests covering OpenAI/Anthropic adapters, intent classifier, provider factory, chatCompletion
+  - Worker tests: 16 tests covering action-execution, transcription, swarm workers
+  - Cron endpoint tests: 30 tests covering morning-briefing, overdue-nudge, stale-tasks
+  - **Total: 306 unit tests (236 new + 70 existing), 0 TypeScript errors**
+
 ## What's Left to Build
 
 - **Redis setup:** Configure Upstash Redis URL for BullMQ workers (REDIS_URL env var)
@@ -116,7 +127,7 @@
 ## Current Status
 
 - **DEPLOYED TO PRODUCTION.** Live at https://hive-app-beryl.vercel.app
-- **All 5 phases + review fixes + QoL + prod hardening + database + Vercel: COMPLETE.** 70+ routes, 0 TypeScript errors, 70 unit tests pass, 90/90 e2e pass.
+- **All 5 phases + review fixes + QoL + prod hardening + database + Vercel + test coverage: COMPLETE.** 70+ routes, 0 TypeScript errors, 306 unit tests pass, 112 e2e tests pass.
 - **Remaining items are external service configuration only** (Redis, OAuth, R2, Sentry DSN).
 
 ## Known Issues

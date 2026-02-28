@@ -3,7 +3,7 @@
 ## Current Focus
 
 - **DEPLOYED TO PRODUCTION.** Live at https://hive-app-beryl.vercel.app
-- **All 5 phases + QoL + prod hardening + database + deployment: COMPLETE.** 70+ routes, 0 TypeScript errors, 70 unit tests pass, 90/90 e2e pass.
+- **All 5 phases + QoL + prod hardening + database + deployment + test coverage: COMPLETE.** 70+ routes, 0 TypeScript errors, 306 unit tests pass, 112 e2e tests pass.
 - **Health check verified:** Database connectivity confirmed from Vercel production.
 - **Vercel env vars configured:** Supabase, DATABASE_URL, ENCRYPTION_KEY, CRON_SECRET, OpenAI, Anthropic, Deepgram, Gladia.
 - **Cron jobs active:** morning-briefing (15min), overdue-nudge (hourly), stale-tasks (daily 10am), weekly-digest (Fri 10am), data-cleanup (Sun 3am).
