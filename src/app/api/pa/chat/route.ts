@@ -168,66 +168,80 @@ export async function POST(req: NextRequest) {
       if (!registry) {
         responseMessage = "I'm not sure how to help with that. Could you rephrase your request?";
       } else {
-        // Fetch relevant context from embeddings for richer action planning
-        let ragContext: string | undefined;
         try {
-          ragContext = await getContextForPrompt(auth.orgId, message, { limit: 3 });
-          if (ragContext === "No relevant context found.") ragContext = undefined;
-        } catch {
-          // RAG is best-effort — don't block the pipeline if embeddings table is empty or pgvector isn't ready
-          log.warn("RAG context retrieval failed, proceeding without context");
-        }
+          // Fetch relevant context from embeddings for richer action planning
+          let ragContext: string | undefined;
+          try {
+            ragContext = await getContextForPrompt(auth.orgId, message, { limit: 3 });
+            if (ragContext === "No relevant context found.") ragContext = undefined;
+          } catch {
+            // RAG is best-effort — don't block the pipeline if embeddings table is empty or pgvector isn't ready
+            log.warn("RAG context retrieval failed, proceeding without context");
+          }
 
-        const plan = await planAction(classification.intent, classification.entities, {
-          userName: currentUserName,
-          autonomyMode: paProfile.autonomyMode,
-          verbosity: paProfile.verbosity,
-          formality: paProfile.formality,
-          ragContext,
-        });
+          const plan = await planAction(classification.intent, classification.entities, {
+            userName: currentUserName,
+            autonomyMode: paProfile.autonomyMode,
+            verbosity: paProfile.verbosity,
+            formality: paProfile.formality,
+            ragContext,
+          });
 
-        const tier = resolveActionTier(classification.intent, paProfile, {
-          assigneeId: classification.entities.assigneeId,
-          userId: auth.userId,
-        });
-
-        if (tier === "auto_execute" || tier === "execute_notify") {
-          const paAction = await createPaAction({
+          const tier = resolveActionTier(classification.intent, paProfile, {
+            assigneeId: classification.entities.assigneeId,
             userId: auth.userId,
-            orgId: auth.orgId,
-            actionType: classification.intent,
-            tier,
-            plannedPayload: plan.payload,
           });
 
-          const result = await executeAction({ ...paAction } as any);
+          if (tier === "auto_execute" || tier === "execute_notify") {
+            const paAction = await createPaAction({
+              userId: auth.userId,
+              orgId: auth.orgId,
+              actionType: classification.intent,
+              tier,
+              plannedPayload: plan.payload,
+            });
 
-          await updatePaAction(paAction.id, {
-            status: result.success ? "executed" : "failed",
-            executedPayload: plan.payload,
-            executionResult: result as any,
-            executedAt: new Date(),
-          });
+            const result = await executeAction({ ...paAction } as any);
 
-          action = { ...paAction, status: result.success ? "executed" : "failed", executionResult: result };
-          responseMessage = result.success
-            ? plan.confirmationMessage
-            : `I couldn't complete that: ${result.error}`;
-        } else if (tier === "draft_approve") {
-          const paAction = await createPaAction({
-            userId: auth.userId,
-            orgId: auth.orgId,
-            actionType: classification.intent,
-            tier,
-            plannedPayload: plan.payload,
-          });
+            await updatePaAction(paAction.id, {
+              status: result.success ? "executed" : "failed",
+              executedPayload: plan.payload,
+              executionResult: result as any,
+              executedAt: new Date(),
+            });
 
-          action = paAction;
-          responseMessage = plan.draftPreview
-            ? `Here's what I'd like to do:\n\n${plan.draftPreview}\n\nShall I go ahead?`
-            : plan.confirmationMessage;
-        } else {
-          responseMessage = plan.confirmationMessage;
+            action = { ...paAction, status: result.success ? "executed" : "failed", executionResult: result };
+            responseMessage = result.success
+              ? plan.confirmationMessage
+              : `I couldn't complete that: ${result.error}`;
+          } else if (tier === "draft_approve") {
+            const paAction = await createPaAction({
+              userId: auth.userId,
+              orgId: auth.orgId,
+              actionType: classification.intent,
+              tier,
+              plannedPayload: plan.payload,
+            });
+
+            action = paAction;
+            responseMessage = plan.draftPreview
+              ? `Here's what I'd like to do:\n\n${plan.draftPreview}\n\nShall I go ahead?`
+              : plan.confirmationMessage;
+          } else {
+            responseMessage = plan.confirmationMessage;
+          }
+        } catch (pipelineErr) {
+          log.error({ err: pipelineErr, intent: classification.intent }, "PA pipeline failed");
+          const errMsg = pipelineErr instanceof Error ? pipelineErr.message : "Unknown error";
+
+          // Return a user-friendly error as a chat message instead of a 500
+          if (errMsg.includes("environment variable is not set")) {
+            responseMessage = "I'm unable to process that right now — an AI service is not configured. Please contact your administrator.";
+          } else if (errMsg.includes("Failed to parse AI response")) {
+            responseMessage = "I had trouble understanding the AI response. Could you try rephrasing your request?";
+          } else {
+            responseMessage = "I ran into an issue processing your request. Please try again in a moment.";
+          }
         }
       }
     }

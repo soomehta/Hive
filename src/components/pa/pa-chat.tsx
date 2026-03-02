@@ -60,10 +60,11 @@ export function PAChat() {
         action: result.action,
       };
       setMessages((prev) => [...prev, assistantMsg]);
-    } catch {
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Something went wrong";
       setMessages((prev) => [
         ...prev,
-        { id: `error-${Date.now()}`, role: "assistant", content: "Sorry, something went wrong. Please try again." },
+        { id: `error-${Date.now()}`, role: "assistant", content: `Sorry, ${errorMsg}. Please try again.` },
       ]);
     }
   }
