@@ -27,7 +27,10 @@ export function usePAChat() {
         method: "POST",
         body: JSON.stringify({ message }),
       });
-      if (!res.ok) throw new Error("Failed to send message");
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        throw new Error(json?.error || "Failed to send message");
+      }
       return res.json();
     },
     onSuccess: () => {

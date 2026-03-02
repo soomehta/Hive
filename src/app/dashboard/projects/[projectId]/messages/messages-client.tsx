@@ -111,7 +111,7 @@ export function PageClient() {
     onSuccess: () => {
       toast.success("Message posted");
       queryClient.invalidateQueries({
-        queryKey: ["project-messages", projectId],
+        queryKey: ["messages", projectId],
       });
       setSheetOpen(false);
       reset();

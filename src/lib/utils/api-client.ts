@@ -6,7 +6,7 @@ export function apiClient(
   let orgId: string | null = null;
   if (typeof window !== "undefined") {
     try {
-      const raw = localStorage.getItem("hive-org");
+      const raw = sessionStorage.getItem("hive-org");
       if (raw) {
         const parsed = JSON.parse(raw);
         orgId = parsed?.state?.orgId ?? null;
