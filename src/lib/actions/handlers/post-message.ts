@@ -1,30 +1,24 @@
 import { createMessage } from "@/lib/db/queries/messages";
 import { logActivity } from "@/lib/db/queries/activity";
-import { db } from "@/lib/db";
-import { projectMembers } from "@/lib/db/schema";
-import { and, eq } from "drizzle-orm";
+import { resolveProjectId } from "../resolve-project";
 import type { PAAction } from "@/types/pa";
 import type { ExecutionResult } from "../executor";
 
 export async function handlePostMessage(action: PAAction): Promise<ExecutionResult> {
   const payload = (action.userEditedPayload ?? action.plannedPayload) as Record<string, any>;
 
-  if (!payload.projectId || !payload.content) {
-    return { success: false, error: "Project ID and content are required" };
+  if (!payload.content) {
+    return { success: false, error: "Message content is required" };
   }
 
-  const membership = await db.query.projectMembers.findFirst({
-    where: and(
-      eq(projectMembers.projectId, payload.projectId),
-      eq(projectMembers.userId, action.userId)
-    ),
-  });
-  if (!membership) {
-    return { success: false, error: "You don't have access to this project" };
+  const resolved = await resolveProjectId(payload.projectId, action.userId, action.orgId);
+  if ("error" in resolved) {
+    return { success: false, error: resolved.error };
   }
+  const { projectId } = resolved;
 
   const message = await createMessage({
-    projectId: payload.projectId,
+    projectId,
     orgId: action.orgId,
     userId: action.userId,
     title: payload.title,
@@ -33,7 +27,7 @@ export async function handlePostMessage(action: PAAction): Promise<ExecutionResu
 
   await logActivity({
     orgId: action.orgId,
-    projectId: payload.projectId,
+    projectId,
     userId: action.userId,
     type: "message_posted",
     metadata: { messageId: message.id, postedByPa: true },
