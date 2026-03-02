@@ -29,6 +29,13 @@
       "when": 1772229399770,
       "tag": "0003_brief_young_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1772488442089,
+      "tag": "0004_chubby_franklin_storm",
+      "breakpoints": true
     }
   ]
 }

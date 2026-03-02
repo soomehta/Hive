@@ -88,12 +88,40 @@ export const paProfiles = pgTable(
   ]
 );
 
+// ─── PA Chat Sessions ───────────────────────────────────
+
+export const paChatSessions = pgTable(
+  "pa_chat_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: varchar("user_id", { length: 255 }).notNull(),
+    orgId: uuid("org_id")
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .notNull(),
+    title: varchar("title", { length: 255 }).notNull(),
+    lastMessageAt: timestamp("last_message_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    messageCount: integer("message_count").default(0).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("pa_chat_sessions_user_org_idx").on(table.userId, table.orgId),
+    index("pa_chat_sessions_last_msg_idx").on(table.lastMessageAt),
+  ]
+);
+
 // ─── PA Conversations ───────────────────────────────────
 
 export const paConversations = pgTable(
   "pa_conversations",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    sessionId: uuid("session_id").references(() => paChatSessions.id, {
+      onDelete: "cascade",
+    }),
     userId: varchar("user_id", { length: 255 }).notNull(),
     orgId: uuid("org_id")
       .references(() => organizations.id, { onDelete: "cascade" })
@@ -110,6 +138,7 @@ export const paConversations = pgTable(
   (table) => [
     index("pa_conversations_user_org_idx").on(table.userId, table.orgId),
     index("pa_conversations_created_at_idx").on(table.createdAt),
+    index("pa_conversations_session_idx").on(table.sessionId),
   ]
 );
 

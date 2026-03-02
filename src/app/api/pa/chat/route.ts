@@ -12,6 +12,8 @@ import {
   updatePaAction,
   addConversationMessage,
   getRecentConversations,
+  createChatSession,
+  getChatSession,
 } from "@/lib/db/queries/pa-actions";
 import { getTasks } from "@/lib/db/queries/tasks";
 import { dispatch } from "@/lib/bees/dispatcher";
@@ -42,7 +44,26 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    const { message, voiceTranscriptId } = parsed.data;
+    const { message, voiceTranscriptId, sessionId: requestedSessionId } = parsed.data;
+
+    // Resolve or create chat session
+    let sessionId: string;
+    if (requestedSessionId) {
+      const session = await getChatSession(requestedSessionId);
+      if (!session || session.userId !== auth.userId || session.orgId !== auth.orgId) {
+        return Response.json({ error: "Session not found" }, { status: 404 });
+      }
+      sessionId = session.id;
+    } else {
+      // Auto-create a new session titled with the first message
+      const title = message.length > 80 ? message.slice(0, 77) + "..." : message;
+      const session = await createChatSession({
+        userId: auth.userId,
+        orgId: auth.orgId,
+        title,
+      });
+      sessionId = session.id;
+    }
 
     // Load context
     const paProfile = await getOrCreatePaProfile(auth.userId, auth.orgId);
@@ -79,6 +100,7 @@ export async function POST(req: NextRequest) {
     await addConversationMessage({
       userId: auth.userId,
       orgId: auth.orgId,
+      sessionId,
       role: "user",
       content: message,
       metadata: voiceTranscriptId ? { voiceTranscriptId } : undefined,
@@ -133,6 +155,7 @@ export async function POST(req: NextRequest) {
       await addConversationMessage({
         userId: auth.userId,
         orgId: auth.orgId,
+        sessionId,
         role: "assistant",
         content: responseMessage,
         metadata: { swarmSessionId },
@@ -156,6 +179,7 @@ export async function POST(req: NextRequest) {
       return Response.json({
         message: responseMessage,
         action: null,
+        sessionId,
         swarmSessionId,
         intent: classification.intent,
         entities: classification.entities,
@@ -250,6 +274,7 @@ export async function POST(req: NextRequest) {
     await addConversationMessage({
       userId: auth.userId,
       orgId: auth.orgId,
+      sessionId,
       role: "assistant",
       content: responseMessage,
       metadata: {
@@ -264,6 +289,7 @@ export async function POST(req: NextRequest) {
     return Response.json({
       message: responseMessage,
       action,
+      sessionId,
       swarmSessionId,
       intent: classification.intent,
       entities: classification.entities,

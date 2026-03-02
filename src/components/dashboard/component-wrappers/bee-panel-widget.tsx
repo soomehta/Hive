@@ -30,7 +30,7 @@ export function BeePanelWidget({ isEditing }: WidgetProps) {
         </div>
         <span className="text-xs font-semibold">Hive PA</span>
       </div>
-      <PAChat />
+      <PAChat sessionId={null} />
     </div>
   );
 }

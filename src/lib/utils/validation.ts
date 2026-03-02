@@ -129,6 +129,7 @@ export const updateMessageSchema = z.object({
 export const paChatSchema = z.object({
   message: z.string().min(1).max(2000),
   voiceTranscriptId: z.uuid().optional(),
+  sessionId: z.uuid().optional(),
 });
 
 // ─── PA Actions ─────────────────────────────────────────

@@ -22,10 +22,10 @@ export function usePAChat() {
   const queryClient = useQueryClient();
 
   const sendMessage = useMutation({
-    mutationFn: async (message: string) => {
+    mutationFn: async ({ message, sessionId }: { message: string; sessionId?: string }) => {
       const res = await apiClient("/api/pa/chat", {
         method: "POST",
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, sessionId }),
       });
       if (!res.ok) {
         const json = await res.json().catch(() => null);
@@ -35,6 +35,7 @@ export function usePAChat() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pa-actions"] });
+      queryClient.invalidateQueries({ queryKey: ["pa-sessions"] });
     },
   });
 
@@ -139,5 +140,87 @@ export function usePAConversationHistory(limit: number = 20) {
       }>;
     },
     staleTime: 30_000,
+  });
+}
+
+// ─── Chat Sessions ──────────────────────────────────────
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  lastMessageAt: string;
+  messageCount: number;
+  createdAt: string;
+}
+
+export function useChatSessions() {
+  return useQuery({
+    queryKey: ["pa-sessions"],
+    queryFn: async () => {
+      const res = await apiClient("/api/pa/conversations?limit=30");
+      if (!res.ok) throw new Error("Failed to fetch sessions");
+      const json = await res.json();
+      return json.data as ChatSession[];
+    },
+    staleTime: 30_000,
+  });
+}
+
+export function useChatSessionMessages(sessionId: string | null) {
+  return useQuery({
+    queryKey: ["pa-session-messages", sessionId],
+    queryFn: async () => {
+      if (!sessionId) return null;
+      const res = await apiClient(`/api/pa/conversations/${sessionId}`);
+      if (!res.ok) throw new Error("Failed to fetch session messages");
+      const json = await res.json();
+      return json.data as {
+        session: ChatSession;
+        messages: Array<{
+          id: string;
+          role: string;
+          content: string;
+          metadata: Record<string, any> | null;
+          createdAt: string;
+        }>;
+      };
+    },
+    enabled: !!sessionId,
+    staleTime: 10_000,
+  });
+}
+
+export function useDeleteChatSession() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (sessionId: string) => {
+      const res = await apiClient(`/api/pa/conversations/${sessionId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete session");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pa-sessions"] });
+    },
+  });
+}
+
+export function useRenameChatSession() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ sessionId, title }: { sessionId: string; title: string }) => {
+      const res = await apiClient(`/api/pa/conversations/${sessionId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ title }),
+      });
+      if (!res.ok) throw new Error("Failed to rename session");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pa-sessions"] });
+    },
   });
 }

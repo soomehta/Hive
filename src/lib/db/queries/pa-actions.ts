@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
-import { paActions, paConversations, paCorrections } from "@/lib/db/schema";
-import { eq, and, lt, desc } from "drizzle-orm";
+import { paActions, paChatSessions, paConversations, paCorrections } from "@/lib/db/schema";
+import { eq, and, lt, desc, sql } from "drizzle-orm";
 
 export async function createPaAction(data: {
   userId: string;
@@ -82,6 +82,82 @@ export async function expireStaleActions() {
     .returning();
 }
 
+// ─── Chat Sessions ──────────────────────────────────────
+
+export async function createChatSession(data: {
+  userId: string;
+  orgId: string;
+  title: string;
+}) {
+  const [session] = await db
+    .insert(paChatSessions)
+    .values({
+      userId: data.userId,
+      orgId: data.orgId,
+      title: data.title,
+    })
+    .returning();
+
+  return session;
+}
+
+export async function getChatSessions(
+  userId: string,
+  orgId: string,
+  limit: number = 30,
+  offset: number = 0
+) {
+  return db
+    .select()
+    .from(paChatSessions)
+    .where(
+      and(
+        eq(paChatSessions.userId, userId),
+        eq(paChatSessions.orgId, orgId)
+      )
+    )
+    .orderBy(desc(paChatSessions.lastMessageAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+export async function getChatSession(sessionId: string) {
+  return db.query.paChatSessions.findFirst({
+    where: eq(paChatSessions.id, sessionId),
+  });
+}
+
+export async function getChatSessionMessages(
+  sessionId: string,
+  limit: number = 50,
+  offset: number = 0
+) {
+  return db
+    .select()
+    .from(paConversations)
+    .where(eq(paConversations.sessionId, sessionId))
+    .orderBy(paConversations.createdAt)
+    .limit(limit)
+    .offset(offset);
+}
+
+export async function updateChatSessionTitle(
+  sessionId: string,
+  title: string
+) {
+  const [updated] = await db
+    .update(paChatSessions)
+    .set({ title })
+    .where(eq(paChatSessions.id, sessionId))
+    .returning();
+
+  return updated;
+}
+
+export async function deleteChatSession(sessionId: string) {
+  await db.delete(paChatSessions).where(eq(paChatSessions.id, sessionId));
+}
+
 // ─── Conversations ──────────────────────────────────────
 
 export async function addConversationMessage(data: {
@@ -89,6 +165,7 @@ export async function addConversationMessage(data: {
   orgId: string;
   role: string;
   content: string;
+  sessionId?: string;
   metadata?: Record<string, any>;
 }) {
   const [message] = await db
@@ -96,11 +173,23 @@ export async function addConversationMessage(data: {
     .values({
       userId: data.userId,
       orgId: data.orgId,
+      sessionId: data.sessionId ?? null,
       role: data.role,
       content: data.content,
       metadata: data.metadata ?? null,
     })
     .returning();
+
+  // Update session stats if linked to a session
+  if (data.sessionId) {
+    await db
+      .update(paChatSessions)
+      .set({
+        lastMessageAt: new Date(),
+        messageCount: sql`${paChatSessions.messageCount} + 1`,
+      })
+      .where(eq(paChatSessions.id, data.sessionId));
+  }
 
   return message;
 }

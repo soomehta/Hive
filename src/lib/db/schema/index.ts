@@ -30,6 +30,7 @@ import { notifications } from "./notifications";
 import { files } from "./files";
 import {
   paProfiles,
+  paChatSessions,
   paConversations,
   paActions,
   paCorrections,
@@ -187,12 +188,27 @@ export const paProfilesRelations = relations(paProfiles, ({ one }) => ({
   }),
 }));
 
+export const paChatSessionsRelations = relations(
+  paChatSessions,
+  ({ one, many }) => ({
+    organization: one(organizations, {
+      fields: [paChatSessions.orgId],
+      references: [organizations.id],
+    }),
+    messages: many(paConversations),
+  })
+);
+
 export const paConversationsRelations = relations(
   paConversations,
   ({ one }) => ({
     organization: one(organizations, {
       fields: [paConversations.orgId],
       references: [organizations.id],
+    }),
+    session: one(paChatSessions, {
+      fields: [paConversations.sessionId],
+      references: [paChatSessions.id],
     }),
   })
 );

@@ -1,15 +1,35 @@
 "use client";
 
-import { Brain, X } from "lucide-react";
+import { useState, useCallback } from "react";
+import { Brain, X, MessageSquarePlus, History, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePAStore } from "@/hooks/use-pa";
 import { useSwarmStore } from "@/hooks/use-swarm";
 import { PAChat } from "./pa-chat";
+import { PAChatHistory } from "./pa-chat-history";
 import { SwarmPanel } from "@/components/bees/swarm-panel";
+
+type PanelView = "chat" | "history";
 
 export function PAPanel() {
   const { isOpen, toggle, close } = usePAStore();
   const activeSwarmId = useSwarmStore((s) => s.activeSwarmId);
+  const [view, setView] = useState<PanelView>("chat");
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+
+  const handleNewChat = useCallback(() => {
+    setActiveSessionId(null);
+    setView("chat");
+  }, []);
+
+  const handleSelectSession = useCallback((sessionId: string) => {
+    setActiveSessionId(sessionId);
+    setView("chat");
+  }, []);
+
+  const handleSessionCreated = useCallback((sessionId: string) => {
+    setActiveSessionId(sessionId);
+  }, []);
 
   return (
     <>
@@ -30,19 +50,75 @@ export function PAPanel() {
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <div className="flex items-center gap-2">
+              {view === "history" && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setView("chat")}
+                  className="size-7 text-muted-foreground hover:text-foreground"
+                  aria-label="Back to chat"
+                >
+                  <ChevronLeft className="size-4" />
+                </Button>
+              )}
               <Brain className="size-5 text-violet-400" />
-              <h2 className="text-sm font-semibold text-foreground">PA Assistant</h2>
+              <h2 className="text-sm font-semibold text-foreground">
+                {view === "history" ? "Chat History" : "PA Assistant"}
+              </h2>
             </div>
-            <Button variant="ghost" size="icon" onClick={close} className="size-8 text-muted-foreground hover:text-foreground" aria-label="Close PA Assistant">
-              <X className="size-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              {view === "chat" && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleNewChat}
+                    className="size-8 text-muted-foreground hover:text-foreground"
+                    aria-label="New conversation"
+                    title="New conversation"
+                  >
+                    <MessageSquarePlus className="size-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setView("history")}
+                    className="size-8 text-muted-foreground hover:text-foreground"
+                    aria-label="Chat history"
+                    title="Chat history"
+                  >
+                    <History className="size-4" />
+                  </Button>
+                </>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={close}
+                className="size-8 text-muted-foreground hover:text-foreground"
+                aria-label="Close PA Assistant"
+              >
+                <X className="size-4" />
+              </Button>
+            </div>
           </div>
 
           {/* Swarm Panel (shown when swarm is active) */}
           {activeSwarmId && <SwarmPanel />}
 
-          {/* Chat area */}
-          <PAChat />
+          {/* Content */}
+          {view === "chat" ? (
+            <PAChat
+              sessionId={activeSessionId}
+              onSessionCreated={handleSessionCreated}
+            />
+          ) : (
+            <PAChatHistory
+              activeSessionId={activeSessionId}
+              onSelectSession={handleSelectSession}
+              onNewChat={handleNewChat}
+            />
+          )}
         </div>
       )}
     </>

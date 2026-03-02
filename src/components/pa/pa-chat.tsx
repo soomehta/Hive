@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { usePAChat, usePAConversationHistory } from "@/hooks/use-pa";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { usePAChat, useChatSessionMessages } from "@/hooks/use-pa";
+import { useQueryClient } from "@tanstack/react-query";
 import { PAMessage } from "./pa-message";
 import { PAInput } from "./pa-input";
 import { PAActionCard } from "./pa-action-card";
@@ -19,31 +20,45 @@ const WELCOME_MESSAGE: ChatMessage = {
   content: "Hi! I'm your Hive PA. Try asking me:\n\n• \"Create a task for design review by Friday\"\n• \"What's blocking the project?\"\n• \"Block my calendar for deep work tomorrow\"\n• \"How's the team doing this week?\"",
 };
 
-export function PAChat() {
+interface PAChatProps {
+  sessionId: string | null;
+  onSessionCreated?: (sessionId: string) => void;
+}
+
+export function PAChat({ sessionId, onSessionCreated }: PAChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const { sendMessage, sendVoice } = usePAChat();
-  const { data: history } = usePAConversationHistory(20);
+  const { data: sessionData } = useChatSessionMessages(sessionId);
+  const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Load conversation history on mount
+  // Load session messages when switching sessions
   useEffect(() => {
-    if (history && history.length > 0 && !historyLoaded) {
-      const restored: ChatMessage[] = history.map((msg) => ({
+    if (sessionId && sessionData?.messages && !historyLoaded) {
+      const restored: ChatMessage[] = sessionData.messages.map((msg) => ({
         id: msg.id,
         role: msg.role as "user" | "assistant",
         content: msg.content,
       }));
-      setMessages([WELCOME_MESSAGE, ...restored]);
+      setMessages(restored.length > 0 ? restored : [WELCOME_MESSAGE]);
       setHistoryLoaded(true);
     }
-  }, [history, historyLoaded]);
+  }, [sessionId, sessionData, historyLoaded]);
+
+  // Reset when session changes
+  useEffect(() => {
+    setHistoryLoaded(false);
+    if (!sessionId) {
+      setMessages([WELCOME_MESSAGE]);
+    }
+  }, [sessionId]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
-  async function handleSend(text: string) {
+  const handleSend = useCallback(async (text: string) => {
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
       role: "user",
@@ -52,7 +67,13 @@ export function PAChat() {
     setMessages((prev) => [...prev, userMsg]);
 
     try {
-      const result = await sendMessage.mutateAsync(text);
+      const result = await sendMessage.mutateAsync({ message: text, sessionId: sessionId ?? undefined });
+
+      // If this created a new session, notify parent
+      if (!sessionId && result.sessionId) {
+        onSessionCreated?.(result.sessionId);
+      }
+
       const assistantMsg: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: "assistant",
@@ -60,6 +81,11 @@ export function PAChat() {
         action: result.action,
       };
       setMessages((prev) => [...prev, assistantMsg]);
+
+      // Invalidate session messages cache
+      if (result.sessionId) {
+        queryClient.invalidateQueries({ queryKey: ["pa-session-messages", result.sessionId] });
+      }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Something went wrong";
       setMessages((prev) => [
@@ -67,9 +93,9 @@ export function PAChat() {
         { id: `error-${Date.now()}`, role: "assistant", content: `Sorry, ${errorMsg}. Please try again.` },
       ]);
     }
-  }
+  }, [sendMessage, sessionId, onSessionCreated, queryClient]);
 
-  async function handleVoice(blob: Blob) {
+  const handleVoice = useCallback(async (blob: Blob) => {
     const userMsg: ChatMessage = {
       id: `voice-${Date.now()}`,
       role: "user",
@@ -98,7 +124,7 @@ export function PAChat() {
         { id: `error-${Date.now()}`, role: "assistant", content: "Sorry, I couldn't process that voice message." },
       ]);
     }
-  }
+  }, [sendVoice]);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
