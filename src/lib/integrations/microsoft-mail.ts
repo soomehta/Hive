@@ -2,6 +2,7 @@ import { getActiveIntegration } from "./oauth";
 import type { EmailMessage } from "@/types/integrations";
 import { withRetry } from "@/lib/utils/retry";
 import { getGraphClient } from "./microsoft-client";
+import { mapMicrosoftEmail } from "./mappers";
 
 export async function getUnreadEmails(
   userId: string,
@@ -23,13 +24,7 @@ export async function getUnreadEmails(
     { label: "ms-mail:getUnread" }
   );
 
-  return (res.value ?? []).map((m: any) => ({
-    id: m.id,
-    from: m.from?.emailAddress?.address ?? "",
-    subject: m.subject ?? "",
-    snippet: m.bodyPreview ?? "",
-    date: m.receivedDateTime ?? "",
-  }));
+  return (res.value ?? []).map(mapMicrosoftEmail);
 }
 
 export async function sendEmail(

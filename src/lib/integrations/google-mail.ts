@@ -2,6 +2,7 @@ import { google } from "googleapis";
 import { getActiveIntegration } from "./oauth";
 import type { EmailMessage } from "@/types/integrations";
 import { withRetry } from "@/lib/utils/retry";
+import { mapGoogleEmail } from "./mappers";
 
 function getGmailClient(accessToken: string) {
   const auth = new google.auth.OAuth2();
@@ -37,13 +38,7 @@ export async function getUnreadEmails(
     });
 
     const headers = detail.data.payload?.headers ?? [];
-    messages.push({
-      id: msg.id!,
-      from: headers.find((h) => h.name === "From")?.value ?? "",
-      subject: headers.find((h) => h.name === "Subject")?.value ?? "",
-      snippet: detail.data.snippet ?? "",
-      date: headers.find((h) => h.name === "Date")?.value ?? "",
-    });
+    messages.push(mapGoogleEmail(msg.id!, headers, detail.data.snippet ?? ""));
   }
 
   return messages;

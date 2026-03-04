@@ -32,14 +32,21 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
     if (decision === "approve") {
       const result = await executeAction(action as any);
+      const status = result.success ? "executed" : "failed";
       await updatePaAction(actionId, {
-        status: result.success ? "executed" : "failed",
+        status,
         executedPayload: action.plannedPayload as any,
         executionResult: result as any,
         approvedAt: new Date(),
         executedAt: new Date(),
       });
-      return Response.json({ status: result.success ? "executed" : "failed", result });
+      await logActivity({
+        orgId: action.orgId,
+        userId: auth.userId,
+        type: "pa_action_executed",
+        metadata: { actionId, decision: "approved", actionType: action.actionType, status },
+      });
+      return Response.json({ status, result });
     }
 
     if (decision === "edit") {
@@ -48,8 +55,9 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       }
       const editedAction = { ...action, userEditedPayload: editedPayload } as any;
       const result = await executeAction(editedAction);
+      const status = result.success ? "executed" : "failed";
       await updatePaAction(actionId, {
-        status: result.success ? "executed" : "failed",
+        status,
         userEditedPayload: editedPayload,
         executedPayload: editedPayload as any,
         executionResult: result as any,
@@ -64,7 +72,13 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         correctedOutput: JSON.stringify(editedPayload),
         correctionType: "edit",
       });
-      return Response.json({ status: result.success ? "executed" : "failed", result });
+      await logActivity({
+        orgId: action.orgId,
+        userId: auth.userId,
+        type: "pa_action_executed",
+        metadata: { actionId, decision: "edited", actionType: action.actionType, status },
+      });
+      return Response.json({ status, result });
     }
 
     // reject

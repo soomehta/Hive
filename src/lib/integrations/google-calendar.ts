@@ -2,6 +2,7 @@ import { google } from "googleapis";
 import { getActiveIntegration } from "./oauth";
 import type { CalendarEvent } from "@/types/integrations";
 import { withRetry } from "@/lib/utils/retry";
+import { mapGoogleEvent } from "./mappers";
 
 function getCalendarClient(accessToken: string) {
   const auth = new google.auth.OAuth2();
@@ -30,15 +31,7 @@ export async function getEvents(
     { label: "google-calendar:getEvents" }
   );
 
-  return (res.data.items ?? []).map((e) => ({
-    id: e.id!,
-    summary: e.summary ?? "",
-    description: e.description ?? undefined,
-    startTime: e.start?.dateTime ?? e.start?.date ?? "",
-    endTime: e.end?.dateTime ?? e.end?.date ?? "",
-    attendees: e.attendees?.map((a) => a.email ?? "").filter(Boolean),
-    location: e.location ?? undefined,
-  }));
+  return (res.data.items ?? []).map(mapGoogleEvent);
 }
 
 export async function createEvent(
@@ -65,15 +58,7 @@ export async function createEvent(
     { label: "google-calendar:createEvent" }
   );
 
-  return {
-    id: res.data.id!,
-    summary: res.data.summary ?? "",
-    description: res.data.description ?? undefined,
-    startTime: res.data.start?.dateTime ?? "",
-    endTime: res.data.end?.dateTime ?? "",
-    attendees: res.data.attendees?.map((a) => a.email ?? "").filter(Boolean),
-    location: res.data.location ?? undefined,
-  };
+  return mapGoogleEvent(res.data);
 }
 
 export async function updateEvent(
@@ -102,15 +87,7 @@ export async function updateEvent(
     { label: "google-calendar:updateEvent" }
   );
 
-  return {
-    id: res.data.id!,
-    summary: res.data.summary ?? "",
-    description: res.data.description ?? undefined,
-    startTime: res.data.start?.dateTime ?? "",
-    endTime: res.data.end?.dateTime ?? "",
-    attendees: res.data.attendees?.map((a) => a.email ?? "").filter(Boolean),
-    location: res.data.location ?? undefined,
-  };
+  return mapGoogleEvent(res.data);
 }
 
 export async function deleteEvent(userId: string, orgId: string, eventId: string): Promise<void> {

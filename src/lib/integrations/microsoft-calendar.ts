@@ -2,6 +2,7 @@ import { getActiveIntegration } from "./oauth";
 import type { CalendarEvent } from "@/types/integrations";
 import { withRetry } from "@/lib/utils/retry";
 import { getGraphClient } from "./microsoft-client";
+import { mapMicrosoftEvent } from "./mappers";
 
 export async function getEvents(
   userId: string,
@@ -22,15 +23,7 @@ export async function getEvents(
     { label: "ms-calendar:getEvents" }
   );
 
-  return (res.value ?? []).map((e: any) => ({
-    id: e.id,
-    summary: e.subject ?? "",
-    description: e.bodyPreview ?? undefined,
-    startTime: e.start?.dateTime ?? "",
-    endTime: e.end?.dateTime ?? "",
-    attendees: e.attendees?.map((a: any) => a.emailAddress?.address).filter(Boolean),
-    location: e.location?.displayName ?? undefined,
-  }));
+  return (res.value ?? []).map(mapMicrosoftEvent);
 }
 
 export async function createEvent(
@@ -57,15 +50,7 @@ export async function createEvent(
     { label: "ms-calendar:createEvent" }
   );
 
-  return {
-    id: res.id,
-    summary: res.subject ?? "",
-    description: res.bodyPreview ?? undefined,
-    startTime: res.start?.dateTime ?? "",
-    endTime: res.end?.dateTime ?? "",
-    attendees: res.attendees?.map((a: any) => a.emailAddress?.address).filter(Boolean),
-    location: res.location?.displayName ?? undefined,
-  };
+  return mapMicrosoftEvent(res);
 }
 
 export async function updateEvent(
@@ -91,15 +76,7 @@ export async function updateEvent(
     { label: "ms-calendar:updateEvent" }
   );
 
-  return {
-    id: res.id,
-    summary: res.subject ?? "",
-    description: res.bodyPreview ?? undefined,
-    startTime: res.start?.dateTime ?? "",
-    endTime: res.end?.dateTime ?? "",
-    attendees: res.attendees?.map((a: any) => a.emailAddress?.address).filter(Boolean),
-    location: res.location?.displayName ?? undefined,
-  };
+  return mapMicrosoftEvent(res);
 }
 
 export async function deleteEvent(userId: string, orgId: string, eventId: string): Promise<void> {
