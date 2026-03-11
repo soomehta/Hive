@@ -43,6 +43,9 @@ export async function updatePaProfile(
     workingHoursStart: string;
     workingHoursEnd: string;
     actionOverrides: Record<string, string>;
+    emailBriefing: boolean;
+    emailDigest: boolean;
+    personalityTraits: string;
   }>
 ) {
   const [updated] = await db

@@ -33,9 +33,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { UserPlus, Users, Mail, Briefcase, Building2 } from "lucide-react";
+import { UserPlus, Users, Mail, Briefcase, Building2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ErrorState } from "@/components/shared/error-state";
+import { getUserDisplayName, getUserInitials } from "@/lib/utils/user-display";
 
 // ─── Role Badge ─────────────────────────────────────────
 
@@ -72,8 +74,8 @@ function RoleBadge({ role }: { role: OrgMember["role"] }) {
 // ─── Member Card ────────────────────────────────────────
 
 function MemberCard({ member }: { member: OrgMember }) {
-  const displayName = member.displayName ?? member.userId.slice(0, 8);
-  const initials = displayName.slice(0, 2).toUpperCase();
+  const displayName = getUserDisplayName(member);
+  const initials = getUserInitials(displayName);
 
   return (
     <Card>
@@ -209,6 +211,7 @@ function InviteMemberDialog({ orgId }: { orgId: string }) {
               Cancel
             </Button>
             <Button type="submit" disabled={inviteMutation.isPending}>
+              {inviteMutation.isPending && <Loader2 className="size-4 animate-spin mr-1" />}
               {inviteMutation.isPending ? "Sending..." : "Send Invitation"}
             </Button>
           </DialogFooter>
@@ -247,6 +250,7 @@ export function PageClient() {
     data: membersData,
     isLoading,
     error,
+    refetch,
   } = useCurrentOrgTeamQuery();
 
   const members = membersData ?? [];
@@ -262,9 +266,6 @@ export function PageClient() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Team</h1>
-          <p className="text-muted-foreground">
-            Manage your organization members
-          </p>
         </div>
         {orgId && <InviteMemberDialog orgId={orgId} />}
       </div>
@@ -272,11 +273,10 @@ export function PageClient() {
       {isLoading ? (
         <TeamSkeleton />
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center">
-          <p className="text-sm text-destructive">
-            Failed to load team members. Please try again later.
-          </p>
-        </div>
+        <ErrorState
+          message="Failed to load team members."
+          onRetry={() => refetch()}
+        />
       ) : members.length === 0 ? (
         <div className="rounded-lg border border-dashed">
           <EmptyState

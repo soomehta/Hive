@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Send, Mic } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Send, Mic, Square } from "lucide-react";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 import { toast } from "sonner";
 
@@ -10,18 +9,17 @@ interface PAInputProps {
   onSend: (text: string) => void;
   onVoice: (blob: Blob) => void;
   isLoading: boolean;
+  autoFocus?: boolean;
 }
 
-export function PAInput({ onSend, onVoice, isLoading }: PAInputProps) {
+export function PAInput({ onSend, onVoice, isLoading, autoFocus }: PAInputProps) {
   const [text, setText] = useState("");
   const { state, startRecording, stopRecording, audioBlob, duration, error } = useVoiceRecorder();
   const sentBlobRef = useRef<Blob | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Surface voice recorder errors via toast (U3)
   useEffect(() => {
-    if (error) {
-      toast.error(error);
-    }
+    if (error) toast.error("Microphone access failed. Please check your permissions.");
   }, [error]);
 
   useEffect(() => {
@@ -31,11 +29,30 @@ export function PAInput({ onSend, onVoice, isLoading }: PAInputProps) {
     }
   }, [audioBlob, state, onVoice]);
 
+  // Auto-focus when overlay opens
+  useEffect(() => {
+    if (autoFocus) {
+      // Small delay to let the overlay animation start
+      const timer = setTimeout(() => textareaRef.current?.focus(), 150);
+      return () => clearTimeout(timer);
+    }
+  }, [autoFocus]);
+
+  // Auto-resize textarea
+  const handleInput = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setText(e.target.value);
+    const el = e.target;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 120) + "px";
+  }, []);
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!text.trim() || isLoading) return;
     onSend(text.trim());
     setText("");
+    // Reset height
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -55,58 +72,60 @@ export function PAInput({ onSend, onVoice, isLoading }: PAInputProps) {
 
   if (state === "recording") {
     return (
-      <div className="flex items-center gap-3 border-t border-border px-4 py-3" role="status" aria-label="Recording in progress">
+      <div className="flex items-center gap-3 px-5 py-4" role="status" aria-label="Recording in progress">
         <div className="flex flex-1 items-center gap-2">
-          <div className="size-2 animate-pulse rounded-full bg-red-500" aria-hidden="true" />
-          <span className="text-sm text-foreground">
-            Recording... {Math.floor(duration / 60)}:{String(duration % 60).padStart(2, "0")}
+          <div className="relative flex items-center justify-center" aria-hidden="true">
+            <div className="size-2 rounded-full bg-red-400" />
+            <div className="absolute size-4 animate-ping rounded-full bg-red-400/30" />
+          </div>
+          <span className="text-sm text-muted-foreground">
+            {Math.floor(duration / 60)}:{String(duration % 60).padStart(2, "0")}
           </span>
         </div>
-        <Button
-          size="sm"
-          variant="destructive"
+        <button
           onClick={stopRecording}
-          className="rounded-full"
+          className="neu-btn flex items-center gap-1.5 rounded-xl bg-background px-3.5 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
           aria-label="Stop recording"
         >
+          <Square className="size-3" />
           Stop
-        </Button>
+        </button>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex items-end gap-2 border-t border-border px-4 py-3">
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="Ask your PA..."
-        aria-label="Message to PA"
-        rows={1}
-        className="flex-1 resize-none rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-        disabled={isLoading}
-      />
-      <Button
+    <form onSubmit={handleSubmit} className="flex items-end gap-2 px-5 py-4">
+      <div className="neu-pressed flex flex-1 items-center gap-2 rounded-2xl bg-background px-4 py-2.5">
+        <textarea
+          ref={textareaRef}
+          value={text}
+          onChange={handleInput}
+          onKeyDown={handleKeyDown}
+          placeholder="Ask your PA..."
+          aria-label="Message to PA"
+          rows={1}
+          className="flex-1 resize-none bg-transparent text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
+          disabled={isLoading}
+        />
+      </div>
+      <button
         type="button"
-        size="icon"
-        variant="ghost"
         onClick={handleMicClick}
-        className="size-9 shrink-0 text-muted-foreground hover:text-violet-400"
+        className="neu-btn flex size-9 shrink-0 items-center justify-center rounded-xl bg-background text-muted-foreground transition-colors hover:text-foreground"
         disabled={isLoading}
         aria-label="Voice input"
       >
-        <Mic className="size-4" aria-hidden="true" />
-      </Button>
-      <Button
+        <Mic className="size-4" />
+      </button>
+      <button
         type="submit"
-        size="icon"
-        className="size-9 shrink-0 bg-violet-600 hover:bg-violet-700"
+        className="neu-btn flex size-9 shrink-0 items-center justify-center rounded-xl bg-background text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
         disabled={!text.trim() || isLoading}
         aria-label="Send message"
       >
-        <Send className="size-4" aria-hidden="true" />
-      </Button>
+        <Send className="size-3.5" />
+      </button>
     </form>
   );
 }

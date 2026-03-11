@@ -76,8 +76,53 @@ vi.mock("@/lib/ai/report-generator", () => ({
   generateReport: vi.fn(),
 }));
 
+vi.mock("@/lib/actions/resolve-task", () => ({
+  resolveTaskId: vi.fn(),
+}));
+
 vi.mock("@/lib/db/queries/messages", () => ({
   createMessage: vi.fn(),
+}));
+
+vi.mock("@/lib/db/queries/pages", () => ({
+  createPageItem: vi.fn(),
+  getPageByItemId: vi.fn(),
+  updatePageByItemId: vi.fn(),
+}));
+
+vi.mock("@/lib/db/queries/items", () => ({
+  getItemById: vi.fn(),
+  createItemRelation: vi.fn(),
+  deleteItemRelation: vi.fn(),
+}));
+
+vi.mock("@/lib/db/queries/notices", () => ({
+  createNotice: vi.fn(),
+}));
+
+vi.mock("@/lib/db/queries/chat", () => ({
+  createChannel: vi.fn(),
+  addChannelMember: vi.fn(),
+  getChannelById: vi.fn(),
+  getChannels: vi.fn(),
+  updateChannel: vi.fn(),
+  isChannelMember: vi.fn(),
+  postChannelMessage: vi.fn(),
+  getChannelMessageById: vi.fn(),
+  toggleMessagePin: vi.fn(),
+  searchChannelMessages: vi.fn(),
+}));
+
+vi.mock("@/lib/utils/user-resolver", () => ({
+  resolveUserMeta: vi.fn(),
+}));
+
+vi.mock("@/lib/logger", () => ({
+  createLogger: vi.fn(() => ({ error: vi.fn(), info: vi.fn(), warn: vi.fn(), debug: vi.fn() })),
+}));
+
+vi.mock("@/lib/ai/providers", () => ({
+  chatCompletion: vi.fn(),
 }));
 
 vi.mock("drizzle-orm", () => ({
@@ -108,6 +153,7 @@ import * as slack from "@/lib/integrations/slack";
 import { generateReport } from "@/lib/ai/report-generator";
 import { createMessage } from "@/lib/db/queries/messages";
 
+import { resolveTaskId } from "@/lib/actions/resolve-task";
 import { handleCreateTask } from "@/lib/actions/handlers/create-task";
 import { handleUpdateTask } from "@/lib/actions/handlers/update-task";
 import { handleCompleteTask } from "@/lib/actions/handlers/complete-task";
@@ -122,6 +168,29 @@ import { handleSendEmail } from "@/lib/actions/handlers/send-email";
 import { handleSendSlack } from "@/lib/actions/handlers/send-slack";
 import { handleGenerateReport } from "@/lib/actions/handlers/generate-report";
 import { handleQuery } from "@/lib/actions/handlers/query";
+
+// Phase 6 handlers
+import { handleCreatePage } from "@/lib/actions/handlers/create-page";
+import { handleUpdatePage } from "@/lib/actions/handlers/update-page";
+import { handleLinkItems } from "@/lib/actions/handlers/link-items";
+import { handleUnlinkItems } from "@/lib/actions/handlers/unlink-items";
+import { handleCreateNotice } from "@/lib/actions/handlers/create-notice";
+import { handleCreateChannel } from "@/lib/actions/handlers/create-channel";
+import { handlePostChannelMessage } from "@/lib/actions/handlers/post-channel-message";
+import { handleSummarizePage } from "@/lib/actions/handlers/summarize-page";
+import { handleConvertMessageToTask } from "@/lib/actions/handlers/convert-message-to-task";
+import { handleConvertMessageToPage } from "@/lib/actions/handlers/convert-message-to-page";
+import { handlePinMessage } from "@/lib/actions/handlers/pin-message";
+import { handleArchiveChannel } from "@/lib/actions/handlers/archive-channel";
+import { handleSearchMessages } from "@/lib/actions/handlers/search-messages";
+import { handleExtractTasks } from "@/lib/actions/handlers/extract-tasks";
+
+// Phase 6 mocked dependencies
+import { createPageItem, getPageByItemId, updatePageByItemId } from "@/lib/db/queries/pages";
+import { getItemById, createItemRelation, deleteItemRelation } from "@/lib/db/queries/items";
+import { createNotice } from "@/lib/db/queries/notices";
+import { createChannel, addChannelMember, getChannelById, getChannels, updateChannel, isChannelMember, postChannelMessage, getChannelMessageById, toggleMessagePin, searchChannelMessages } from "@/lib/db/queries/chat";
+import { chatCompletion } from "@/lib/ai/providers";
 
 import {
   MOCK_USER_ID,
@@ -187,6 +256,12 @@ const MOCK_CALENDAR_EVENT = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default: resolveTaskId returns the taskId from payload (simulating successful resolution)
+  vi.mocked(resolveTaskId).mockImplementation(async (payload) => {
+    if (payload.taskId) return { taskId: payload.taskId };
+    if (payload.taskTitle || payload.taskName || payload.title) return { taskId: MOCK_TASK_ID };
+    return { error: "Please specify which task you'd like to modify." };
+  });
 });
 
 // ===========================================================================
@@ -337,15 +412,17 @@ describe("handleUpdateTask", () => {
     expect(result.result?.taskId).toBe(MOCK_TASK_ID);
   });
 
-  it("returns error when taskId is missing from payload", async () => {
+  it("returns error when no task identifier is provided", async () => {
+    vi.mocked(resolveTaskId).mockResolvedValue({ error: "Please specify which task you'd like to modify." });
+
     const action = mockPAAction({
-      plannedPayload: { title: "Updated title" },
+      plannedPayload: { priority: "high" },
     });
 
     const result = await handleUpdateTask(action);
 
     expect(result.success).toBe(false);
-    expect(result.error).toMatch(/Task ID/i);
+    expect(result.error).toMatch(/specify/i);
   });
 
   it("returns error when task is not found in the database", async () => {
@@ -454,7 +531,9 @@ describe("handleCompleteTask", () => {
     );
   });
 
-  it("returns error when taskId is missing", async () => {
+  it("returns error when no task identifier is provided", async () => {
+    vi.mocked(resolveTaskId).mockResolvedValue({ error: "Please specify which task you'd like to modify." });
+
     const action = mockPAAction({
       plannedPayload: {},
     });
@@ -462,7 +541,7 @@ describe("handleCompleteTask", () => {
     const result = await handleCompleteTask(action);
 
     expect(result.success).toBe(false);
-    expect(result.error).toMatch(/Task ID/i);
+    expect(result.error).toMatch(/specify/i);
   });
 });
 
@@ -519,13 +598,15 @@ describe("handleDeleteTask", () => {
     );
   });
 
-  it("returns error when taskId is absent from payload", async () => {
+  it("returns error when no task identifier is provided", async () => {
+    vi.mocked(resolveTaskId).mockResolvedValue({ error: "Please specify which task you'd like to modify." });
+
     const action = mockPAAction({ plannedPayload: {} });
 
     const result = await handleDeleteTask(action);
 
     expect(result.success).toBe(false);
-    expect(result.error).toMatch(/Task ID/i);
+    expect(result.error).toMatch(/specify/i);
   });
 
   it("returns error when the task does not exist in the database", async () => {
@@ -1158,7 +1239,7 @@ describe("handleQuery — check_project_status", () => {
     const result = await handleQuery(action);
 
     expect(result.success).toBe(false);
-    expect(result.error).toMatch(/Project ID/i);
+    expect(result.error).toMatch(/specify which project/i);
   });
 });
 
@@ -1230,5 +1311,1357 @@ describe("handleQuery — unknown action type", () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/unknown query type/i);
+  });
+});
+
+// ===========================================================================
+// Phase 6 Handlers
+// ===========================================================================
+
+const MOCK_ITEM_ID = "item-00000000-0000-0000-0000-000000000001";
+const MOCK_PAGE_ID = "page-00000000-0000-0000-0000-000000000001";
+const MOCK_CHANNEL_ID = "chan-00000000-0000-0000-0000-000000000001";
+const MOCK_RELATION_ID = "rel-00000000-0000-0000-0000-000000000001";
+const MOCK_NOTICE_ID = "notice-00000000-0000-0000-0000-000000000001";
+const MOCK_CHANNEL_MSG_ID = "cmsg-00000000-0000-0000-0000-000000000001";
+
+// ===========================================================================
+// handleCreatePage
+// ===========================================================================
+
+describe("handleCreatePage", () => {
+  it("creates a page and returns itemId and pageId on success", async () => {
+    vi.mocked(createPageItem).mockResolvedValue({
+      item: { id: MOCK_ITEM_ID } as any,
+      page: { id: MOCK_PAGE_ID } as any,
+    });
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "create_page",
+      plannedPayload: { title: "Sprint Retrospective Notes" },
+    });
+
+    const result = await handleCreatePage(action);
+
+    expect(result.success).toBe(true);
+    expect(result.result?.itemId).toBe(MOCK_ITEM_ID);
+    expect(result.result?.pageId).toBe(MOCK_PAGE_ID);
+    expect(createPageItem).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Sprint Retrospective Notes", orgId: MOCK_ORG_ID })
+    );
+  });
+
+  it("returns error when title is empty", async () => {
+    const action = mockPAAction({
+      actionType: "create_page",
+      plannedPayload: { title: "" },
+    });
+
+    const result = await handleCreatePage(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/title.*required/i);
+  });
+
+  it("logs activity with page_created type", async () => {
+    vi.mocked(createPageItem).mockResolvedValue({
+      item: { id: MOCK_ITEM_ID } as any,
+      page: { id: MOCK_PAGE_ID } as any,
+    });
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "create_page",
+      plannedPayload: { title: "Test Page" },
+    });
+
+    await handleCreatePage(action);
+
+    expect(logActivity).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "page_created" })
+    );
+  });
+});
+
+// ===========================================================================
+// handleUpdatePage
+// ===========================================================================
+
+describe("handleUpdatePage", () => {
+  it("updates the page content and returns itemId on success", async () => {
+    vi.mocked(getItemById).mockResolvedValue({ id: MOCK_ITEM_ID, type: "page", title: "Test" } as any);
+    vi.mocked(getPageByItemId).mockResolvedValue({ id: MOCK_PAGE_ID, contentJson: {}, plainText: "" } as any);
+    vi.mocked(updatePageByItemId).mockResolvedValue({} as any);
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "update_page",
+      plannedPayload: { itemId: MOCK_ITEM_ID, plainText: "Updated content" },
+    });
+
+    const result = await handleUpdatePage(action);
+
+    expect(result.success).toBe(true);
+    expect(result.result?.itemId).toBe(MOCK_ITEM_ID);
+    expect(updatePageByItemId).toHaveBeenCalledWith(
+      MOCK_ITEM_ID,
+      MOCK_ORG_ID,
+      expect.objectContaining({ plainText: "Updated content", lastEditedBy: MOCK_USER_ID })
+    );
+  });
+
+  it("returns error when itemId is missing", async () => {
+    const action = mockPAAction({
+      actionType: "update_page",
+      plannedPayload: { plainText: "content" },
+    });
+
+    const result = await handleUpdatePage(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/itemId.*required/i);
+  });
+
+  it("returns error when page item is not found", async () => {
+    vi.mocked(getItemById).mockResolvedValue(undefined);
+
+    const action = mockPAAction({
+      actionType: "update_page",
+      plannedPayload: { itemId: MOCK_ITEM_ID },
+    });
+
+    const result = await handleUpdatePage(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/not found/i);
+  });
+
+  it("returns error when item is not a page type", async () => {
+    vi.mocked(getItemById).mockResolvedValue({ id: MOCK_ITEM_ID, type: "task" } as any);
+
+    const action = mockPAAction({
+      actionType: "update_page",
+      plannedPayload: { itemId: MOCK_ITEM_ID },
+    });
+
+    const result = await handleUpdatePage(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/not found/i);
+  });
+
+  it("logs activity with page_updated type", async () => {
+    vi.mocked(getItemById).mockResolvedValue({ id: MOCK_ITEM_ID, type: "page", title: "T" } as any);
+    vi.mocked(getPageByItemId).mockResolvedValue({ id: MOCK_PAGE_ID, contentJson: {}, plainText: "" } as any);
+    vi.mocked(updatePageByItemId).mockResolvedValue({} as any);
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "update_page",
+      plannedPayload: { itemId: MOCK_ITEM_ID, plainText: "new" },
+    });
+
+    await handleUpdatePage(action);
+
+    expect(logActivity).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "page_updated" })
+    );
+  });
+});
+
+// ===========================================================================
+// handleLinkItems
+// ===========================================================================
+
+describe("handleLinkItems", () => {
+  const MOCK_TO_ITEM_ID = "item-00000000-0000-0000-0000-000000000002";
+
+  it("creates a relation between two items on success", async () => {
+    vi.mocked(getItemById)
+      .mockResolvedValueOnce({ id: MOCK_ITEM_ID } as any)
+      .mockResolvedValueOnce({ id: MOCK_TO_ITEM_ID } as any);
+    vi.mocked(createItemRelation).mockResolvedValue({ id: MOCK_RELATION_ID } as any);
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "link_items",
+      plannedPayload: { fromItemId: MOCK_ITEM_ID, toItemId: MOCK_TO_ITEM_ID },
+    });
+
+    const result = await handleLinkItems(action);
+
+    expect(result.success).toBe(true);
+    expect(result.result?.relationId).toBe(MOCK_RELATION_ID);
+    expect(createItemRelation).toHaveBeenCalledWith(
+      expect.objectContaining({ relationType: "references" })
+    );
+  });
+
+  it("returns error when fromItemId or toItemId is missing", async () => {
+    const action = mockPAAction({
+      actionType: "link_items",
+      plannedPayload: { fromItemId: MOCK_ITEM_ID },
+    });
+
+    const result = await handleLinkItems(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/required/i);
+  });
+
+  it("returns error when one of the items is not found", async () => {
+    vi.mocked(getItemById)
+      .mockResolvedValueOnce({ id: MOCK_ITEM_ID } as any)
+      .mockResolvedValueOnce(undefined);
+
+    const action = mockPAAction({
+      actionType: "link_items",
+      plannedPayload: { fromItemId: MOCK_ITEM_ID, toItemId: MOCK_TO_ITEM_ID },
+    });
+
+    const result = await handleLinkItems(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/not found/i);
+  });
+
+  it("logs activity with item_linked type", async () => {
+    vi.mocked(getItemById)
+      .mockResolvedValueOnce({ id: MOCK_ITEM_ID } as any)
+      .mockResolvedValueOnce({ id: MOCK_TO_ITEM_ID } as any);
+    vi.mocked(createItemRelation).mockResolvedValue({ id: MOCK_RELATION_ID } as any);
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "link_items",
+      plannedPayload: { fromItemId: MOCK_ITEM_ID, toItemId: MOCK_TO_ITEM_ID },
+    });
+
+    await handleLinkItems(action);
+
+    expect(logActivity).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "item_linked" })
+    );
+  });
+});
+
+// ===========================================================================
+// handleUnlinkItems
+// ===========================================================================
+
+describe("handleUnlinkItems", () => {
+  it("deletes the relation and returns relationId on success", async () => {
+    vi.mocked(deleteItemRelation).mockResolvedValue({} as any);
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "unlink_items",
+      plannedPayload: { relationId: MOCK_RELATION_ID },
+    });
+
+    const result = await handleUnlinkItems(action);
+
+    expect(result.success).toBe(true);
+    expect(result.result?.relationId).toBe(MOCK_RELATION_ID);
+    expect(deleteItemRelation).toHaveBeenCalledWith(MOCK_RELATION_ID, MOCK_ORG_ID);
+  });
+
+  it("returns error when relationId is missing", async () => {
+    const action = mockPAAction({
+      actionType: "unlink_items",
+      plannedPayload: {},
+    });
+
+    const result = await handleUnlinkItems(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/relationId.*required/i);
+  });
+
+  it("logs activity with item_unlinked type", async () => {
+    vi.mocked(deleteItemRelation).mockResolvedValue({} as any);
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "unlink_items",
+      plannedPayload: { relationId: MOCK_RELATION_ID },
+    });
+
+    await handleUnlinkItems(action);
+
+    expect(logActivity).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "item_unlinked" })
+    );
+  });
+});
+
+// ===========================================================================
+// handleCreateNotice
+// ===========================================================================
+
+describe("handleCreateNotice", () => {
+  it("creates a notice and returns noticeId on success", async () => {
+    vi.mocked(createNotice).mockResolvedValue({ id: MOCK_NOTICE_ID } as any);
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "create_notice",
+      plannedPayload: { title: "Sprint 12 Kickoff", body: "Sprint starts today!" },
+    });
+
+    const result = await handleCreateNotice(action);
+
+    expect(result.success).toBe(true);
+    expect(result.result?.noticeId).toBe(MOCK_NOTICE_ID);
+    expect(createNotice).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Sprint 12 Kickoff", status: "active" })
+    );
+  });
+
+  it("returns error when title is missing", async () => {
+    const action = mockPAAction({
+      actionType: "create_notice",
+      plannedPayload: { body: "Some body" },
+    });
+
+    const result = await handleCreateNotice(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/required/i);
+  });
+
+  it("returns error when body is missing", async () => {
+    const action = mockPAAction({
+      actionType: "create_notice",
+      plannedPayload: { title: "A Title" },
+    });
+
+    const result = await handleCreateNotice(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/required/i);
+  });
+
+  it("logs activity with notice_created type", async () => {
+    vi.mocked(createNotice).mockResolvedValue({ id: MOCK_NOTICE_ID } as any);
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "create_notice",
+      plannedPayload: { title: "Heads up", body: "Deploy at 5pm" },
+    });
+
+    await handleCreateNotice(action);
+
+    expect(logActivity).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "notice_created" })
+    );
+  });
+});
+
+// ===========================================================================
+// handleCreateChannel
+// ===========================================================================
+
+describe("handleCreateChannel", () => {
+  it("creates a channel and returns channelId (creator added as owner inside createChannel transaction)", async () => {
+    vi.mocked(createChannel).mockResolvedValue({ id: MOCK_CHANNEL_ID } as any);
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "create_channel",
+      plannedPayload: { name: "backend-team", description: "Backend discussions" },
+    });
+
+    const result = await handleCreateChannel(action);
+
+    expect(result.success).toBe(true);
+    expect(result.result?.channelId).toBe(MOCK_CHANNEL_ID);
+    expect(createChannel).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "backend-team", scope: "team" })
+    );
+  });
+
+  it("sets scope to project when projectId is provided", async () => {
+    vi.mocked(createChannel).mockResolvedValue({ id: MOCK_CHANNEL_ID } as any);
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "create_channel",
+      plannedPayload: { name: "project-chat", projectId: MOCK_PROJECT_ID },
+    });
+
+    await handleCreateChannel(action);
+
+    expect(createChannel).toHaveBeenCalledWith(
+      expect.objectContaining({ scope: "project", projectId: MOCK_PROJECT_ID })
+    );
+  });
+
+  it("returns error when channel name is empty", async () => {
+    const action = mockPAAction({
+      actionType: "create_channel",
+      plannedPayload: { name: "" },
+    });
+
+    const result = await handleCreateChannel(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/name.*required/i);
+  });
+
+  it("logs activity with channel_created type", async () => {
+    vi.mocked(createChannel).mockResolvedValue({ id: MOCK_CHANNEL_ID } as any);
+    vi.mocked(addChannelMember).mockResolvedValue({} as any);
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "create_channel",
+      plannedPayload: { name: "test-channel" },
+    });
+
+    await handleCreateChannel(action);
+
+    expect(logActivity).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "channel_created" })
+    );
+  });
+});
+
+// ===========================================================================
+// handlePostChannelMessage
+// ===========================================================================
+
+describe("handlePostChannelMessage", () => {
+  it("posts a message in a channel and returns messageId on success", async () => {
+    vi.mocked(getChannelById).mockResolvedValue({ id: MOCK_CHANNEL_ID, name: "general" } as any);
+    vi.mocked(isChannelMember).mockResolvedValue(true);
+    vi.mocked(postChannelMessage).mockResolvedValue({ id: MOCK_CHANNEL_MSG_ID } as any);
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "post_channel_message",
+      plannedPayload: { channelId: MOCK_CHANNEL_ID, content: "Hello team!" },
+    });
+
+    const result = await handlePostChannelMessage(action);
+
+    expect(result.success).toBe(true);
+    expect(result.result?.messageId).toBe(MOCK_CHANNEL_MSG_ID);
+  });
+
+  it("returns error when channelId is missing", async () => {
+    const action = mockPAAction({
+      actionType: "post_channel_message",
+      plannedPayload: { content: "Hello" },
+    });
+
+    const result = await handlePostChannelMessage(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/channelId.*required/i);
+  });
+
+  it("returns error when content is empty", async () => {
+    const action = mockPAAction({
+      actionType: "post_channel_message",
+      plannedPayload: { channelId: MOCK_CHANNEL_ID, content: "" },
+    });
+
+    const result = await handlePostChannelMessage(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/content.*required/i);
+  });
+
+  it("returns error when channel is not found", async () => {
+    vi.mocked(getChannelById).mockResolvedValue(undefined);
+
+    const action = mockPAAction({
+      actionType: "post_channel_message",
+      plannedPayload: { channelId: MOCK_CHANNEL_ID, content: "Hello" },
+    });
+
+    const result = await handlePostChannelMessage(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/not found/i);
+  });
+
+  it("returns error when user is not a channel member", async () => {
+    vi.mocked(getChannelById).mockResolvedValue({ id: MOCK_CHANNEL_ID, name: "general" } as any);
+    vi.mocked(isChannelMember).mockResolvedValue(false);
+
+    const action = mockPAAction({
+      actionType: "post_channel_message",
+      plannedPayload: { channelId: MOCK_CHANNEL_ID, content: "Hello" },
+    });
+
+    const result = await handlePostChannelMessage(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/not a member/i);
+  });
+
+  it("logs activity with channel_message_posted type", async () => {
+    vi.mocked(getChannelById).mockResolvedValue({ id: MOCK_CHANNEL_ID, name: "general" } as any);
+    vi.mocked(isChannelMember).mockResolvedValue(true);
+    vi.mocked(postChannelMessage).mockResolvedValue({ id: MOCK_CHANNEL_MSG_ID } as any);
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "post_channel_message",
+      plannedPayload: { channelId: MOCK_CHANNEL_ID, content: "Hey" },
+    });
+
+    await handlePostChannelMessage(action);
+
+    expect(logActivity).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "channel_message_posted" })
+    );
+  });
+});
+
+// ===========================================================================
+// handleSummarizePage
+// ===========================================================================
+
+describe("handleSummarizePage", () => {
+  it("returns an AI-generated summary on success", async () => {
+    vi.mocked(getItemById).mockResolvedValue({ id: MOCK_ITEM_ID, type: "page", title: "Design Doc" } as any);
+    vi.mocked(getPageByItemId).mockResolvedValue({ id: MOCK_PAGE_ID, plainText: "This is a design document about the new API." } as any);
+    vi.mocked(chatCompletion).mockResolvedValue("This document outlines the new API design.");
+
+    const action = mockPAAction({
+      actionType: "summarize_page",
+      plannedPayload: { itemId: MOCK_ITEM_ID },
+    });
+
+    const result = await handleSummarizePage(action);
+
+    expect(result.success).toBe(true);
+    expect(result.result?.itemId).toBe(MOCK_ITEM_ID);
+    expect(result.result?.title).toBe("Design Doc");
+    expect(result.result?.summary).toBe("This document outlines the new API design.");
+  });
+
+  it("returns error when itemId is missing", async () => {
+    const action = mockPAAction({
+      actionType: "summarize_page",
+      plannedPayload: {},
+    });
+
+    const result = await handleSummarizePage(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/itemId.*required/i);
+  });
+
+  it("returns error when page is not found", async () => {
+    vi.mocked(getItemById).mockResolvedValue(undefined);
+
+    const action = mockPAAction({
+      actionType: "summarize_page",
+      plannedPayload: { itemId: MOCK_ITEM_ID },
+    });
+
+    const result = await handleSummarizePage(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/not found/i);
+  });
+
+  it("falls back to text excerpt when AI call fails", async () => {
+    vi.mocked(getItemById).mockResolvedValue({ id: MOCK_ITEM_ID, type: "page", title: "Notes" } as any);
+    vi.mocked(getPageByItemId).mockResolvedValue({ id: MOCK_PAGE_ID, plainText: "Short content." } as any);
+    vi.mocked(chatCompletion).mockRejectedValue(new Error("AI unavailable"));
+
+    const action = mockPAAction({
+      actionType: "summarize_page",
+      plannedPayload: { itemId: MOCK_ITEM_ID },
+    });
+
+    const result = await handleSummarizePage(action);
+
+    expect(result.success).toBe(true);
+    expect(result.result?.summary).toBe("Short content.");
+  });
+});
+
+// ===========================================================================
+// handleConvertMessageToTask
+// ===========================================================================
+
+describe("handleConvertMessageToTask", () => {
+  const MOCK_CHANNEL_MESSAGE = {
+    id: MOCK_CHANNEL_MSG_ID,
+    content: "We need to fix the login bug ASAP",
+    channelId: MOCK_CHANNEL_ID,
+    authorId: MOCK_USER_ID,
+    createdAt: new Date("2025-01-01T00:00:00Z"),
+  };
+
+  it("converts a chat message to a task and returns taskId", async () => {
+    vi.mocked(getChannelMessageById).mockResolvedValue(MOCK_CHANNEL_MESSAGE as any);
+    vi.mocked(createTask).mockResolvedValue({ id: MOCK_TASK_ID, title: "Fix login bug" } as any);
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "convert_message_to_task",
+      plannedPayload: {
+        messageId: MOCK_CHANNEL_MSG_ID,
+        projectId: MOCK_PROJECT_ID,
+        title: "Fix login bug",
+      },
+    });
+
+    const result = await handleConvertMessageToTask(action);
+
+    expect(result.success).toBe(true);
+    expect(result.result?.taskId).toBe(MOCK_TASK_ID);
+    expect(result.result?.title).toBe("Fix login bug");
+    expect(createTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description: MOCK_CHANNEL_MESSAGE.content,
+        priority: "medium",
+      })
+    );
+  });
+
+  it("uses first 100 chars of message as title when not provided", async () => {
+    vi.mocked(getChannelMessageById).mockResolvedValue(MOCK_CHANNEL_MESSAGE as any);
+    vi.mocked(createTask).mockResolvedValue({
+      id: MOCK_TASK_ID,
+      title: MOCK_CHANNEL_MESSAGE.content.slice(0, 100),
+    } as any);
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "convert_message_to_task",
+      plannedPayload: { messageId: MOCK_CHANNEL_MSG_ID, projectId: MOCK_PROJECT_ID },
+    });
+
+    const result = await handleConvertMessageToTask(action);
+
+    expect(result.success).toBe(true);
+    expect(createTask).toHaveBeenCalledWith(
+      expect.objectContaining({ title: MOCK_CHANNEL_MESSAGE.content.slice(0, 100) })
+    );
+  });
+
+  it("returns error when messageId is missing", async () => {
+    const action = mockPAAction({
+      actionType: "convert_message_to_task",
+      plannedPayload: { projectId: MOCK_PROJECT_ID },
+    });
+
+    const result = await handleConvertMessageToTask(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/messageId.*required/i);
+  });
+
+  it("returns error when message is not found", async () => {
+    vi.mocked(getChannelMessageById).mockResolvedValue(undefined);
+
+    const action = mockPAAction({
+      actionType: "convert_message_to_task",
+      plannedPayload: { messageId: MOCK_CHANNEL_MSG_ID, projectId: MOCK_PROJECT_ID },
+    });
+
+    const result = await handleConvertMessageToTask(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/not found/i);
+  });
+
+  it("returns error when projectId is missing", async () => {
+    vi.mocked(getChannelMessageById).mockResolvedValue(MOCK_CHANNEL_MESSAGE as any);
+
+    const action = mockPAAction({
+      actionType: "convert_message_to_task",
+      plannedPayload: { messageId: MOCK_CHANNEL_MSG_ID },
+    });
+
+    const result = await handleConvertMessageToTask(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/projectId.*required/i);
+  });
+
+  it("logs activity with message_converted_to_task type", async () => {
+    vi.mocked(getChannelMessageById).mockResolvedValue(MOCK_CHANNEL_MESSAGE as any);
+    vi.mocked(createTask).mockResolvedValue({ id: MOCK_TASK_ID, title: "Fix bug" } as any);
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "convert_message_to_task",
+      plannedPayload: {
+        messageId: MOCK_CHANNEL_MSG_ID,
+        projectId: MOCK_PROJECT_ID,
+        title: "Fix bug",
+      },
+    });
+
+    await handleConvertMessageToTask(action);
+
+    expect(logActivity).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "message_converted_to_task" })
+    );
+  });
+});
+
+// ===========================================================================
+// handleConvertMessageToPage
+// ===========================================================================
+
+describe("handleConvertMessageToPage", () => {
+  const MOCK_CHANNEL_MESSAGE = {
+    id: MOCK_CHANNEL_MSG_ID,
+    content: "Here are the meeting notes from today's standup",
+    channelId: MOCK_CHANNEL_ID,
+    authorId: MOCK_USER_ID,
+    createdAt: new Date("2025-01-01T00:00:00Z"),
+  };
+
+  it("converts a chat message to a page and returns itemId and pageId", async () => {
+    vi.mocked(getChannelMessageById).mockResolvedValue(MOCK_CHANNEL_MESSAGE as any);
+    vi.mocked(createPageItem).mockResolvedValue({
+      item: { id: MOCK_ITEM_ID } as any,
+      page: { id: MOCK_PAGE_ID } as any,
+    });
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "convert_message_to_page",
+      plannedPayload: { messageId: MOCK_CHANNEL_MSG_ID, title: "Standup Notes" },
+    });
+
+    const result = await handleConvertMessageToPage(action);
+
+    expect(result.success).toBe(true);
+    expect(result.result?.itemId).toBe(MOCK_ITEM_ID);
+    expect(result.result?.pageId).toBe(MOCK_PAGE_ID);
+    expect(result.result?.title).toBe("Standup Notes");
+  });
+
+  it("returns error when messageId is missing", async () => {
+    const action = mockPAAction({
+      actionType: "convert_message_to_page",
+      plannedPayload: { title: "Some Page" },
+    });
+
+    const result = await handleConvertMessageToPage(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/messageId.*required/i);
+  });
+
+  it("returns error when message is not found", async () => {
+    vi.mocked(getChannelMessageById).mockResolvedValue(undefined);
+
+    const action = mockPAAction({
+      actionType: "convert_message_to_page",
+      plannedPayload: { messageId: MOCK_CHANNEL_MSG_ID },
+    });
+
+    const result = await handleConvertMessageToPage(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/not found/i);
+  });
+
+  it("logs activity with message_converted_to_page type", async () => {
+    vi.mocked(getChannelMessageById).mockResolvedValue(MOCK_CHANNEL_MESSAGE as any);
+    vi.mocked(createPageItem).mockResolvedValue({
+      item: { id: MOCK_ITEM_ID } as any,
+      page: { id: MOCK_PAGE_ID } as any,
+    });
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "convert_message_to_page",
+      plannedPayload: { messageId: MOCK_CHANNEL_MSG_ID },
+    });
+
+    await handleConvertMessageToPage(action);
+
+    expect(logActivity).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "message_converted_to_page" })
+    );
+  });
+});
+
+// ===========================================================================
+// handlePinMessage
+// ===========================================================================
+
+describe("handlePinMessage", () => {
+  const MOCK_CHAN_MSG = {
+    id: MOCK_CHANNEL_MSG_ID,
+    channelId: MOCK_CHANNEL_ID,
+    content: "Important message",
+    isPinned: false,
+    authorId: MOCK_USER_ID,
+    createdAt: new Date("2025-01-01T00:00:00Z"),
+  };
+
+  it("pins a message and returns isPinned true", async () => {
+    vi.mocked(getChannelMessageById).mockResolvedValue(MOCK_CHAN_MSG as any);
+    vi.mocked(toggleMessagePin).mockResolvedValue({ ...MOCK_CHAN_MSG, isPinned: true } as any);
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "pin_message",
+      plannedPayload: { messageId: MOCK_CHANNEL_MSG_ID },
+    });
+
+    const result = await handlePinMessage(action);
+
+    expect(result.success).toBe(true);
+    expect(result.result?.messageId).toBe(MOCK_CHANNEL_MSG_ID);
+    expect(result.result?.isPinned).toBe(true);
+  });
+
+  it("unpins an already-pinned message when isPinned is explicitly false", async () => {
+    vi.mocked(getChannelMessageById).mockResolvedValue({ ...MOCK_CHAN_MSG, isPinned: true } as any);
+    vi.mocked(toggleMessagePin).mockResolvedValue({ ...MOCK_CHAN_MSG, isPinned: false } as any);
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "pin_message",
+      plannedPayload: { messageId: MOCK_CHANNEL_MSG_ID, isPinned: false },
+    });
+
+    const result = await handlePinMessage(action);
+
+    expect(result.success).toBe(true);
+    expect(result.result?.isPinned).toBe(false);
+  });
+
+  it("returns error when messageId is missing", async () => {
+    const action = mockPAAction({
+      actionType: "pin_message",
+      plannedPayload: {},
+    });
+
+    const result = await handlePinMessage(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/messageId.*required/i);
+  });
+
+  it("returns error when message is not found", async () => {
+    vi.mocked(getChannelMessageById).mockResolvedValue(undefined);
+
+    const action = mockPAAction({
+      actionType: "pin_message",
+      plannedPayload: { messageId: MOCK_CHANNEL_MSG_ID },
+    });
+
+    const result = await handlePinMessage(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/not found/i);
+  });
+
+  it("logs activity with channel_message_edited type and pinned action", async () => {
+    vi.mocked(getChannelMessageById).mockResolvedValue(MOCK_CHAN_MSG as any);
+    vi.mocked(toggleMessagePin).mockResolvedValue({ ...MOCK_CHAN_MSG, isPinned: true } as any);
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "pin_message",
+      plannedPayload: { messageId: MOCK_CHANNEL_MSG_ID },
+    });
+
+    await handlePinMessage(action);
+
+    expect(logActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "channel_message_edited",
+        metadata: expect.objectContaining({ action: "pinned" }),
+      })
+    );
+  });
+});
+
+// ===========================================================================
+// handleArchiveChannel
+// ===========================================================================
+
+describe("handleArchiveChannel", () => {
+  const MOCK_CHANNEL = {
+    id: MOCK_CHANNEL_ID,
+    name: "old-channel",
+    isArchived: false,
+    orgId: MOCK_ORG_ID,
+  };
+
+  it("archives a channel by channelId and returns channelName", async () => {
+    vi.mocked(getChannelById).mockResolvedValue(MOCK_CHANNEL as any);
+    vi.mocked(updateChannel).mockResolvedValue({} as any);
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "archive_channel",
+      plannedPayload: { channelId: MOCK_CHANNEL_ID },
+    });
+
+    const result = await handleArchiveChannel(action);
+
+    expect(result.success).toBe(true);
+    expect(result.result?.channelId).toBe(MOCK_CHANNEL_ID);
+    expect(result.result?.channelName).toBe("old-channel");
+    expect(updateChannel).toHaveBeenCalledWith(MOCK_ORG_ID, MOCK_CHANNEL_ID, { isArchived: true });
+  });
+
+  it("resolves channel by name when channelId is not provided", async () => {
+    vi.mocked(getChannels).mockResolvedValue([MOCK_CHANNEL] as any);
+    vi.mocked(getChannelById).mockResolvedValue(MOCK_CHANNEL as any);
+    vi.mocked(updateChannel).mockResolvedValue({} as any);
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "archive_channel",
+      plannedPayload: { channelName: "old-channel" },
+    });
+
+    const result = await handleArchiveChannel(action);
+
+    expect(result.success).toBe(true);
+    expect(result.result?.channelName).toBe("old-channel");
+  });
+
+  it("returns error when neither channelId nor channelName is provided", async () => {
+    const action = mockPAAction({
+      actionType: "archive_channel",
+      plannedPayload: {},
+    });
+
+    const result = await handleArchiveChannel(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/channelId.*channelName.*required/i);
+  });
+
+  it("returns error when channel is not found", async () => {
+    vi.mocked(getChannelById).mockResolvedValue(undefined);
+
+    const action = mockPAAction({
+      actionType: "archive_channel",
+      plannedPayload: { channelId: MOCK_CHANNEL_ID },
+    });
+
+    const result = await handleArchiveChannel(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/not found/i);
+  });
+
+  it("logs activity with channel_updated type and archived action", async () => {
+    vi.mocked(getChannelById).mockResolvedValue(MOCK_CHANNEL as any);
+    vi.mocked(updateChannel).mockResolvedValue({} as any);
+    vi.mocked(logActivity).mockResolvedValue({} as any);
+
+    const action = mockPAAction({
+      actionType: "archive_channel",
+      plannedPayload: { channelId: MOCK_CHANNEL_ID },
+    });
+
+    await handleArchiveChannel(action);
+
+    expect(logActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "channel_updated",
+        metadata: expect.objectContaining({ action: "archived" }),
+      })
+    );
+  });
+});
+
+// ===========================================================================
+// handleSearchMessages
+// ===========================================================================
+
+describe("handleSearchMessages", () => {
+  const MOCK_SEARCH_RESULTS = [
+    {
+      id: "msg-1",
+      content: "We discussed the API design in this message",
+      channelId: MOCK_CHANNEL_ID,
+      authorId: MOCK_USER_ID,
+      createdAt: new Date("2025-01-01T00:00:00Z"),
+    },
+    {
+      id: "msg-2",
+      content: "The API endpoint needs pagination support",
+      channelId: MOCK_CHANNEL_ID,
+      authorId: "user-other",
+      createdAt: new Date("2025-01-02T00:00:00Z"),
+    },
+  ];
+
+  it("returns matching messages for a search query across all channels", async () => {
+    vi.mocked(getChannels).mockResolvedValue([{ id: MOCK_CHANNEL_ID, name: "general" }] as any);
+    vi.mocked(searchChannelMessages).mockResolvedValue(MOCK_SEARCH_RESULTS as any);
+
+    const action = mockPAAction({
+      actionType: "search_messages",
+      plannedPayload: { query: "API design" },
+    });
+
+    const result = await handleSearchMessages(action);
+
+    expect(result.success).toBe(true);
+    expect(result.result?.query).toBe("API design");
+    expect(result.result?.matchCount).toBe(2);
+    expect(result.result?.messages).toHaveLength(2);
+    expect(result.result?.messages[0]).toHaveProperty("id");
+    expect(result.result?.messages[0]).toHaveProperty("content");
+  });
+
+  it("searches within a specific channel by channelId", async () => {
+    vi.mocked(searchChannelMessages).mockResolvedValue(MOCK_SEARCH_RESULTS as any);
+
+    const action = mockPAAction({
+      actionType: "search_messages",
+      plannedPayload: { query: "API", channelId: MOCK_CHANNEL_ID },
+    });
+
+    const result = await handleSearchMessages(action);
+
+    expect(result.success).toBe(true);
+    expect(searchChannelMessages).toHaveBeenCalledWith(
+      MOCK_ORG_ID,
+      [MOCK_CHANNEL_ID],
+      "API",
+      20
+    );
+  });
+
+  it("resolves channel by name when channelName is provided", async () => {
+    vi.mocked(getChannels).mockResolvedValue([{ id: MOCK_CHANNEL_ID, name: "backend" }] as any);
+    vi.mocked(searchChannelMessages).mockResolvedValue([] as any);
+
+    const action = mockPAAction({
+      actionType: "search_messages",
+      plannedPayload: { query: "deploy", channelName: "backend" },
+    });
+
+    const result = await handleSearchMessages(action);
+
+    expect(result.success).toBe(true);
+    expect(searchChannelMessages).toHaveBeenCalledWith(
+      MOCK_ORG_ID,
+      [MOCK_CHANNEL_ID],
+      "deploy",
+      20
+    );
+  });
+
+  it("returns error when query is missing", async () => {
+    const action = mockPAAction({
+      actionType: "search_messages",
+      plannedPayload: {},
+    });
+
+    const result = await handleSearchMessages(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/query.*required/i);
+  });
+
+  it("returns empty results when no messages match", async () => {
+    vi.mocked(getChannels).mockResolvedValue([{ id: MOCK_CHANNEL_ID, name: "general" }] as any);
+    vi.mocked(searchChannelMessages).mockResolvedValue([] as any);
+
+    const action = mockPAAction({
+      actionType: "search_messages",
+      plannedPayload: { query: "nonexistent topic" },
+    });
+
+    const result = await handleSearchMessages(action);
+
+    expect(result.success).toBe(true);
+    expect(result.result?.matchCount).toBe(0);
+    expect(result.result?.messages).toHaveLength(0);
+  });
+
+  it("truncates message content to 200 characters", async () => {
+    const longContent = "A".repeat(300);
+    vi.mocked(getChannels).mockResolvedValue([{ id: MOCK_CHANNEL_ID, name: "general" }] as any);
+    vi.mocked(searchChannelMessages).mockResolvedValue([
+      { id: "msg-long", content: longContent, channelId: MOCK_CHANNEL_ID, authorId: MOCK_USER_ID, createdAt: new Date() },
+    ] as any);
+
+    const action = mockPAAction({
+      actionType: "search_messages",
+      plannedPayload: { query: "test" },
+    });
+
+    const result = await handleSearchMessages(action);
+
+    expect(result.success).toBe(true);
+    expect(result.result?.messages[0].content).toHaveLength(200);
+  });
+});
+
+// ===========================================================================
+// handleExtractTasks
+// ===========================================================================
+
+describe("handleExtractTasks", () => {
+  function setupDbSelectForExtract() {
+    // db.select().from(organizationMembers).where() returns an array of {userId}
+    const mockWhere = vi.fn().mockResolvedValue([{ userId: MOCK_USER_ID }]);
+    const mockFrom = vi.fn(() => ({ where: mockWhere }));
+    vi.mocked(db.select).mockReturnValue({ from: mockFrom } as any);
+  }
+
+  it("extracts tasks from meeting notes and returns structured results", async () => {
+    setupDbSelectForExtract();
+    const { resolveUserMeta } = await import("@/lib/utils/user-resolver");
+    vi.mocked(resolveUserMeta).mockResolvedValue({ displayName: "Test User", imageUrl: null } as any);
+
+    vi.mocked(chatCompletion).mockResolvedValue(JSON.stringify([
+      { title: "Fix login bug", priority: "high", assigneeName: "Alice" },
+      { title: "Update docs", priority: "medium" },
+    ]));
+
+    const action = mockPAAction({
+      actionType: "extract_tasks_from_notes",
+      plannedPayload: {
+        notes: "Alice needs to fix the login bug ASAP. We also need to update the documentation.",
+      },
+    });
+
+    const result = await handleExtractTasks(action);
+
+    expect(result.success).toBe(true);
+    expect(result.result?.extractedCount).toBe(2);
+    expect(result.result?.tasks).toHaveLength(2);
+    expect(result.result?.tasks[0].title).toBe("Fix login bug");
+  });
+
+  it("handles AI response wrapped in markdown code blocks", async () => {
+    setupDbSelectForExtract();
+    const { resolveUserMeta } = await import("@/lib/utils/user-resolver");
+    vi.mocked(resolveUserMeta).mockResolvedValue({ displayName: "Test User", imageUrl: null } as any);
+
+    vi.mocked(chatCompletion).mockResolvedValue(
+      '```json\n[{"title": "Deploy staging", "priority": "high"}]\n```'
+    );
+
+    const action = mockPAAction({
+      actionType: "extract_tasks_from_notes",
+      plannedPayload: { notes: "We need to deploy to staging as soon as possible." },
+    });
+
+    const result = await handleExtractTasks(action);
+
+    expect(result.success).toBe(true);
+    expect(result.result?.extractedCount).toBe(1);
+    expect(result.result?.tasks[0].title).toBe("Deploy staging");
+  });
+
+  it("returns error when notes are too short (less than 10 chars)", async () => {
+    const action = mockPAAction({
+      actionType: "extract_tasks_from_notes",
+      plannedPayload: { notes: "short" },
+    });
+
+    const result = await handleExtractTasks(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/too short/i);
+  });
+
+  it("returns error when notes are empty", async () => {
+    const action = mockPAAction({
+      actionType: "extract_tasks_from_notes",
+      plannedPayload: {},
+    });
+
+    const result = await handleExtractTasks(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/too short/i);
+  });
+
+  it("returns error when AI response cannot be parsed as JSON", async () => {
+    setupDbSelectForExtract();
+    const { resolveUserMeta } = await import("@/lib/utils/user-resolver");
+    vi.mocked(resolveUserMeta).mockResolvedValue({ displayName: "Test User", imageUrl: null } as any);
+
+    vi.mocked(chatCompletion).mockResolvedValue("Sorry, I cannot parse this content.");
+
+    const action = mockPAAction({
+      actionType: "extract_tasks_from_notes",
+      plannedPayload: { notes: "This is a long meeting note with various discussion points." },
+    });
+
+    const result = await handleExtractTasks(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/failed to extract/i);
+  });
+
+  it("caps extracted tasks at 20", async () => {
+    setupDbSelectForExtract();
+    const { resolveUserMeta } = await import("@/lib/utils/user-resolver");
+    vi.mocked(resolveUserMeta).mockResolvedValue({ displayName: "Test User", imageUrl: null } as any);
+
+    const manyTasks = Array.from({ length: 25 }, (_, i) => ({
+      title: `Task ${i + 1}`,
+      priority: "medium",
+    }));
+    vi.mocked(chatCompletion).mockResolvedValue(JSON.stringify(manyTasks));
+
+    const action = mockPAAction({
+      actionType: "extract_tasks_from_notes",
+      plannedPayload: { notes: "Very long meeting notes with many action items discussed by the team." },
+    });
+
+    const result = await handleExtractTasks(action);
+
+    expect(result.success).toBe(true);
+    expect(result.result?.extractedCount).toBe(20);
+    expect(result.result?.tasks).toHaveLength(20);
+  });
+
+  it("uses content field as fallback when notes field is absent", async () => {
+    setupDbSelectForExtract();
+    const { resolveUserMeta } = await import("@/lib/utils/user-resolver");
+    vi.mocked(resolveUserMeta).mockResolvedValue({ displayName: "Test User", imageUrl: null } as any);
+
+    vi.mocked(chatCompletion).mockResolvedValue(JSON.stringify([
+      { title: "Review PR", priority: "medium" },
+    ]));
+
+    const action = mockPAAction({
+      actionType: "extract_tasks_from_notes",
+      plannedPayload: { content: "We need to review the pull request from the team before end of day." },
+    });
+
+    const result = await handleExtractTasks(action);
+
+    expect(result.success).toBe(true);
+    expect(result.result?.extractedCount).toBe(1);
+  });
+});
+
+// ===========================================================================
+// handleQuery — check_email
+// ===========================================================================
+
+describe("handleQuery — check_email", () => {
+  const MOCK_EMAILS = [
+    {
+      id: "email-1",
+      from: "alice@example.com",
+      subject: "Sprint Update",
+      snippet: "Here's the latest sprint update...",
+      date: "2026-03-01T10:00:00Z",
+    },
+    {
+      id: "email-2",
+      from: "bob@example.com",
+      subject: "Meeting Notes",
+      snippet: "Notes from today's standup...",
+      date: "2026-03-01T11:00:00Z",
+    },
+  ];
+
+  it("returns unread emails via Google Mail when Google integration is active", async () => {
+    vi.mocked(getActiveIntegration).mockResolvedValue({ provider: "google" } as any);
+    vi.mocked(googleMail.getUnreadEmails).mockResolvedValue(MOCK_EMAILS as any);
+
+    const action = mockPAAction({
+      actionType: "check_email",
+      plannedPayload: {},
+    });
+
+    const result = await handleQuery(action);
+
+    expect(result.success).toBe(true);
+    expect(result.result?.count).toBe(2);
+    expect(result.result?.emails[0]).toHaveProperty("from");
+    expect(result.result?.emails[0]).toHaveProperty("subject");
+    expect(googleMail.getUnreadEmails).toHaveBeenCalled();
+  });
+
+  it("falls back to Microsoft Mail when Google integration is absent", async () => {
+    vi.mocked(getActiveIntegration)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ provider: "microsoft" } as any);
+    vi.mocked(microsoftMail.getUnreadEmails).mockResolvedValue(MOCK_EMAILS as any);
+
+    const action = mockPAAction({
+      actionType: "check_email",
+      plannedPayload: { count: 5 },
+    });
+
+    const result = await handleQuery(action);
+
+    expect(result.success).toBe(true);
+    expect(result.result?.count).toBe(2);
+    expect(microsoftMail.getUnreadEmails).toHaveBeenCalledWith(
+      MOCK_USER_ID,
+      MOCK_ORG_ID,
+      expect.objectContaining({ maxResults: 5 })
+    );
+  });
+
+  it("returns error when no email integration is connected", async () => {
+    vi.mocked(getActiveIntegration).mockResolvedValue(null);
+
+    const action = mockPAAction({
+      actionType: "check_email",
+      plannedPayload: {},
+    });
+
+    const result = await handleQuery(action);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/No email integration/i);
+  });
+
+  it("passes query filter to the email provider", async () => {
+    vi.mocked(getActiveIntegration).mockResolvedValue({ provider: "google" } as any);
+    vi.mocked(googleMail.getUnreadEmails).mockResolvedValue([] as any);
+
+    const action = mockPAAction({
+      actionType: "check_email",
+      plannedPayload: { query: "from:alice@example.com", count: 3 },
+    });
+
+    const result = await handleQuery(action);
+
+    expect(result.success).toBe(true);
+    expect(googleMail.getUnreadEmails).toHaveBeenCalledWith(
+      MOCK_USER_ID,
+      MOCK_ORG_ID,
+      expect.objectContaining({ maxResults: 3, query: "from:alice@example.com" })
+    );
+  });
+
+  it("defaults to 10 emails when count is not specified", async () => {
+    vi.mocked(getActiveIntegration).mockResolvedValue({ provider: "google" } as any);
+    vi.mocked(googleMail.getUnreadEmails).mockResolvedValue([] as any);
+
+    const action = mockPAAction({
+      actionType: "check_email",
+      plannedPayload: {},
+    });
+
+    await handleQuery(action);
+
+    expect(googleMail.getUnreadEmails).toHaveBeenCalledWith(
+      MOCK_USER_ID,
+      MOCK_ORG_ID,
+      expect.objectContaining({ maxResults: 10 })
+    );
   });
 });

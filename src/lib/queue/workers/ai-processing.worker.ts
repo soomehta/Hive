@@ -130,6 +130,7 @@ const { worker, log } = createTypedWorker<AIProcessingJob>(
 
       await getActionExecutionQueue().add("execute-action", executionJob, {
         priority: 1,
+        jobId: `action-exec:${action.id}`,
       });
 
       log.info(

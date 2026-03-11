@@ -101,9 +101,6 @@ export function PageClient() {
           <h1 className="text-2xl font-bold tracking-tight">
             Create New Project
           </h1>
-          <p className="text-muted-foreground text-sm">
-            Set up a new project for your team
-          </p>
         </div>
       </div>
 

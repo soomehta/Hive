@@ -57,6 +57,7 @@ import { Plus, MessageSquare, Pin, MoreVertical, Pencil, Trash2, PinOff } from "
 import type { Message } from "@/types";
 import { getUserDisplayName, getUserInitials } from "@/lib/utils/user-display";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
+import { SimpleMarkdown } from "@/components/shared/simple-markdown";
 import { toast } from "sonner";
 
 type MessageFormValues = z.infer<typeof createMessageSchema>;
@@ -254,10 +255,7 @@ export function PageClient() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Messages</h1>
-          <p className="text-muted-foreground text-sm">
-            Team discussions and updates for this project
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight">Messages</h1>
         </div>
         <Button onClick={() => setSheetOpen(true)}>
           <Plus className="h-4 w-4" />
@@ -421,9 +419,7 @@ export function PageClient() {
                       </div>
                     </div>
                   ) : (
-                    <div className="prose prose-sm max-w-none">
-                      <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                    </div>
+                    <SimpleMarkdown content={msg.content} className="text-sm space-y-2" />
                   )}
                 </CardContent>
               </Card>

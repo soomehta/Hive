@@ -7,6 +7,7 @@ import { isProjectMember, isProjectLead } from "@/lib/db/queries/projects";
 import { logActivity } from "@/lib/db/queries/activity";
 import { notifyOnTaskAssignment, notifyOnTaskCompletion } from "@/lib/notifications/task-notifications";
 import { errorResponse } from "@/lib/utils/errors";
+import { updateItemBySourceId, deleteItemBySourceId } from "@/lib/db/queries/items";
 
 interface RouteParams {
   params: Promise<{ taskId: string }>;
@@ -69,6 +70,14 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     }
 
     const updated = await updateTask(taskId, parsed.data);
+
+    // Sync items table
+    await updateItemBySourceId(auth.orgId, taskId, {
+      ...(parsed.data.title ? { title: parsed.data.title } : {}),
+      ...(parsed.data.status ? { status: parsed.data.status } : {}),
+    }).catch((err) => {
+      console.error("[items] failed to update item for task", taskId, err);
+    });
 
     // Determine activity type
     const isCompleted = parsed.data.status === "done" && task.status !== "done";
@@ -147,6 +156,12 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       });
     }
 
+    // Re-embed on title/description change
+    if (parsed.data.title || parsed.data.description) {
+      const { enqueueEmbedding } = await import("@/lib/queue/jobs");
+      enqueueEmbedding("task", updated.id, `${updated.title} ${updated.description ?? ""}`, auth.orgId).catch(() => {});
+    }
+
     return Response.json({ data: updated });
   } catch (error) {
     return errorResponse(error);
@@ -188,6 +203,11 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     });
 
     const deleted = await deleteTask(taskId);
+
+    // Sync items table
+    await deleteItemBySourceId(auth.orgId, taskId).catch((err) => {
+      console.error("[items] failed to delete item for task", taskId, err);
+    });
 
     return Response.json({ data: deleted });
   } catch (error) {

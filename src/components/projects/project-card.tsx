@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { CheckCircle2, ListTodo } from "lucide-react";
 import type { Project } from "@/types";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -22,7 +23,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 interface ProjectCardProps {
-  project: Project;
+  project: Project & { taskCount?: number; tasksDone?: number };
 }
 
 export function ProjectCard({ project }: ProjectCardProps) {
@@ -31,6 +32,10 @@ export function ProjectCard({ project }: ProjectCardProps) {
     day: "numeric",
     year: "numeric",
   });
+
+  const taskCount = project.taskCount ?? 0;
+  const tasksDone = project.tasksDone ?? 0;
+  const progressPct = taskCount > 0 ? Math.round((tasksDone / taskCount) * 100) : 0;
 
   return (
     <Link href={`/dashboard/projects/${project.id}`}>
@@ -59,6 +64,30 @@ export function ProjectCard({ project }: ProjectCardProps) {
           ) : (
             <p className="text-muted-foreground text-sm italic">No description</p>
           )}
+
+          {taskCount > 0 ? (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <ListTodo className="size-3" />
+                  {taskCount} tasks
+                </span>
+                <span className="flex items-center gap-1">
+                  <CheckCircle2 className="size-3" />
+                  {tasksDone} done ({progressPct}%)
+                </span>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-xs">No tasks yet</p>
+          )}
+
           <p className="text-muted-foreground text-xs">Created {createdDate}</p>
         </CardContent>
       </Card>

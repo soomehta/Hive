@@ -61,7 +61,22 @@ async function startWorker() {
   );
   log.info("Registered: calendar-sync");
 
-  log.info("All 10 workers registered. Waiting for jobs...");
+  const { agentMentionWorker } = await import(
+    "../src/lib/queue/workers/agent-mention.worker"
+  );
+  log.info("Registered: agent-mention");
+
+  const { agentScheduleWorker } = await import(
+    "../src/lib/queue/workers/agent-schedule.worker"
+  );
+  log.info("Registered: agent-schedule");
+
+  const { agentCheckinWorker } = await import(
+    "../src/lib/queue/workers/agent-checkin.worker"
+  );
+  log.info("Registered: agent-checkin");
+
+  log.info("All 13 workers registered. Waiting for jobs...");
 
   const workers = [
     transcriptionWorker,
@@ -74,6 +89,9 @@ async function startWorker() {
     profileLearningWorker,
     swarmExecutionWorker,
     calendarSyncWorker,
+    agentMentionWorker,
+    agentScheduleWorker,
+    agentCheckinWorker,
   ];
 
   async function shutdown(signal: string) {

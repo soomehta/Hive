@@ -11,6 +11,7 @@ import {
 } from "@/lib/db/queries/projects";
 import { logActivity } from "@/lib/db/queries/activity";
 import { errorResponse } from "@/lib/utils/errors";
+import { updateItemBySourceId, deleteItemBySourceId } from "@/lib/db/queries/items";
 
 type RouteParams = { params: Promise<{ projectId: string }> };
 
@@ -86,6 +87,14 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
     const updated = await updateProject(projectId, parsed.data);
 
+    // Sync items table
+    await updateItemBySourceId(auth.orgId, projectId, {
+      ...(parsed.data.name ? { title: parsed.data.name } : {}),
+      ...(parsed.data.status ? { status: parsed.data.status } : {}),
+    }).catch((err) => {
+      console.error("[items] failed to update item for project", projectId, err);
+    });
+
     await logActivity({
       orgId: auth.orgId,
       projectId,
@@ -137,6 +146,11 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     });
 
     await deleteProject(projectId);
+
+    // Sync items table
+    await deleteItemBySourceId(auth.orgId, projectId).catch((err) => {
+      console.error("[items] failed to delete item for project", projectId, err);
+    });
 
     return Response.json({ data: { success: true } });
   } catch (error) {

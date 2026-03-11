@@ -29,6 +29,9 @@ const mockProfile = {
   languagePreferences: ["en"],
   notificationChannel: "in_app",
   actionOverrides: {},
+  emailBriefing: false,
+  emailDigest: false,
+  personalityTraits: "",
   avgTasksPerWeek: null,
   peakHours: null,
   commonBlockers: null,
@@ -39,6 +42,7 @@ const mockProfile = {
   assistantBeeInstanceId: null,
   swarmNotificationsEnabled: true,
   beeAutonomyOverrides: {},
+  primaryChannelId: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -51,8 +55,8 @@ function profileWith(overrides: Record<string, unknown>) {
 // ---------- Tests ---------------------------------------------------------
 
 describe("ACTION_REGISTRY", () => {
-  it("contains exactly 19 action types", () => {
-    expect(Object.keys(ACTION_REGISTRY)).toHaveLength(19);
+  it("contains exactly 39 action types", () => {
+    expect(Object.keys(ACTION_REGISTRY)).toHaveLength(39);
   });
 
   it("every entry has defaultTier, handler, and description", () => {

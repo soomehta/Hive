@@ -33,6 +33,34 @@ export const ACTION_REGISTRY: Record<string, ActionRegistryEntry> = {
   send_email: { defaultTier: "draft_approve", handler: "send-email", description: "Send email", requiresIntegration: "google" },
   send_slack: { defaultTier: "draft_approve", handler: "send-slack", description: "Send Slack message", requiresIntegration: "slack" },
   delete_task: { defaultTier: "draft_approve", handler: "delete-task", description: "Delete a task" },
+
+  // Phase 6: Pages, Notices, Chat
+  create_page: { defaultTier: "execute_notify", handler: "create-page", description: "Create a canvas page" },
+  update_page: { defaultTier: "execute_notify", handler: "update-page", description: "Update page content" },
+  link_items: { defaultTier: "execute_notify", handler: "link-items", description: "Link two items together" },
+  unlink_items: { defaultTier: "execute_notify", handler: "unlink-items", description: "Remove a link between items" },
+  create_notice: { defaultTier: "draft_approve", handler: "create-notice", description: "Post a team notice" },
+  create_channel: { defaultTier: "draft_approve", handler: "create-channel", description: "Create a chat channel" },
+  post_channel_message: { defaultTier: "draft_approve", handler: "post-channel-message", description: "Post a message in a chat channel" },
+  summarize_page: { defaultTier: "auto_execute", handler: "summarize-page", description: "Summarize page content" },
+  convert_message_to_task: { defaultTier: "execute_notify", handler: "convert-message-to-task", description: "Convert chat message to task" },
+  convert_message_to_page: { defaultTier: "execute_notify", handler: "convert-message-to-page", description: "Convert chat message to page" },
+
+  // Phase 7: Workspaces + PM Agent
+  create_workspace: { defaultTier: "draft_approve", handler: "create-workspace", description: "Create a workspace" },
+  update_workspace: { defaultTier: "draft_approve", handler: "update-workspace", description: "Update workspace settings" },
+  invite_workspace_member: { defaultTier: "draft_approve", handler: "invite-workspace-member", description: "Invite member to workspace" },
+  generate_standup: { defaultTier: "auto_execute", handler: "generate-standup", description: "Generate daily standup" },
+  generate_weekly_report: { defaultTier: "auto_execute", handler: "generate-weekly-report", description: "Generate weekly report" },
+  send_checkin: { defaultTier: "auto_execute", handler: "send-checkin", description: "Send task check-in" },
+
+  // Phase 8: Chat enhancements
+  pin_message: { defaultTier: "execute_notify", handler: "pin-message", description: "Pin or unpin a chat message" },
+  archive_channel: { defaultTier: "draft_approve", handler: "archive-channel", description: "Archive a chat channel" },
+  search_messages: { defaultTier: "auto_execute", handler: "search-messages", description: "Search chat messages" },
+
+  // Sprint 5: Meeting Notes extraction
+  extract_tasks_from_notes: { defaultTier: "draft_approve", handler: "extract-tasks", description: "Extract tasks from meeting notes" },
 };
 
 export function resolveActionTier(
@@ -74,4 +102,58 @@ export function resolveActionTier(
 
 export function getRegistryEntry(actionType: string): ActionRegistryEntry | undefined {
   return ACTION_REGISTRY[actionType];
+}
+
+/**
+ * Normalize an AI-returned intent string to match a registry key.
+ * 1. Lowercase + replace hyphens with underscores
+ * 2. Exact match against ACTION_REGISTRY
+ * 3. Fuzzy match (Levenshtein distance ≤ 2) for typos
+ * Returns the matched key or null.
+ */
+export function normalizeIntent(rawIntent: string): string | null {
+  if (!rawIntent) return null;
+
+  // Step 1: normalize formatting
+  const normalized = rawIntent.toLowerCase().replace(/-/g, "_").trim();
+
+  // Step 2: exact match
+  if (ACTION_REGISTRY[normalized]) return normalized;
+
+  // Step 3: fuzzy match (Levenshtein ≤ 2)
+  const keys = Object.keys(ACTION_REGISTRY);
+  let bestMatch: string | null = null;
+  let bestDistance = 3; // threshold + 1
+
+  for (const key of keys) {
+    const dist = levenshtein(normalized, key);
+    if (dist < bestDistance) {
+      bestDistance = dist;
+      bestMatch = key;
+    }
+  }
+
+  return bestMatch;
+}
+
+function levenshtein(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+
+  // Use single-row DP for space efficiency
+  let prev = Array.from({ length: n + 1 }, (_, i) => i);
+  let curr = new Array<number>(n + 1);
+
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+    }
+    [prev, curr] = [curr, prev];
+  }
+
+  return prev[n];
 }

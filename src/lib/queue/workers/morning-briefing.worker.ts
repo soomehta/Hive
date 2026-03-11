@@ -125,7 +125,30 @@ const { worker, log } = createTypedWorker<BriefingJob>(
       },
     };
 
-    await getNotificationQueue().add("morning-briefing", notificationJob);
+    const dateStr = new Date().toISOString().slice(0, 10);
+    await getNotificationQueue().add("morning-briefing", notificationJob, {
+      jobId: `notif:briefing:${userId}:${dateStr}`,
+    });
+
+    // Send email briefing if opted in
+    if (profile.emailBriefing) {
+      const emailJob: NotificationJob = {
+        userId,
+        orgId,
+        type: "pa_briefing",
+        title: "Good morning! Here's your daily briefing",
+        body: briefingResult.briefing,
+        channel: "email",
+        metadata: {
+          briefingType: "morning_email",
+          taskCount: myTasks.length,
+          overdueCount: overdueTasks.length,
+        },
+      };
+      await getNotificationQueue().add("morning-briefing-email", emailJob, {
+        jobId: `notif:briefing-email:${userId}:${dateStr}`,
+      });
+    }
 
     log.info(
       { jobId: job.id, briefingLength: briefingResult.briefing.length },

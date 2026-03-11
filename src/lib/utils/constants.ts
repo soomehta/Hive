@@ -45,6 +45,13 @@ export const ORG_ROLE_LABELS: Record<string, string> = {
   member: "Member",
 };
 
+export const PRIORITY_DOT_COLORS: Record<string, string> = {
+  urgent: "bg-red-500",
+  high: "bg-orange-500",
+  medium: "bg-yellow-500",
+  low: "bg-green-500",
+};
+
 export const PAGE_SIZE = 20;
 
 export const PROJECT_COLORS = [

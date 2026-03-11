@@ -63,7 +63,9 @@ const { worker, log } = createTypedWorker<SwarmExecutionJob>(
         metadata: { swarmSessionId },
       };
 
-      await getNotificationQueue().add("swarm-completed", notification);
+      await getNotificationQueue().add("swarm-completed", notification, {
+        jobId: `notif:swarm:${swarmSessionId}`,
+      });
 
       return {
         swarmSessionId,

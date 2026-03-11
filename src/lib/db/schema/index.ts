@@ -14,6 +14,9 @@ export * from "./integrations";
 export * from "./embeddings";
 export * from "./bees";
 export * from "./dashboard";
+export * from "./collaboration";
+export * from "./workspaces";
+export * from "./guests";
 
 // ─── Cross-file Relations ────────────────────────────────
 // Drizzle relations that span multiple table files are defined here
@@ -46,8 +49,28 @@ import {
   hiveContext,
   beeHandovers,
   beeSignals,
+  agentSchedules,
+  agentReports,
+  agentCheckins,
+  checkinPreferences,
 } from "./bees";
 import { dashboardLayouts } from "./dashboard";
+import { workspaces, workspaceMembers } from "./workspaces";
+import {
+  items,
+  itemRelations,
+  pages,
+  pageRevisions,
+  pinboardLayoutsUser,
+  notices,
+  chatChannels,
+  chatChannelMembers,
+  chatMessages,
+  chatThreads,
+  chatThreadMessages,
+  mentions,
+  messageReactions,
+} from "./collaboration";
 
 // ─── Organization Relations ──────────────────────────────
 
@@ -392,3 +415,250 @@ export const dashboardLayoutsRelations = relations(
     }),
   })
 );
+
+// ─── Collaboration Relations ──────────────────────────────
+
+export const itemsRelations = relations(items, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [items.orgId],
+    references: [organizations.id],
+  }),
+  project: one(projects, {
+    fields: [items.projectId],
+    references: [projects.id],
+  }),
+  page: one(pages, {
+    fields: [items.id],
+    references: [pages.itemId],
+  }),
+  outgoingRelations: many(itemRelations, { relationName: "fromItem" }),
+  incomingRelations: many(itemRelations, { relationName: "toItem" }),
+}));
+
+export const itemRelationsRelations = relations(itemRelations, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [itemRelations.orgId],
+    references: [organizations.id],
+  }),
+  fromItem: one(items, {
+    fields: [itemRelations.fromItemId],
+    references: [items.id],
+    relationName: "fromItem",
+  }),
+  toItem: one(items, {
+    fields: [itemRelations.toItemId],
+    references: [items.id],
+    relationName: "toItem",
+  }),
+}));
+
+export const pagesRelations = relations(pages, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [pages.orgId],
+    references: [organizations.id],
+  }),
+  item: one(items, {
+    fields: [pages.itemId],
+    references: [items.id],
+  }),
+  revisions: many(pageRevisions),
+}));
+
+export const pageRevisionsRelations = relations(pageRevisions, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [pageRevisions.orgId],
+    references: [organizations.id],
+  }),
+  page: one(pages, {
+    fields: [pageRevisions.pageId],
+    references: [pages.id],
+  }),
+}));
+
+export const pinboardLayoutsUserRelations = relations(
+  pinboardLayoutsUser,
+  ({ one }) => ({
+    organization: one(organizations, {
+      fields: [pinboardLayoutsUser.orgId],
+      references: [organizations.id],
+    }),
+  })
+);
+
+export const noticesRelations = relations(notices, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [notices.orgId],
+    references: [organizations.id],
+  }),
+  project: one(projects, {
+    fields: [notices.projectId],
+    references: [projects.id],
+  }),
+}));
+
+export const chatChannelsRelations = relations(chatChannels, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [chatChannels.orgId],
+    references: [organizations.id],
+  }),
+  project: one(projects, {
+    fields: [chatChannels.projectId],
+    references: [projects.id],
+  }),
+  members: many(chatChannelMembers),
+  messages: many(chatMessages),
+  threads: many(chatThreads),
+}));
+
+export const chatChannelMembersRelations = relations(
+  chatChannelMembers,
+  ({ one }) => ({
+    organization: one(organizations, {
+      fields: [chatChannelMembers.orgId],
+      references: [organizations.id],
+    }),
+    channel: one(chatChannels, {
+      fields: [chatChannelMembers.channelId],
+      references: [chatChannels.id],
+    }),
+  })
+);
+
+export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [chatMessages.orgId],
+    references: [organizations.id],
+  }),
+  channel: one(chatChannels, {
+    fields: [chatMessages.channelId],
+    references: [chatChannels.id],
+  }),
+}));
+
+export const chatThreadsRelations = relations(chatThreads, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [chatThreads.orgId],
+    references: [organizations.id],
+  }),
+  channel: one(chatChannels, {
+    fields: [chatThreads.channelId],
+    references: [chatChannels.id],
+  }),
+  rootMessage: one(chatMessages, {
+    fields: [chatThreads.rootMessageId],
+    references: [chatMessages.id],
+  }),
+  messages: many(chatThreadMessages),
+}));
+
+export const chatThreadMessagesRelations = relations(
+  chatThreadMessages,
+  ({ one }) => ({
+    organization: one(organizations, {
+      fields: [chatThreadMessages.orgId],
+      references: [organizations.id],
+    }),
+    thread: one(chatThreads, {
+      fields: [chatThreadMessages.threadId],
+      references: [chatThreads.id],
+    }),
+  })
+);
+
+// ─── Workspace Relations ─────────────────────────────────
+
+export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [workspaces.orgId],
+    references: [organizations.id],
+  }),
+  members: many(workspaceMembers),
+}));
+
+export const workspaceMembersRelations = relations(
+  workspaceMembers,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [workspaceMembers.workspaceId],
+      references: [workspaces.id],
+    }),
+  })
+);
+
+// ─── Phase 7 Bee Relations ───────────────────────────────
+
+export const agentSchedulesRelations = relations(
+  agentSchedules,
+  ({ one }) => ({
+    beeInstance: one(beeInstances, {
+      fields: [agentSchedules.beeInstanceId],
+      references: [beeInstances.id],
+    }),
+    organization: one(organizations, {
+      fields: [agentSchedules.orgId],
+      references: [organizations.id],
+    }),
+    workspace: one(workspaces, {
+      fields: [agentSchedules.workspaceId],
+      references: [workspaces.id],
+    }),
+  })
+);
+
+export const agentReportsRelations = relations(agentReports, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [agentReports.orgId],
+    references: [organizations.id],
+  }),
+  workspace: one(workspaces, {
+    fields: [agentReports.workspaceId],
+    references: [workspaces.id],
+  }),
+  beeInstance: one(beeInstances, {
+    fields: [agentReports.beeInstanceId],
+    references: [beeInstances.id],
+  }),
+}));
+
+export const agentCheckinsRelations = relations(agentCheckins, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [agentCheckins.orgId],
+    references: [organizations.id],
+  }),
+  workspace: one(workspaces, {
+    fields: [agentCheckins.workspaceId],
+    references: [workspaces.id],
+  }),
+  beeInstance: one(beeInstances, {
+    fields: [agentCheckins.beeInstanceId],
+    references: [beeInstances.id],
+  }),
+}));
+
+export const checkinPreferencesRelations = relations(
+  checkinPreferences,
+  ({ one }) => ({
+    organization: one(organizations, {
+      fields: [checkinPreferences.orgId],
+      references: [organizations.id],
+    }),
+  })
+);
+
+export const mentionsRelations = relations(mentions, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [mentions.orgId],
+    references: [organizations.id],
+  }),
+}));
+
+export const messageReactionsRelations = relations(messageReactions, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [messageReactions.orgId],
+    references: [organizations.id],
+  }),
+  message: one(chatMessages, {
+    fields: [messageReactions.messageId],
+    references: [chatMessages.id],
+  }),
+}));

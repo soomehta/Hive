@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { WidgetProps } from "@/types/bees";
 import type { Task } from "@/types";
+import { PRIORITY_DOT_COLORS } from "@/lib/utils/constants";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   format,
@@ -19,13 +20,6 @@ import {
   addMonths,
   subMonths,
 } from "date-fns";
-
-const PRIORITY_DOT: Record<string, string> = {
-  urgent: "bg-red-500",
-  high: "bg-orange-500",
-  medium: "bg-yellow-400",
-  low: "bg-green-500",
-};
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
@@ -142,7 +136,7 @@ export function CalendarWidget({ orgId, projectId, isEditing }: WidgetProps) {
                   {dayTasks.slice(0, 3).map((task) => (
                     <span
                       key={task.id}
-                      className={`h-2 w-2 sm:h-1.5 sm:w-1.5 rounded-full ${PRIORITY_DOT[task.priority] ?? "bg-gray-400"}`}
+                      className={`h-2 w-2 sm:h-1.5 sm:w-1.5 rounded-full ${PRIORITY_DOT_COLORS[task.priority] ?? "bg-gray-400"}`}
                       title={task.title}
                     />
                   ))}

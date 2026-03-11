@@ -39,9 +39,14 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "pa_report_ready",
   "member_invited",
   "project_created",
+  "page_created",
   "bee_swarm_completed",
   "bee_signal_hold",
   "bee_needs_approval",
+  // Phase 7
+  "workspace_invite",
+  "agent_checkin",
+  "agent_status_update",
 ]);
 
 export const activityTypeEnum = pgEnum("activity_type", [
@@ -65,6 +70,36 @@ export const activityTypeEnum = pgEnum("activity_type", [
   "bee_handover",
   "bee_signal",
   "dashboard_layout_changed",
+  "page_created",
+  "page_updated",
+  "page_restored",
+  "notice_created",
+  "notice_updated",
+  "notice_pinned",
+  "notice_archived",
+  "channel_created",
+  "channel_updated",
+  "channel_message_posted",
+  "channel_message_edited",
+  "channel_message_deleted",
+  "member_added_to_channel",
+  "member_removed_from_channel",
+  "item_created",
+  "item_updated",
+  "item_deleted",
+  "item_linked",
+  "item_unlinked",
+  "message_converted_to_task",
+  "message_converted_to_page",
+  // Phase 7: Workspaces + Agents
+  "workspace_created",
+  "workspace_updated",
+  "workspace_member_added",
+  "workspace_member_removed",
+  "agent_checkin_sent",
+  "agent_checkin_responded",
+  "agent_report_generated",
+  "agent_mention_responded",
 ]);
 
 // ─── Phase 2 Enums ─────────────────────────────────────
@@ -105,6 +140,24 @@ export const actionTypeEnum = pgEnum("action_type", [
   "check_email",
   "check_project_status",
   "check_workload",
+  // Phase 6: Pinboard, Canvas, Chat
+  "create_page",
+  "update_page",
+  "summarize_page",
+  "link_items",
+  "unlink_items",
+  "create_notice",
+  "create_channel",
+  "post_channel_message",
+  "convert_message_to_task",
+  "convert_message_to_page",
+  // Phase 7: Workspaces + PM Agent
+  "create_workspace",
+  "update_workspace",
+  "invite_workspace_member",
+  "generate_standup",
+  "generate_weekly_report",
+  "send_checkin",
 ]);
 
 export const integrationProviderEnum = pgEnum("integration_provider", [
@@ -198,4 +251,85 @@ export const dashboardComponentTypeEnum = pgEnum("dashboard_component_type", [
   "chat_messages",
   "bee_panel",
   "custom_widget",
+]);
+
+// ─── Phase 6 Enums ────────────────────────────────────────
+
+export const itemTypeEnum = pgEnum("item_type", [
+  "task",
+  "project",
+  "page",
+  "note",
+  "chat_channel",
+  "announcement",
+]);
+
+export const relationTypeEnum = pgEnum("relation_type", [
+  "references",
+  "blocks",
+  "derived_from",
+  "parent_of",
+  "related_to",
+]);
+
+export const channelScopeEnum = pgEnum("channel_scope", ["team", "project", "workspace", "agent"]);
+
+export const channelMemberRoleEnum = pgEnum("channel_member_role", [
+  "owner",
+  "moderator",
+  "member",
+]);
+
+export const noticeStatusEnum = pgEnum("notice_status", [
+  "active",
+  "scheduled",
+  "expired",
+  "archived",
+]);
+
+export const pinboardThemeEnum = pgEnum("pinboard_theme", [
+  "paper_classic",
+  "blueprint",
+  "studio",
+  "minimal",
+]);
+
+// ─── Phase 7 Enums ────────────────────────────────────────
+
+export const workspaceRoleEnum = pgEnum("workspace_role", [
+  "owner",
+  "admin",
+  "member",
+]);
+
+export const checkinStatusEnum = pgEnum("checkin_status", [
+  "pending",
+  "answered",
+  "expired",
+  "escalated",
+]);
+
+export const checkinFrequencyEnum = pgEnum("checkin_frequency", [
+  "daily",
+  "standard",
+  "minimal",
+  "off",
+]);
+
+export const scheduleTypeEnum = pgEnum("schedule_type", [
+  "daily_standup",
+  "weekly_report",
+  "checkin_sweep",
+]);
+
+export const mentionTypeEnum = pgEnum("mention_type", [
+  "user",
+  "agent",
+  "item",
+]);
+
+export const mentionSourceTypeEnum = pgEnum("mention_source_type", [
+  "chat_message",
+  "thread_message",
+  "task_comment",
 ]);

@@ -1,12 +1,10 @@
 import { redirect } from "next/navigation";
 import { requireAuthUser } from "@/lib/auth/get-user";
 import { getUserOrganizations } from "@/lib/db/queries/organizations";
-import { Sidebar } from "@/components/layout/sidebar";
-import { Header } from "@/components/layout/header";
-import { PAPanel } from "@/components/pa/pa-panel";
-import { MainContent } from "@/components/layout/main-content";
-import { MobileSidebar } from "@/components/layout/mobile-sidebar";
 import { KeyboardShortcutsProvider } from "@/components/shared/keyboard-shortcuts-provider";
+import { RealtimeProvider } from "@/components/shared/realtime-provider";
+import { NavProgress } from "@/components/layout/nav-progress";
+import { DashboardShell } from "@/components/layout/dashboard-shell";
 
 export default async function DashboardLayout({
   children,
@@ -27,18 +25,16 @@ export default async function DashboardLayout({
   };
 
   return (
-    <div className="flex h-screen">
+    <>
+      <NavProgress />
       <a href="#main-content" className="skip-to-main">
         Skip to main content
       </a>
-      <Sidebar orgs={orgs} user={userProfile} />
-      <MobileSidebar orgs={orgs} user={userProfile} />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Header user={userProfile} />
-        <MainContent>{children}</MainContent>
-      </div>
-      <PAPanel />
+      <DashboardShell orgs={orgs} user={userProfile}>
+        {children}
+      </DashboardShell>
+      <RealtimeProvider />
       <KeyboardShortcutsProvider />
-    </div>
+    </>
   );
 }

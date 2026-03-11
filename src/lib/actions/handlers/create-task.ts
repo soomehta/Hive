@@ -14,6 +14,12 @@ export async function handleCreateTask(action: PAAction): Promise<ExecutionResul
   }
   const { projectId } = resolved;
 
+  // Validate dueDate is a parseable date string
+  let dueDate = payload.dueDate;
+  if (dueDate && isNaN(new Date(dueDate).getTime())) {
+    dueDate = undefined; // Drop unparseable dates rather than crash
+  }
+
   const task = await createTask({
     projectId,
     orgId: action.orgId,
@@ -23,7 +29,7 @@ export async function handleCreateTask(action: PAAction): Promise<ExecutionResul
     priority: payload.priority,
     assigneeId: payload.assigneeId,
     createdBy: action.userId,
-    dueDate: payload.dueDate,
+    dueDate,
     estimatedMinutes: payload.estimatedMinutes,
   });
 

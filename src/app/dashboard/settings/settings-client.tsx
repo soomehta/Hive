@@ -39,8 +39,9 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Settings, Trash2, AlertTriangle } from "lucide-react";
+import { Settings, Trash2, AlertTriangle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { ErrorState } from "@/components/shared/error-state";
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -137,6 +138,7 @@ function DeleteOrgDialog({
             }}
             disabled={!canDelete || isPending}
           >
+            {isPending && <Loader2 className="size-4 animate-spin mr-1" />}
             {isPending ? "Deleting..." : "Delete Organization"}
           </Button>
         </DialogFooter>
@@ -178,6 +180,7 @@ export function PageClient() {
     data: org,
     isLoading,
     error,
+    refetch,
   } = useQuery({
     queryKey: ["organization", orgId],
     queryFn: async () => {
@@ -251,9 +254,6 @@ export function PageClient() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-          <p className="text-muted-foreground">
-            Manage your organization settings
-          </p>
         </div>
         <SettingsSkeleton />
       </div>
@@ -265,15 +265,11 @@ export function PageClient() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-          <p className="text-muted-foreground">
-            Manage your organization settings
-          </p>
         </div>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center">
-          <p className="text-sm text-destructive">
-            Failed to load organization settings. Please try again later.
-          </p>
-        </div>
+        <ErrorState
+          message="Failed to load organization settings."
+          onRetry={() => refetch()}
+        />
       </div>
     );
   }
@@ -282,9 +278,6 @@ export function PageClient() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">
-          Manage your organization settings
-        </p>
       </div>
 
       <Card>
@@ -336,6 +329,7 @@ export function PageClient() {
                 type="submit"
                 disabled={updateMutation.isPending || !form.formState.isDirty}
               >
+                {updateMutation.isPending && <Loader2 className="size-4 animate-spin mr-1" />}
                 {updateMutation.isPending ? "Saving..." : "Save Changes"}
               </Button>
             </CardFooter>

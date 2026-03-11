@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { createLogger } from "@/lib/logger";
 import { findSubscriptionByChannelId } from "@/lib/integrations/calendar-sync";
 import { getCalendarSyncQueue } from "@/lib/queue";
@@ -33,6 +34,19 @@ export async function POST(req: NextRequest) {
     if (!subscription) {
       log.warn({ channelId }, "Unknown Google channel ID");
       return new Response(null, { status: 200 }); // ACK to stop retries
+    }
+
+    // Verify webhook token to prevent spoofing (timing-safe)
+    if (subscription.token) {
+      const incomingToken = req.headers.get("x-goog-channel-token") ?? "";
+      const expected = subscription.token;
+      const tokenValid =
+        incomingToken.length === expected.length &&
+        timingSafeEqual(Buffer.from(incomingToken, "utf8"), Buffer.from(expected, "utf8"));
+      if (!tokenValid) {
+        log.warn({ channelId }, "Invalid Google channel token");
+        return new Response(null, { status: 403 });
+      }
     }
 
     // Enqueue a sync job

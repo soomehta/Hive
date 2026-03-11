@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
-import { projects, projectMembers } from "@/lib/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { projects, projectMembers, tasks } from "@/lib/db/schema";
+import { eq, and, desc, count, sql } from "drizzle-orm";
 
 // ─── Read Queries ───────────────────────────────────────
 
@@ -10,6 +10,38 @@ export async function getProjects(orgId: string) {
     .from(projects)
     .where(eq(projects.orgId, orgId))
     .orderBy(desc(projects.createdAt));
+}
+
+export async function getProjectsWithStats(orgId: string) {
+  const projectList = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.orgId, orgId))
+    .orderBy(desc(projects.createdAt));
+
+  if (projectList.length === 0) return [];
+
+  const taskStats = await db
+    .select({
+      projectId: tasks.projectId,
+      totalTasks: count(),
+      doneTasks: count(
+        sql`CASE WHEN ${tasks.status} = 'done' THEN 1 END`
+      ),
+    })
+    .from(tasks)
+    .where(eq(tasks.orgId, orgId))
+    .groupBy(tasks.projectId);
+
+  const statsMap = new Map(
+    taskStats.map((s) => [s.projectId, { totalTasks: Number(s.totalTasks), doneTasks: Number(s.doneTasks) }])
+  );
+
+  return projectList.map((p) => ({
+    ...p,
+    taskCount: statsMap.get(p.id)?.totalTasks ?? 0,
+    tasksDone: statsMap.get(p.id)?.doneTasks ?? 0,
+  }));
 }
 
 export async function getProject(projectId: string) {

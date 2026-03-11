@@ -355,8 +355,7 @@ export function PageClient() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Tasks</h1>
-          <p className="text-muted-foreground text-sm">Manage tasks for this project</p>
+          <h1 className="text-2xl font-bold tracking-tight">Tasks</h1>
         </div>
         <Button onClick={() => setSheetOpen(true)}>
           <Plus className="h-4 w-4" />

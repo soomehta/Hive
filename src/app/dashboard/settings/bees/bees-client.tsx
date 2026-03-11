@@ -90,9 +90,6 @@ export function BeesSettingsClient() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Bee Templates</h1>
-          <p className="text-muted-foreground text-sm">
-            Manage the specialized AI bees that power your workspace
-          </p>
         </div>
         <Button onClick={() => setShowCreate(true)}>
           <Plus className="size-4 mr-1" /> New Bee

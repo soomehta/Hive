@@ -1,8 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { MessageSquarePlus, Trash2, Pencil, Check, X } from "lucide-react";
+import { MessageSquarePlus, Trash2, Pencil, Check, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   useChatSessions,
   useDeleteChatSession,
@@ -22,15 +32,14 @@ export function PAChatHistory({ activeSessionId, onSelectSession, onNewChat }: P
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <div className="px-4 py-3">
-        <Button
+      <div className="px-5 py-4">
+        <button
           onClick={onNewChat}
-          variant="outline"
-          className="w-full gap-2 text-sm"
+          className="neu-flat flex w-full items-center justify-center gap-2 rounded-2xl bg-background px-4 py-2.5 text-sm text-muted-foreground transition-all hover:text-foreground active:neu-pressed"
         >
           <MessageSquarePlus className="size-4" />
           New conversation
-        </Button>
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-2">
@@ -71,6 +80,7 @@ function SessionRow({
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(session.title);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const deleteSession = useDeleteChatSession();
   const renameSession = useRenameChatSession();
 
@@ -81,11 +91,17 @@ function SessionRow({
     setIsEditing(false);
   }
 
-  function handleDelete(e: React.MouseEvent) {
+  function handleDeleteClick(e: React.MouseEvent) {
     e.stopPropagation();
-    deleteSession.mutate(session.id);
+    setShowDeleteConfirm(true);
   }
 
+  function handleDeleteConfirm() {
+    deleteSession.mutate(session.id);
+    setShowDeleteConfirm(false);
+  }
+
+  const isMutating = deleteSession.isPending || renameSession.isPending;
   const timeLabel = formatRelativeTime(session.lastMessageAt);
 
   if (isEditing) {
@@ -115,43 +131,66 @@ function SessionRow({
   return (
     <button
       onClick={onSelect}
+      disabled={isMutating}
       className={cn(
-        "group flex w-full items-center gap-2 rounded-lg px-3 py-2.5 mx-1 my-0.5 text-left transition-colors",
+        "group flex w-full items-center gap-2 rounded-2xl px-3.5 py-2.5 mx-1 my-1 text-left transition-all",
         isActive
-          ? "bg-violet-500/10 text-foreground"
-          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          ? "neu-pressed bg-background text-foreground"
+          : "neu-subtle bg-background text-muted-foreground hover:text-foreground",
+        isMutating && "pointer-events-none opacity-50"
       )}
     >
       <div className="flex-1 min-w-0">
-        <p className="truncate text-sm font-medium">{session.title}</p>
+        <p className="truncate text-sm font-medium" title={session.title}>{session.title}</p>
         <p className="text-xs text-muted-foreground">
           {session.messageCount} messages · {timeLabel}
         </p>
       </div>
-      <div className="hidden shrink-0 items-center gap-0.5 group-hover:flex">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-6 text-muted-foreground hover:text-foreground"
-          onClick={(e) => {
-            e.stopPropagation();
-            setEditTitle(session.title);
-            setIsEditing(true);
-          }}
-          aria-label="Rename"
-        >
-          <Pencil className="size-3" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-6 text-muted-foreground hover:text-destructive"
-          onClick={handleDelete}
-          aria-label="Delete"
-        >
-          <Trash2 className="size-3" />
-        </Button>
-      </div>
+      {isMutating ? (
+        <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" />
+      ) : (
+        <div className="hidden shrink-0 items-center gap-0.5 group-hover:flex">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-6 text-muted-foreground hover:text-foreground"
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditTitle(session.title);
+              setIsEditing(true);
+            }}
+            aria-label="Rename"
+          >
+            <Pencil className="size-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-6 text-muted-foreground hover:text-destructive"
+            onClick={handleDeleteClick}
+            aria-label="Delete"
+          >
+            <Trash2 className="size-3" />
+          </Button>
+        </div>
+      )}
+
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete &ldquo;{session.title}&rdquo; and all its messages. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </button>
   );
 }

@@ -2,16 +2,22 @@ import { NextRequest } from "next/server";
 import { authenticateRequest } from "@/lib/auth/api-auth";
 import { hasPermission } from "@/lib/auth/permissions";
 import { createProjectSchema } from "@/lib/utils/validation";
-import { getProjects, createProject } from "@/lib/db/queries/projects";
+import { getProjectsWithStats, createProject } from "@/lib/db/queries/projects";
 import { logActivity } from "@/lib/db/queries/activity";
 import { createNotification } from "@/lib/notifications/in-app";
+import { createItem } from "@/lib/db/queries/items";
+import { createTask } from "@/lib/db/queries/tasks";
 import { rateLimit, rateLimitResponse } from "@/lib/utils/rate-limit";
 import { errorResponse } from "@/lib/utils/errors";
+import { db } from "@/lib/db";
+import { organizationMembers } from "@/lib/db/schema";
+import { eq, inArray, and } from "drizzle-orm";
+import { getTemplate } from "@/lib/data/project-templates";
 
 export async function GET(req: NextRequest) {
   try {
     const auth = await authenticateRequest(req);
-    const projectList = await getProjects(auth.orgId);
+    const projectList = await getProjectsWithStats(auth.orgId);
 
     return Response.json({ data: projectList });
   } catch (error) {
@@ -42,6 +48,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Validate memberIds belong to the org
+    if (parsed.data.memberIds?.length) {
+      const validMembers = await db
+        .select({ userId: organizationMembers.userId })
+        .from(organizationMembers)
+        .where(
+          and(
+            eq(organizationMembers.orgId, auth.orgId),
+            inArray(organizationMembers.userId, parsed.data.memberIds)
+          )
+        );
+      const validIds = new Set(validMembers.map((m) => m.userId));
+      const invalidIds = parsed.data.memberIds.filter((id) => !validIds.has(id));
+      if (invalidIds.length > 0) {
+        return Response.json(
+          { error: "Some members are not part of this organization", invalidIds },
+          { status: 400 }
+        );
+      }
+    }
+
     const project = await createProject({
       orgId: auth.orgId,
       name: parsed.data.name,
@@ -53,6 +80,47 @@ export async function POST(req: NextRequest) {
       memberIds: parsed.data.memberIds,
     });
 
+    // Create corresponding items row for the item graph
+    await createItem({
+      orgId: auth.orgId,
+      projectId: project.id,
+      type: "project",
+      title: project.name,
+      ownerId: auth.userId,
+      status: project.status,
+      sourceId: project.id,
+    }).catch((err) => {
+      console.error("[items] failed to create item for project", project.id, err);
+    });
+
+    // Create tasks from template
+    const templateId = body.templateId as string | undefined;
+    if (templateId && templateId !== "blank") {
+      const template = getTemplate(templateId);
+      if (template) {
+        for (const tmplTask of template.defaultTasks) {
+          const task = await createTask({
+            projectId: project.id,
+            orgId: auth.orgId,
+            title: tmplTask.title,
+            description: tmplTask.description,
+            status: tmplTask.status,
+            priority: tmplTask.priority,
+            createdBy: auth.userId,
+          });
+          await createItem({
+            orgId: auth.orgId,
+            projectId: project.id,
+            type: "task",
+            title: task.title,
+            ownerId: auth.userId,
+            status: task.status,
+            sourceId: task.id,
+          }).catch(() => {});
+        }
+      }
+    }
+
     await logActivity({
       orgId: auth.orgId,
       projectId: project.id,
@@ -60,6 +128,10 @@ export async function POST(req: NextRequest) {
       type: "project_created",
       metadata: { projectName: project.name },
     });
+
+    // Enqueue embedding for semantic search
+    const { enqueueEmbedding } = await import("@/lib/queue/jobs");
+    enqueueEmbedding("project", project.id, `${project.name} ${project.description ?? ""}`, auth.orgId).catch(() => {});
 
     // Notify added members
     if (parsed.data.memberIds?.length) {

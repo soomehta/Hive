@@ -1,7 +1,7 @@
 "use client";
 
-import { useParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useParams, useRouter } from "next/navigation";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import Link from "next/link";
 import { apiClient } from "@/lib/utils/api-client";
 import { useOrg } from "@/hooks/use-org";
@@ -39,10 +39,13 @@ import {
   Edit3,
   UserPlus,
   FolderPlus,
+  FileText,
+  Download,
 } from "lucide-react";
 import type { Project, Task, ProjectMember, ActivityLogEntry, Message } from "@/types";
 import { getUserDisplayName, getUserInitials } from "@/lib/utils/user-display";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
+import { toast } from "sonner";
 
 const ACTIVITY_ICONS: Record<string, React.ElementType> = {
   task_created: CheckSquare,
@@ -62,6 +65,7 @@ const STATUS_BADGE_COLORS: Record<string, string> = {
 
 export function PageClient() {
   const params = useParams();
+  const router = useRouter();
   const projectId = params.projectId as string;
   const { orgId } = useOrg();
 
@@ -137,6 +141,32 @@ export function PageClient() {
     enabled: !!orgId && !!projectId,
   });
 
+  const openAsPageMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiClient("/api/pages/from-project", {
+        method: "POST",
+        body: JSON.stringify({ projectId }),
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || "Failed to create page");
+      }
+      const json = await res.json();
+      return json.data as { itemId: string };
+    },
+    onSuccess: (data) => {
+      router.push(`/dashboard/pages/${data.itemId}`);
+      toast.success("Opened as page");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to open as page");
+    },
+  });
+
+  function handleExportCSV() {
+    window.open(`/api/projects/${projectId}/export`, "_blank");
+  }
+
   if (!orgId) {
     return (
       <div className="space-y-6">
@@ -188,12 +218,27 @@ export function PageClient() {
               )}
             </div>
           </div>
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`/dashboard/projects/${projectId}/settings`}>
-              <Settings className="h-4 w-4" />
-              Edit
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => openAsPageMutation.mutate()}
+              disabled={openAsPageMutation.isPending}
+            >
+              <FileText className="h-4 w-4" />
+              {openAsPageMutation.isPending ? "Opening…" : "Open as Page"}
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExportCSV}>
+              <Download className="h-4 w-4" />
+              Export CSV
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/dashboard/projects/${projectId}/settings`}>
+                <Settings className="h-4 w-4" />
+                Edit
+              </Link>
+            </Button>
+          </div>
         </div>
       ) : (
         <p className="text-muted-foreground">Project not found.</p>

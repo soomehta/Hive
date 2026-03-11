@@ -36,6 +36,146 @@
       "when": 1772488442089,
       "tag": "0004_chubby_franklin_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1772676468200,
+      "tag": "0005_tan_rictor",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1772679392320,
+      "tag": "0006_add_page_activity_notification_types",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1772737193041,
+      "tag": "0007_early_darwin",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1772823600000,
+      "tag": "0008_extend_action_type_phase6",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1772827200000,
+      "tag": "0009_gin_indexes_phase6",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1772830800000,
+      "tag": "0010_add_is_pinned_chat_messages",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1772834400000,
+      "tag": "0011_add_last_read_at_channel_members",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1772838000000,
+      "tag": "0012_backfill_items_from_tasks_projects",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1772841600000,
+      "tag": "0013_unique_channel_names_per_scope",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1772845200000,
+      "tag": "0014_workspaces",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1772848800000,
+      "tag": "0015_agent_channels",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1772852400000,
+      "tag": "0016_mentions",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1772856000000,
+      "tag": "0017_pm_agent",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1772859600000,
+      "tag": "0018_checkins",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1772863200000,
+      "tag": "0019_message_reactions",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1772866800000,
+      "tag": "0020_add_webhook_token_calendar_subscriptions",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1772870400000,
+      "tag": "0021_add_source_id_items",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1772874000000,
+      "tag": "0022_email_digest_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1772877600000,
+      "tag": "0023_project_guests",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1772881200000,
+      "tag": "0024_hnsw_index",
+      "breakpoints": true
     }
   ]
 }

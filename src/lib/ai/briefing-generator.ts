@@ -46,6 +46,12 @@ export interface BriefingContext {
     reason?: string;
     projectName?: string;
   }>;
+  activeNotices?: Array<{
+    id: string;
+    title: string;
+    isPinned: boolean;
+    status: string;
+  }>;
 }
 
 export interface BriefingResult {
@@ -84,7 +90,10 @@ ${context.meetings.length > 0 ? context.meetings.map((m) => `- ${m.title}: ${m.s
 ${context.blockers.length > 0 ? context.blockers.map((b) => `- "${b.title}"${b.reason ? `: ${b.reason}` : ""}${b.projectName ? ` (${b.projectName})` : ""}`).join("\n") : "No blockers"}
 
 ## Recent Activity (last 24h)
-${context.recentActivity.length > 0 ? context.recentActivity.slice(0, 10).map((a) => `- [${a.type}] ${a.description}`).join("\n") : "No recent activity"}`;
+${context.recentActivity.length > 0 ? context.recentActivity.slice(0, 10).map((a) => `- [${a.type}] ${a.description}`).join("\n") : "No recent activity"}
+
+## Active Team Notices (${context.activeNotices?.length ?? 0})
+${(context.activeNotices?.length ?? 0) > 0 ? context.activeNotices!.map((n) => `- "${n.title}"${n.isPinned ? " (pinned)" : ""}`).join("\n") : "No active notices"}`;
 
   const content = await chatCompletion("briefer", {
     messages: [

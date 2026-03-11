@@ -32,6 +32,7 @@ vi.mock("@/lib/db/queries/tasks", () => ({
 
 vi.mock("@/lib/db/queries/projects", () => ({
   getProjects: vi.fn(),
+  getProjectsWithStats: vi.fn(),
   getProject: vi.fn(),
   createProject: vi.fn(),
   isProjectMember: vi.fn(),
@@ -47,8 +48,23 @@ vi.mock("@/lib/db/queries/activity", () => ({
   logActivity: vi.fn(),
 }));
 
+vi.mock("@/lib/db/queries/organizations", () => ({
+  getOrgMember: vi.fn().mockResolvedValue({ userId: "mock", role: "member" }),
+}));
+
+vi.mock("@/lib/db/queries/items", () => ({
+  createItem: vi.fn().mockResolvedValue({}),
+  updateItemBySourceId: vi.fn().mockResolvedValue({}),
+  deleteItemBySourceId: vi.fn().mockResolvedValue({}),
+}));
+
 vi.mock("@/lib/notifications/in-app", () => ({
   createNotification: vi.fn(),
+}));
+
+vi.mock("@/lib/notifications/task-notifications", () => ({
+  notifyOnTaskAssignment: vi.fn().mockResolvedValue(undefined),
+  notifyOnTaskCompletion: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -115,10 +131,11 @@ vi.mock("@/lib/utils/validation", async () => {
 import { authenticateRequest, AuthError } from "@/lib/auth/api-auth";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getTasks, createTask, getTask, updateTask, deleteTask } from "@/lib/db/queries/tasks";
-import { getProjects, getProject, createProject, isProjectMember, isProjectLead } from "@/lib/db/queries/projects";
+import { getProjectsWithStats, getProject, createProject, isProjectMember, isProjectLead } from "@/lib/db/queries/projects";
 import { getMessages, createMessage } from "@/lib/db/queries/messages";
 import { logActivity } from "@/lib/db/queries/activity";
 import { createNotification } from "@/lib/notifications/in-app";
+import { notifyOnTaskAssignment } from "@/lib/notifications/task-notifications";
 
 import { GET, POST } from "@/app/api/tasks/route";
 import {
@@ -304,10 +321,9 @@ describe("POST /api/tasks", () => {
     const response = await POST(req);
 
     expect(response.status).toBe(201);
-    expect(createNotification).toHaveBeenCalledWith(
+    expect(notifyOnTaskAssignment).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: MOCK_ASSIGNEE_ID,
-        type: "task_assigned",
+        assigneeId: MOCK_ASSIGNEE_ID,
       })
     );
   });
@@ -502,7 +518,7 @@ describe("GET /api/projects", () => {
   it("returns the full list of projects for the org", async () => {
     const projects = [mockProject(), mockProject({ id: "00000000-0000-0000-0000-000000000020" })];
     vi.mocked(authenticateRequest).mockResolvedValue(mockAuthResult());
-    vi.mocked(getProjects).mockResolvedValue(projects as any);
+    vi.mocked(getProjectsWithStats).mockResolvedValue(projects as any);
 
     const req = mockNextRequest("GET", "/api/projects");
     const response = await GET_PROJECTS(req);
@@ -510,7 +526,7 @@ describe("GET /api/projects", () => {
 
     expect(response.status).toBe(200);
     expect(body.data).toHaveLength(2);
-    expect(getProjects).toHaveBeenCalledWith(MOCK_ORG_ID);
+    expect(getProjectsWithStats).toHaveBeenCalledWith(MOCK_ORG_ID);
   });
 
   it("returns 401 when the request is unauthenticated", async () => {

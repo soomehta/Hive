@@ -36,8 +36,13 @@ const pageTitles: Record<string, string> = {
   "/dashboard/settings": "Settings",
   "/dashboard/integrations": "Integrations",
   "/dashboard/reports": "Reports",
+  "/dashboard/chat": "Chat",
+  "/dashboard/notices": "Notices",
+  "/dashboard/pages": "Page",
   "/dashboard/settings/profile": "Profile",
   "/dashboard/settings/pa": "PA Settings",
+  "/dashboard/settings/checkins": "Check-in Preferences",
+  "/dashboard/agents/pm": "PM Agent",
 };
 
 /** Map of dynamic route segments to contextual titles */
@@ -111,19 +116,17 @@ export function Header({ user }: HeaderProps) {
   }
 
   return (
-    <header className="flex h-14 items-center justify-between border-b bg-background px-4 lg:px-6">
+    <header className="flex h-14 shrink-0 items-center justify-between bg-background px-4 lg:px-6">
       {/* Left: Hamburger (mobile only) + Page title */}
       <div className="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="lg:hidden"
+        <button
+          className="neu-btn flex size-9 items-center justify-center rounded-xl bg-background text-muted-foreground lg:hidden"
           onClick={toggleMobileNav}
           aria-label="Open navigation menu"
         >
-          <Menu className="size-5" />
-        </Button>
-        <h1 className="text-lg font-semibold">{pageTitle}</h1>
+          <Menu className="size-4" />
+        </button>
+        <h1 className="text-sm font-medium text-muted-foreground tracking-wide">{pageTitle}</h1>
       </div>
 
       {/* Right: Search + Theme + Notifications + User menu */}
@@ -132,46 +135,39 @@ export function Header({ user }: HeaderProps) {
         <CommandPalette />
 
         {/* Search trigger — icon-only on mobile, full button on sm+ */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="sm:hidden"
+        <button
+          className="neu-btn flex size-9 items-center justify-center rounded-xl bg-background text-muted-foreground transition-colors hover:text-foreground sm:hidden"
           onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
           aria-label="Search"
         >
           <Search className="size-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="hidden sm:inline-flex text-muted-foreground gap-2"
+        </button>
+        <button
+          className="neu-subtle hidden items-center gap-2 rounded-2xl bg-background px-3.5 py-2 text-muted-foreground transition-colors hover:text-foreground sm:inline-flex"
           onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
         >
           <Search className="size-3.5" />
           <span className="text-xs">Search...</span>
-          <kbd className="pointer-events-none ml-1 hidden select-none rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-block">
+          <kbd className="pointer-events-none ml-1 hidden select-none rounded-lg bg-background px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground/60 neu-pressed sm:inline-block">
             ⌘K
           </kbd>
-        </Button>
+        </button>
 
         {/* Theme toggle */}
-        <Button
-          variant="ghost"
-          size="icon"
+        <button
+          className="neu-btn flex size-9 items-center justify-center rounded-xl bg-background text-muted-foreground transition-colors hover:text-foreground"
           onClick={cycleTheme}
           aria-label="Toggle theme"
         >
           <Sun className="size-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
           <Moon className="absolute size-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-        </Button>
+        </button>
 
         {/* Notification bell */}
         <Popover>
           <PopoverTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative"
+            <button
+              className="neu-btn relative flex size-9 items-center justify-center rounded-xl bg-background text-muted-foreground transition-colors hover:text-foreground"
               aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : "Notifications"}
             >
               <Bell className="size-4" aria-hidden="true" />
@@ -183,7 +179,7 @@ export function Header({ user }: HeaderProps) {
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}
-            </Button>
+            </button>
           </PopoverTrigger>
           <PopoverContent align="end" className="w-[calc(100vw-2rem)] sm:w-80 p-0">
             <div className="flex items-center justify-between border-b px-4 py-3">
@@ -259,10 +255,10 @@ export function Header({ user }: HeaderProps) {
         {/* User menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="rounded-full">
+            <button className="neu-btn flex size-9 items-center justify-center rounded-xl bg-background transition-all hover:scale-105">
               <UserAvatar name={user.fullName} size="sm" />
               <span className="sr-only">User menu</span>
-            </Button>
+            </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48 sm:w-56">
             <DropdownMenuLabel>

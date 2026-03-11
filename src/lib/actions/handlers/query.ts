@@ -55,9 +55,34 @@ async function checkTasks(orgId: string, payload: Record<string, any>): Promise<
 }
 
 async function checkProjectStatus(orgId: string, payload: Record<string, any>): Promise<ExecutionResult> {
-  const projectId = payload.projectId;
+  let projectId = payload.projectId;
+
+  // Validate UUID format — AI sometimes truncates UUIDs
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (projectId && !UUID_RE.test(projectId)) {
+    // Malformed UUID — fall back to name-based lookup
+    projectId = undefined;
+  }
+
+  // Resolve project name → ID if no valid UUID provided
   if (!projectId) {
-    return { success: false, error: "Project ID is required" };
+    const projectName = payload.projectName || payload.name || payload.title;
+    if (projectName && typeof projectName === "string") {
+      const escaped = projectName.replace(/%/g, "\\%").replace(/_/g, "\\_");
+      const match = await db.query.projects.findFirst({
+        where: and(
+          eq(projects.orgId, orgId),
+          sql`${projects.name} ILIKE ${"%" + escaped + "%"}`
+        ),
+      });
+      if (match) {
+        projectId = match.id;
+      } else {
+        return { success: false, error: `Could not find a project matching "${projectName}"` };
+      }
+    } else {
+      return { success: false, error: "Please specify which project you'd like to check." };
+    }
   }
 
   const project = await db.query.projects.findFirst({

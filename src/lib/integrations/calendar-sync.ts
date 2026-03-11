@@ -41,6 +41,7 @@ export async function createGoogleWatch(
   const calendar = google.calendar({ version: "v3", auth });
 
   const channelId = randomUUID();
+  const channelToken = randomUUID();
   // Google watch channels expire in max 7 days; request 6 days
   const expiration = Date.now() + 6 * 24 * 60 * 60 * 1000;
 
@@ -52,6 +53,7 @@ export async function createGoogleWatch(
         type: "web_hook",
         address: getGoogleWebhookUrl(),
         expiration: String(expiration),
+        token: channelToken,
       },
     });
 
@@ -82,6 +84,7 @@ export async function createGoogleWatch(
         provider: "google",
         subscriptionId: channelId,
         resourceId: res.data.resourceId ?? null,
+        token: channelToken,
         expiresAt,
         syncToken: syncToken ?? null,
         isActive: true,
@@ -152,7 +155,11 @@ export async function createMicrosoftSubscription(
       notificationUrl: getMicrosoftWebhookUrl(),
       resource: "/me/events",
       expirationDateTime: expiresAt.toISOString(),
-      clientState: process.env.MICROSOFT_WEBHOOK_SECRET ?? "hive-calendar-sync",
+      clientState: (() => {
+        const secret = process.env.MICROSOFT_WEBHOOK_SECRET;
+        if (!secret) throw new Error("MICROSOFT_WEBHOOK_SECRET not configured");
+        return secret;
+      })(),
     });
 
     // Fetch initial delta link

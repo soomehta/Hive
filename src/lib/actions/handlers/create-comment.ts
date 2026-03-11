@@ -5,15 +5,21 @@ import { projectMembers } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import type { PAAction } from "@/types/pa";
 import type { ExecutionResult } from "../executor";
+import { resolveTaskId } from "../resolve-task";
 
 export async function handleCreateComment(action: PAAction): Promise<ExecutionResult> {
   const payload = (action.userEditedPayload ?? action.plannedPayload) as Record<string, any>;
 
-  if (!payload.taskId || !payload.content) {
-    return { success: false, error: "Task ID and content are required" };
+  if (!payload.content) {
+    return { success: false, error: "Comment content is required" };
   }
 
-  const task = await getTask(payload.taskId);
+  const resolved = await resolveTaskId(payload, action.userId, action.orgId);
+  if ("error" in resolved) {
+    return { success: false, error: resolved.error };
+  }
+
+  const task = await getTask(resolved.taskId);
   if (!task) {
     return { success: false, error: "Task not found" };
   }
@@ -29,14 +35,14 @@ export async function handleCreateComment(action: PAAction): Promise<ExecutionRe
   }
 
   const comment = await createTaskComment({
-    taskId: payload.taskId,
+    taskId: resolved.taskId,
     userId: action.userId,
     content: payload.content,
   });
 
   await logActivity({
     orgId: action.orgId,
-    taskId: payload.taskId,
+    taskId: resolved.taskId,
     userId: action.userId,
     type: "task_commented",
     metadata: { commentId: comment.id, createdByPa: true },

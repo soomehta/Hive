@@ -3,6 +3,21 @@
 ## What Works
 
 - **Documentation:** `hive-prd.md` is the single source of truth. `docs/phases-2-4-spec.md` is the implementation spec.
+- **Phase 6 PRD authored:** `docs/prd-phase-6-pinboard-canvas-chat.md` now defines Pinboard Home + Canvas Pages + Team Chat with full scope, architecture, schema, API contracts, permissions, rollout plan, and testing strategy.
+- **Phase 6A foundations started (code):**
+  - New schema module `src/lib/db/schema/collaboration.ts` with 10 Phase 6 tables (items/pages/pinboard/notices/chat).
+  - New enums for Phase 6 in `src/lib/db/schema/enums.ts`.
+  - Schema exports/relations wired in `src/lib/db/schema/index.ts`.
+  - New query modules: `items.ts`, `pages.ts`, `pinboard.ts`, `notices.ts`, `chat.ts`.
+  - First API slice implemented: items CRUD, page read/upsert by itemId, item relation create/delete.
+  - Second API slice implemented: pinboard layouts/home-data, notices CRUD-ish + pin/archive, chat channels/members/messages/threads.
+  - Frontend scaffolding implemented for:
+    - Pinboard-first dashboard home (home-data cards + adjacent dashboard engine)
+    - `/dashboard/chat` (channel list/create + basic message feed/send)
+    - `/dashboard/notices` (create/pin/archive notices)
+    - Sidebar + header navigation updates for Chat/Notices routes
+  - Permission surface expanded in `src/lib/auth/permissions.ts` for page/item/pinboard/notice/chat actions.
+  - New migration generated: `drizzle/0005_tan_rictor.sql`.
 - **Memory Bank:** All six core files exist and are populated.
 - **Phase 1 – Foundation: COMPLETE**
   - Next.js 16.1.6 + TypeScript + Tailwind CSS v4 + shadcn/ui (20 components)
@@ -116,6 +131,32 @@
   - Cron endpoint tests: 30 tests covering morning-briefing, overdue-nudge, stale-tasks
   - **Total: 306 unit tests (236 new + 70 existing), 0 TypeScript errors**
 
+- **Phase 7 — Workspaces, Agent Channels, @Mentions, PM Agent, Smart Check-ins: COMPLETE**
+  - Workspace hierarchy: org → workspaces → projects → tasks
+  - Agent communication: auto-provisioned agent hub channels per user
+  - @Mentions: parse + resolve users/agents/items, agent mention triggers AI response
+  - PM Agent: daily standups, weekly reports, workspace-scoped metrics aggregation
+  - Smart check-ins: priority/deadline-based scheduling, contextual questions, response processing
+  - 5 new SQL migrations (0014-0018), 3 new BullMQ queues/workers, 6 new action types
+  - 16 new API route files, 4 new UI components/pages
+  - Backfill script for existing orgs, PM agent seed script
+  - 366 unit tests pass, 0 TypeScript errors in src/
+
+- **MLP (Minimum Lovable Product) Gap Remediation: COMPLETE**
+  - Sprint 1: Global Search (Cmd+K with live search across tasks/projects/pages/chat/notices), Full-Page Calendar View, PA Streaming Responses (SSE)
+  - Sprint 2: Project Templates (5 templates), CSV Export, Smart Onboarding (demo project seeding)
+  - Sprint 3: PA Confirmation Previews, Embedding Pipeline activation (enqueueEmbedding on all CRUD), "What Should I Do Next?" suggestion button
+  - Sprint 4: Email Digest Opt-in (morning briefing + weekly digest), Daily Summary Cron, PA Personality Settings (verbosity/formality/custom instructions)
+  - Sprint 5: Guest/Viewer Access (shared project links), Meeting Notes → Tasks Pipeline, Embedding Backfill script + HNSW Index
+  - 3 new migrations (0022-0024), 15+ new files, 20+ modified files, 0 new TypeScript errors
+
+- **Meeting Recording Upload Pipeline: COMPLETE**
+  - Upload route: `POST /api/meetings/upload` — accepts audio/video up to 100MB, dual-provider transcription (Deepgram + Gladia fallback), R2 storage
+  - Extract route: `POST /api/meetings/extract` — feeds transcript into AI task extraction (Claude Sonnet)
+  - Full UI at `/dashboard/meetings` — drag-and-drop upload zone, transcript preview with confidence badge, task extraction with project selector and batch creation
+  - Sidebar navigation updated with Meetings link
+  - 4 new files, 1 modified file, 0 new TypeScript errors
+
 ## What's Left to Build
 
 - **Redis setup:** Configure Upstash Redis URL for BullMQ workers (REDIS_URL env var)
@@ -127,8 +168,9 @@
 ## Current Status
 
 - **DEPLOYED TO PRODUCTION.** Live at https://hive-app-beryl.vercel.app
-- **All 5 phases + review fixes + QoL + prod hardening + database + Vercel + test coverage: COMPLETE.** 70+ routes, 0 TypeScript errors, 306 unit tests pass, 112 e2e tests pass.
-- **Remaining items are external service configuration only** (Redis, OAuth, R2, Sentry DSN).
+- **All 7 phases + MLP remediation + meeting recording pipeline + review fixes + QoL + prod hardening + database + Vercel + test coverage: COMPLETE.** 85+ routes, 0 TypeScript errors, 366 unit tests pass.
+- **All planned code features are complete.** Pages editor, chat threads, project-scoped channels, dashboard customization — all verified as fully implemented.
+- **Remaining items are external service configuration only (Redis, OAuth, R2, Sentry, domain).**
 
 ## Known Issues
 

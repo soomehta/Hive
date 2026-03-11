@@ -6,10 +6,10 @@
 -- `postgres` superuser role (connection pooler), which bypasses RLS.
 -- The Supabase `service_role` also bypasses RLS by default.
 --
--- Enabling RLS without permissive policies for `anon` or
--- `authenticated` effectively blocks direct PostgREST access
--- via the anon key, which is the correct posture since this
--- app routes all data access through server-side API routes.
+-- RLS is enabled with DENY-ALL policies for `anon` and
+-- `authenticated` roles, which blocks direct PostgREST access.
+-- All legitimate data access goes through server-side API routes
+-- using Drizzle ORM (postgres role).
 --
 -- Run: psql $DATABASE_URL -f scripts/enable-rls.sql
 -- Or via Supabase SQL Editor
@@ -60,9 +60,32 @@ BEGIN
       'hive_context',
       'bee_handovers',
       'bee_signals',
+      'agent_schedules',
+      'agent_reports',
+      'agent_checkins',
+      'checkin_preferences',
       -- Dashboard
       'dashboard_layouts',
-      'component_registry'
+      'component_registry',
+      -- Collaboration (Phase 6+)
+      'items',
+      'item_relations',
+      'pages',
+      'page_revisions',
+      'pinboard_layouts_user',
+      'notices',
+      'chat_channels',
+      'chat_channel_members',
+      'chat_messages',
+      'chat_threads',
+      'chat_thread_messages',
+      'mentions',
+      'message_reactions',
+      -- Workspaces
+      'workspaces',
+      'workspace_members',
+      -- Guests
+      'project_guests'
     ])
   LOOP
     -- Enable RLS
@@ -71,33 +94,31 @@ BEGIN
     -- Force RLS even for table owners (defense in depth)
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY;', tbl);
 
-    -- Allow the authenticated role to access rows through API routes
-    -- (needed because Supabase Realtime uses authenticated role internally)
-    -- These policies use `true` but are scoped — the actual authorization
-    -- happens in the application layer via authenticateRequest().
+    -- Remove any previous blanket-allow policies
+    EXECUTE format('DROP POLICY IF EXISTS "Allow authenticated access" ON %I;', tbl);
+    EXECUTE format('DROP POLICY IF EXISTS "Allow service_role access" ON %I;', tbl);
+
+    -- Deny-all for authenticated role: blocks direct PostgREST access
     EXECUTE format(
-      'DROP POLICY IF EXISTS "Allow authenticated access" ON %I;
-       CREATE POLICY "Allow authenticated access" ON %I
+      'CREATE POLICY "Deny authenticated direct access" ON %I
          FOR ALL
          TO authenticated
-         USING (true)
-         WITH CHECK (true);',
-      tbl, tbl
+         USING (false)
+         WITH CHECK (false);',
+      tbl
     );
 
-    -- Allow the service_role full access (already bypasses RLS,
-    -- but explicit policy documents the intent)
+    -- Deny-all for anon role: blocks unauthenticated PostgREST access
     EXECUTE format(
-      'DROP POLICY IF EXISTS "Allow service_role access" ON %I;
-       CREATE POLICY "Allow service_role access" ON %I
+      'CREATE POLICY "Deny anon direct access" ON %I
          FOR ALL
-         TO service_role
-         USING (true)
-         WITH CHECK (true);',
-      tbl, tbl
+         TO anon
+         USING (false)
+         WITH CHECK (false);',
+      tbl
     );
 
-    RAISE NOTICE 'RLS enabled on: %', tbl;
+    RAISE NOTICE 'RLS enabled (deny-all) on: %', tbl;
   END LOOP;
 END $$;
 

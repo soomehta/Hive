@@ -7,7 +7,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -16,8 +15,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
-import { User, Mail, Save } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { User, Mail, Save, Bell, Brain } from "lucide-react";
 import { toast } from "sonner";
+import { ErrorState } from "@/components/shared/error-state";
+import { apiClient } from "@/lib/utils/api-client";
 
 // ─── Loading Skeleton ───────────────────────────────────
 
@@ -52,6 +54,7 @@ export function PageClient() {
     data: user,
     isLoading,
     error,
+    refetch,
   } = useQuery({
     queryKey: ["auth-user-profile"],
     queryFn: async () => {
@@ -90,6 +93,39 @@ export function PageClient() {
     },
   });
 
+  // ─── PA Profile query ───────────────────────────────────
+  const { data: paProfile, isLoading: paProfileLoading } = useQuery({
+    queryKey: ["pa-profile"],
+    queryFn: async () => {
+      const res = await apiClient("/api/pa/profile");
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json.data ?? null;
+    },
+  });
+
+  const updatePaProfileMutation = useMutation({
+    mutationFn: async (updates: Record<string, unknown>) => {
+      const res = await apiClient("/api/pa/profile", {
+        method: "PATCH",
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pa-profile"] });
+      toast.success("Preferences updated");
+    },
+    onError: () => {
+      toast.error("Failed to update preferences");
+    },
+  });
+
+  const updatePaProfile = (updates: Record<string, unknown>) => {
+    updatePaProfileMutation.mutate(updates);
+  };
+
   const handleSave = () => {
     if (editName === null) return;
     updateNameMutation.mutate(editName.trim());
@@ -104,9 +140,6 @@ export function PageClient() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
-          <p className="text-muted-foreground">
-            Manage your personal information
-          </p>
         </div>
         <ProfileSkeleton />
       </div>
@@ -118,15 +151,11 @@ export function PageClient() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
-          <p className="text-muted-foreground">
-            Manage your personal information
-          </p>
         </div>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center">
-          <p className="text-sm text-destructive">
-            Failed to load profile. Please try again later.
-          </p>
-        </div>
+        <ErrorState
+          message="Failed to load profile."
+          onRetry={() => refetch()}
+        />
       </div>
     );
   }
@@ -142,9 +171,6 @@ export function PageClient() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
-        <p className="text-muted-foreground">
-          Manage your personal information
-        </p>
       </div>
 
       <Card>
@@ -288,6 +314,128 @@ export function PageClient() {
               </div>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Notification Preferences */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="size-5" />
+            Notifications
+          </CardTitle>
+          <CardDescription>
+            Configure how you receive briefings and digests.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {paProfileLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Email Morning Briefing</p>
+                  <p className="text-xs text-muted-foreground">Receive your daily briefing via email</p>
+                </div>
+                <Switch
+                  checked={paProfile?.emailBriefing ?? false}
+                  onCheckedChange={(checked) => updatePaProfile({ emailBriefing: checked })}
+                />
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Email Weekly Digest</p>
+                  <p className="text-xs text-muted-foreground">Receive your weekly digest via email</p>
+                </div>
+                <Switch
+                  checked={paProfile?.emailDigest ?? false}
+                  onCheckedChange={(checked) => updatePaProfile({ emailDigest: checked })}
+                />
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* PA Personality */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Brain className="size-5" />
+            PA Personality
+          </CardTitle>
+          <CardDescription>
+            Customize how your Personal Assistant communicates.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {paProfileLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-20 w-full" />
+            </div>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <Label>Verbosity</Label>
+                <div className="flex gap-2">
+                  {["concise", "balanced", "detailed"].map((v) => (
+                    <Button
+                      key={v}
+                      size="sm"
+                      variant={paProfile?.verbosity === v ? "default" : "outline"}
+                      onClick={() => updatePaProfile({ verbosity: v })}
+                      className="capitalize"
+                    >
+                      {v}
+                    </Button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">How much detail the PA includes in responses</p>
+              </div>
+              <Separator />
+              <div className="space-y-2">
+                <Label>Formality</Label>
+                <div className="flex gap-2">
+                  {["casual", "professional", "formal"].map((f) => (
+                    <Button
+                      key={f}
+                      size="sm"
+                      variant={paProfile?.formality === f ? "default" : "outline"}
+                      onClick={() => updatePaProfile({ formality: f })}
+                      className="capitalize"
+                    >
+                      {f}
+                    </Button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">How formal the PA's tone should be</p>
+              </div>
+              <Separator />
+              <div className="space-y-2">
+                <Label htmlFor="personality-traits">Custom Instructions</Label>
+                <textarea
+                  id="personality-traits"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  rows={3}
+                  placeholder="e.g., Be encouraging, use bullet points, keep things light..."
+                  defaultValue={(paProfile?.personalityTraits as string) ?? ""}
+                  onBlur={(e) => {
+                    if (e.target.value !== (paProfile?.personalityTraits ?? "")) {
+                      updatePaProfile({ personalityTraits: e.target.value });
+                    }
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">Optional free-text instructions for your PA's personality</p>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

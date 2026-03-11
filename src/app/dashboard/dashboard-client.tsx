@@ -119,9 +119,6 @@ export function PageClient() {
         <h1 className="text-2xl font-bold tracking-tight">
           {greeting}, {userName.split(" ")[0]}
         </h1>
-        <p className="text-muted-foreground">
-          Here is what is happening in your workspace today.
-        </p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

@@ -5,16 +5,18 @@ import { projectMembers } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import type { PAAction } from "@/types/pa";
 import type { ExecutionResult } from "../executor";
+import { resolveTaskId } from "../resolve-task";
 
 export async function handleUpdateTask(action: PAAction): Promise<ExecutionResult> {
   const payload = (action.userEditedPayload ?? action.plannedPayload) as Record<string, any>;
-  const { taskId, ...updates } = payload;
 
-  if (!taskId) {
-    return { success: false, error: "Task ID is required" };
+  const resolved = await resolveTaskId(payload, action.userId, action.orgId);
+  if ("error" in resolved) {
+    return { success: false, error: resolved.error };
   }
 
-  const existing = await getTask(taskId);
+  const { taskId: _resolvedTaskId, taskTitle: _t, taskName: _n, ...updates } = payload;
+  const existing = await getTask(resolved.taskId);
   if (!existing) {
     return { success: false, error: "Task not found" };
   }
@@ -29,7 +31,7 @@ export async function handleUpdateTask(action: PAAction): Promise<ExecutionResul
     return { success: false, error: "You don't have access to this project" };
   }
 
-  const task = await updateTask(taskId, updates);
+  const task = await updateTask(resolved.taskId, updates);
   if (!task) {
     return { success: false, error: "Task not found" };
   }

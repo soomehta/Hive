@@ -25,6 +25,7 @@ export async function getUserIntegrations(userId: string, orgId: string) {
       providerAccountEmail: integrations.providerAccountEmail,
       isActive: integrations.isActive,
       createdAt: integrations.createdAt,
+      tokenExpiresAt: integrations.tokenExpiresAt,
     })
     .from(integrations)
     .where(

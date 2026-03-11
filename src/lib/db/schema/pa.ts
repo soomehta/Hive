@@ -63,6 +63,9 @@ export const paProfiles = pgTable(
     notificationChannel: varchar("notification_channel", { length: 50 }).default(
       "in_app"
     ),
+    emailBriefing: boolean("email_briefing").default(false).notNull(),
+    emailDigest: boolean("email_digest").default(false).notNull(),
+    personalityTraits: text("personality_traits").default(""),
     actionOverrides: jsonb("action_overrides").default({}),
     avgTasksPerWeek: real("avg_tasks_per_week"),
     peakHours: jsonb("peak_hours"),
@@ -71,6 +74,7 @@ export const paProfiles = pgTable(
     updateHabits: text("update_habits"),
     totalInteractions: integer("total_interactions").default(0),
     commonIntents: jsonb("common_intents"),
+    primaryChannelId: uuid("primary_channel_id"),
     assistantBeeInstanceId: uuid("assistant_bee_instance_id"),
     swarmNotificationsEnabled: boolean("swarm_notifications_enabled")
       .default(true)

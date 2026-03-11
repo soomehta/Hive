@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   TASK_STATUS_LABELS,
   TASK_PRIORITY_LABELS,
+  PRIORITY_DOT_COLORS,
 } from "@/lib/utils/constants";
 import { getUserInitials, getUserDisplayName } from "@/lib/utils/user-display";
 import { formatDate } from "@/lib/utils/dates";
@@ -23,13 +24,6 @@ const COLUMN_ACCENT: Record<KanbanStatus, string> = {
   in_progress: "border-t-blue-500",
   in_review: "border-t-purple-500",
   done: "border-t-green-500",
-};
-
-const PRIORITY_DOT: Record<string, string> = {
-  urgent: "bg-red-500",
-  high: "bg-orange-500",
-  medium: "bg-yellow-500",
-  low: "bg-green-500",
 };
 
 export function BoardWidget({ orgId, projectId, isEditing }: WidgetProps) {
@@ -105,7 +99,7 @@ export function BoardWidget({ orgId, projectId, isEditing }: WidgetProps) {
                   <CardContent className="space-y-1.5 p-2.5">
                     <div className="flex items-start gap-1.5">
                       <span
-                        className={`mt-1 h-2 w-2 shrink-0 rounded-full ${PRIORITY_DOT[task.priority] ?? "bg-gray-400"}`}
+                        className={`mt-1 h-2 w-2 shrink-0 rounded-full ${PRIORITY_DOT_COLORS[task.priority] ?? "bg-gray-400"}`}
                         title={TASK_PRIORITY_LABELS[task.priority] ?? task.priority}
                       />
                       <p className="text-xs font-medium leading-snug">{task.title}</p>

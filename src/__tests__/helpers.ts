@@ -89,7 +89,7 @@ export function mockProject(overrides?: Record<string, any>) {
     startDate: null,
     targetDate: null,
     createdBy: MOCK_USER_ID,
-    defaultLayoutId: null,
+    workspaceId: null,
     createdAt: new Date("2025-01-01T00:00:00Z"),
     updatedAt: new Date("2025-01-01T00:00:00Z"),
     ...overrides,

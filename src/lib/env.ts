@@ -52,8 +52,11 @@ function loadEnv() {
     // Redis
     REDIS_URL: optional("REDIS_URL"),
 
-    // Cron
-    CRON_SECRET: optional("CRON_SECRET"),
+    // Cron (required in production to secure cron endpoints)
+    CRON_SECRET:
+      process.env.NODE_ENV === "production"
+        ? required("CRON_SECRET")
+        : optional("CRON_SECRET"),
 
     // Sentry
     NEXT_PUBLIC_SENTRY_DSN: optional("NEXT_PUBLIC_SENTRY_DSN"),

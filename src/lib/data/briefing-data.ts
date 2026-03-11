@@ -1,5 +1,6 @@
 import { getTasks } from "@/lib/db/queries/tasks";
 import { getActivityFeed } from "@/lib/db/queries/activity";
+import { getNotices } from "@/lib/db/queries/notices";
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -29,6 +30,13 @@ export interface BriefingActivity {
   createdAt: string;
 }
 
+export interface BriefingNotice {
+  id: string;
+  title: string;
+  isPinned: boolean;
+  status: string;
+}
+
 export interface BriefingData {
   todayTasks: BriefingTask[];
   weekTasks: BriefingTask[];
@@ -36,6 +44,8 @@ export interface BriefingData {
   blockers: BriefingBlocker[];
   recentActivity: BriefingActivity[];
   totalActiveTasks: number;
+  /** Active/pinned notices for digest inclusion */
+  activeNotices: BriefingNotice[];
 }
 
 // ─── Shared Aggregator ───────────────────────────────────
@@ -66,9 +76,10 @@ export async function aggregateBriefingData(
   const weekEnd = new Date(todayStart.getTime() + 7 * 24 * 60 * 60 * 1000);
   const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-  const [myTasksResult, activityResult] = await Promise.all([
+  const [myTasksResult, activityResult, noticesResult] = await Promise.all([
     getTasks({ orgId, assigneeId: userId, limit: 100 }),
     getActivityFeed({ orgId, limit: 30 }),
+    getNotices(orgId).catch(() => []),
   ]);
 
   const myTasks = myTasksResult.data;
@@ -144,6 +155,17 @@ export async function aggregateBriefingData(
     (t) => t.status !== "done" && t.status !== "cancelled"
   ).length;
 
+  // Active/pinned notices for digest
+  const activeNotices: BriefingNotice[] = noticesResult
+    .filter((n) => n.status === "active")
+    .slice(0, 5)
+    .map((n) => ({
+      id: n.id,
+      title: n.title,
+      isPinned: n.isPinned,
+      status: n.status,
+    }));
+
   return {
     todayTasks,
     weekTasks,
@@ -151,5 +173,6 @@ export async function aggregateBriefingData(
     blockers,
     recentActivity,
     totalActiveTasks,
+    activeNotices,
   };
 }

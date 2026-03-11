@@ -9,6 +9,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { projectStatusEnum } from "./enums";
 import { organizations } from "./organizations";
+import { workspaces } from "./workspaces";
 
 // ─── Projects ────────────────────────────────────────────
 
@@ -19,6 +20,9 @@ export const projects = pgTable(
     orgId: uuid("org_id")
       .references(() => organizations.id, { onDelete: "cascade" })
       .notNull(),
+    workspaceId: uuid("workspace_id").references(() => workspaces.id, {
+      onDelete: "set null",
+    }),
     name: varchar("name", { length: 255 }).notNull(),
     description: text("description"),
     status: projectStatusEnum("status").default("active").notNull(),

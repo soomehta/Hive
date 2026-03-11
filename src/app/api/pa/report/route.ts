@@ -5,6 +5,9 @@ import { getOrCreatePaProfile } from "@/lib/db/queries/pa-profiles";
 import { generateReport } from "@/lib/ai/report-generator";
 import { errorResponse } from "@/lib/utils/errors";
 import { aggregateReportData } from "@/lib/data/report-data";
+import { reportQuerySchema } from "@/lib/utils/validation";
+import { hasPermission } from "@/lib/auth/permissions";
+import { getProject } from "@/lib/db/queries/projects";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,22 +16,22 @@ export async function POST(req: NextRequest) {
     if (!rl.success) return rateLimitResponse(rl);
 
     const body = await req.json();
-
-    const {
-      question,
-      projectId,
-      format = "narrative",
-    } = body as {
-      question: string;
-      projectId?: string;
-      format?: "narrative" | "structured" | "data_only";
-    };
-
-    if (!question || typeof question !== "string") {
+    const parsed = reportQuerySchema.safeParse(body);
+    if (!parsed.success) {
       return Response.json(
-        { error: "question is required" },
+        { error: "Validation failed", details: parsed.error.flatten() },
         { status: 400 }
       );
+    }
+
+    const { question, projectId, format = "narrative" } = parsed.data;
+
+    // If projectId is provided, verify the user has access
+    if (projectId) {
+      const project = await getProject(projectId);
+      if (!project || project.orgId !== auth.orgId) {
+        return Response.json({ error: "Project not found" }, { status: 404 });
+      }
     }
 
     const now = new Date();

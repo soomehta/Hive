@@ -20,17 +20,25 @@ for (const line of envContent.split("\n")) {
 }
 
 const ALL_TABLES = [
+  // Organizations
   "organizations",
   "organization_members",
   "invitations",
+  // Projects
   "projects",
   "project_members",
+  // Tasks
   "tasks",
   "task_comments",
+  // Messages
   "messages",
+  // Activity
   "activity_log",
+  // Notifications
   "notifications",
+  // Files
   "files",
+  // PA
   "pa_profiles",
   "pa_chat_sessions",
   "pa_conversations",
@@ -38,9 +46,12 @@ const ALL_TABLES = [
   "pa_corrections",
   "scheduled_reports",
   "voice_transcripts",
+  // Integrations
   "integrations",
   "calendar_subscriptions",
+  // Embeddings
   "embeddings",
+  // Bees
   "bee_templates",
   "bee_instances",
   "swarm_sessions",
@@ -48,8 +59,32 @@ const ALL_TABLES = [
   "hive_context",
   "bee_handovers",
   "bee_signals",
+  "agent_schedules",
+  "agent_reports",
+  "agent_checkins",
+  "checkin_preferences",
+  // Dashboard
   "dashboard_layouts",
   "component_registry",
+  // Collaboration (Phase 6+)
+  "items",
+  "item_relations",
+  "pages",
+  "page_revisions",
+  "pinboard_layouts_user",
+  "notices",
+  "chat_channels",
+  "chat_channel_members",
+  "chat_messages",
+  "chat_threads",
+  "chat_thread_messages",
+  "mentions",
+  "message_reactions",
+  // Workspaces
+  "workspaces",
+  "workspace_members",
+  // Guests
+  "project_guests",
 ];
 
 async function main() {
@@ -69,7 +104,7 @@ async function main() {
       // Force RLS even for table owner
       await db.execute(sql.raw(`ALTER TABLE "${table}" FORCE ROW LEVEL SECURITY`));
 
-      // Policy: allow authenticated role (needed for Supabase Realtime internals)
+      // Remove any previous blanket-allow policies
       await db.execute(
         sql.raw(
           `DROP POLICY IF EXISTS "Allow authenticated access" ON "${table}"`
@@ -77,19 +112,23 @@ async function main() {
       );
       await db.execute(
         sql.raw(
-          `CREATE POLICY "Allow authenticated access" ON "${table}" FOR ALL TO authenticated USING (true) WITH CHECK (true)`
-        )
-      );
-
-      // Policy: allow service_role (explicit, even though it bypasses RLS)
-      await db.execute(
-        sql.raw(
           `DROP POLICY IF EXISTS "Allow service_role access" ON "${table}"`
         )
       );
+
+      // Deny-all policy for authenticated role: blocks direct PostgREST access.
+      // All legitimate data access goes through Drizzle ORM using the postgres
+      // role (connection pooler), which bypasses RLS as table owner.
       await db.execute(
         sql.raw(
-          `CREATE POLICY "Allow service_role access" ON "${table}" FOR ALL TO service_role USING (true) WITH CHECK (true)`
+          `CREATE POLICY "Deny authenticated direct access" ON "${table}" FOR ALL TO authenticated USING (false) WITH CHECK (false)`
+        )
+      );
+
+      // Deny-all policy for anon role: blocks unauthenticated PostgREST access.
+      await db.execute(
+        sql.raw(
+          `CREATE POLICY "Deny anon direct access" ON "${table}" FOR ALL TO anon USING (false) WITH CHECK (false)`
         )
       );
 

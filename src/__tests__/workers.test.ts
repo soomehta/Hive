@@ -245,7 +245,8 @@ describe("Action Execution Worker", () => {
         type: "pa_action_pending",
         channel: "in_app",
         metadata: expect.objectContaining({ actionId: MOCK_ACTION_ID }),
-      })
+      }),
+      expect.objectContaining({ jobId: `notif:action-exec:${MOCK_ACTION_ID}` })
     );
 
     // Learning queue
@@ -257,7 +258,8 @@ describe("Action Execution Worker", () => {
         actionType: "create_task",
         wasApproved: false,
         wasEdited: false,
-      })
+      }),
+      expect.objectContaining({ jobId: `learn:${MOCK_ACTION_ID}` })
     );
   });
 
@@ -535,7 +537,8 @@ describe("Swarm Worker", () => {
         title: "Bee swarm completed",
         channel: "in_app",
         metadata: { swarmSessionId: MOCK_SWARM_SESSION_ID },
-      })
+      }),
+      expect.objectContaining({ jobId: `notif:swarm:${MOCK_SWARM_SESSION_ID}` })
     );
   });
 

@@ -94,7 +94,6 @@ export function PageClient() {
         <Brain className="size-6 text-violet-400" />
         <div>
           <h1 className="text-xl font-semibold text-foreground">PA Settings</h1>
-          <p className="text-sm text-muted-foreground">Configure your Personal Assistant preferences</p>
         </div>
       </div>
 

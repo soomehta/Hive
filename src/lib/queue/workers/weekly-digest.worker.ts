@@ -160,7 +160,32 @@ const { worker, log } = createTypedWorker<DigestJob>(
       },
     };
 
-    await getNotificationQueue().add("weekly-digest", notificationJob);
+    const weekKey = `${weekAgo.toISOString().slice(0, 10)}_${now.toISOString().slice(0, 10)}`;
+    await getNotificationQueue().add("weekly-digest", notificationJob, {
+      jobId: `notif:digest:${userId}:${weekKey}`,
+    });
+
+    // Send email digest if opted in
+    if (profile.emailDigest) {
+      const emailDigestJob: NotificationJob = {
+        userId,
+        orgId,
+        type: "pa_report_ready",
+        title: "Your weekly digest is ready",
+        body: digestResult.narrative,
+        channel: "email",
+        metadata: {
+          digestType: "weekly_email",
+          periodStart: weekAgo.toISOString(),
+          periodEnd: now.toISOString(),
+          tasksCompleted: completedThisWeek.length,
+          velocity,
+        },
+      };
+      await getNotificationQueue().add("weekly-digest-email", emailDigestJob, {
+        jobId: `notif:digest-email:${userId}:${weekKey}`,
+      });
+    }
 
     log.info(
       { jobId: job.id, digestLength: digestResult.narrative.length, velocity },

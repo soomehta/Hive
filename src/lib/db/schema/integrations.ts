@@ -66,6 +66,8 @@ export const calendarSubscriptions = pgTable(
     resourceId: varchar("resource_id", { length: 500 }),
     /** When the subscription expires and needs renewal */
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    /** Webhook verification token — compared against x-goog-channel-token header */
+    token: varchar("token", { length: 255 }),
     /** Google: syncToken for incremental sync; Microsoft: deltaLink */
     syncToken: text("sync_token"),
     isActive: boolean("is_active").default(true).notNull(),

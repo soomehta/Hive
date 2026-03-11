@@ -326,9 +326,6 @@ export function ProjectSettingsClient() {
           <h1 className="text-2xl font-bold tracking-tight">
             Project Settings
           </h1>
-          <p className="text-muted-foreground">
-            Manage your project configuration
-          </p>
         </div>
         <SettingsSkeleton />
       </div>
@@ -349,9 +346,6 @@ export function ProjectSettingsClient() {
           <h1 className="text-2xl font-bold tracking-tight">
             Project Settings
           </h1>
-          <p className="text-muted-foreground">
-            Manage your project configuration
-          </p>
         </div>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center">
           <p className="text-sm text-destructive">
@@ -378,9 +372,6 @@ export function ProjectSettingsClient() {
 
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Project Settings</h1>
-        <p className="text-muted-foreground">
-          Manage your project configuration
-        </p>
       </div>
 
       {/* ── Project Details Card ── */}

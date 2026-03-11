@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { createLogger } from "@/lib/logger";
 import { findSubscriptionByMicrosoftId } from "@/lib/integrations/calendar-sync";
 import { getCalendarSyncQueue } from "@/lib/queue";
@@ -34,11 +35,19 @@ export async function POST(req: NextRequest) {
       return new Response(null, { status: 202 });
     }
 
-    const expectedClientState = process.env.MICROSOFT_WEBHOOK_SECRET ?? "hive-calendar-sync";
+    const expectedClientState = process.env.MICROSOFT_WEBHOOK_SECRET;
+    if (!expectedClientState) {
+      log.error("MICROSOFT_WEBHOOK_SECRET not configured");
+      return new Response("Server misconfigured", { status: 500 });
+    }
 
     for (const notification of notifications) {
-      // Validate client state to prevent spoofing
-      if (notification.clientState !== expectedClientState) {
+      // Validate client state to prevent spoofing (timing-safe)
+      const clientState = String(notification.clientState ?? "");
+      const stateValid =
+        clientState.length === expectedClientState.length &&
+        timingSafeEqual(Buffer.from(clientState, "utf8"), Buffer.from(expectedClientState, "utf8"));
+      if (!stateValid) {
         log.warn({ subscriptionId: notification.subscriptionId }, "Invalid clientState on Microsoft notification");
         continue;
       }

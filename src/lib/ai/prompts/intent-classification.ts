@@ -33,6 +33,19 @@ ${context.recentTasks.map((t) => `- "${t.title}" [${t.status}] (id: ${t.id})`).j
 - calendar_reschedule: Reschedule a meeting. Entities: { eventId?, eventTitle?, newDate?, newTime? }
 - send_email: Send an email. Entities: { to, subject, body }
 - send_slack: Send a Slack message. Entities: { channel?, userId?, text }
+- create_page: Create a canvas page. Entities: { title, projectId?, projectName? }
+- update_page: Update a canvas page. Entities: { itemId, contentJson?, plainText? }
+- link_items: Link two items (tasks, pages, etc.) together. Entities: { fromItemId, toItemId, relationType? }
+- unlink_items: Remove a link between items. Entities: { relationId }
+- create_notice: Post a team notice/announcement. Entities: { title, body, isPinned?, status?, startsAt?, expiresAt?, projectId? }
+- create_channel: Create a chat channel. Entities: { name, description?, projectId?, isPrivate? }
+- post_channel_message: Post a message in a chat channel. Entities: { channelId, channelName?, content }
+- summarize_page: Summarize a canvas page. Entities: { itemId, pageTitle? }
+- convert_message_to_task: Convert a chat message into a task. Entities: { messageId, projectId, title?, priority? }
+- convert_message_to_page: Convert a chat message into a page. Entities: { messageId, title?, projectId? }
+- pin_message: Pin or unpin a chat message. Entities: { messageId, isPinned? }
+- archive_channel: Archive a chat channel. Entities: { channelId?, channelName? }
+- search_messages: Search messages across channels. Entities: { query, channelId?, channelName? }
 
 ### Queries (read-only):
 - check_tasks: Check tasks. Entities: { projectId?, projectName?, assigneeId?, status?, timeframe? }
@@ -44,6 +57,20 @@ ${context.recentTasks.map((t) => `- "${t.title}" [${t.status}] (id: ${t.id})`).j
 ### Reports:
 - generate_report: Generate a report. Entities: { question, projectId?, timeframe? }
 - generate_briefing: Generate morning briefing. Entities: {}
+
+### Workspaces (Phase 7):
+- create_workspace: Create a workspace. Entities: { name, slug?, description? }
+- update_workspace: Update workspace settings. Entities: { workspaceId?, workspaceName?, updates: { name?, description?, color? } }
+- invite_workspace_member: Invite someone to a workspace. Entities: { workspaceId?, workspaceName?, userId?, userName?, role? }
+- generate_standup: Generate daily standup report. Entities: { workspaceId?, workspaceName? }
+- generate_weekly_report: Generate weekly report. Entities: { workspaceId?, workspaceName? }
+- send_checkin: Send a check-in for a task. Entities: { taskId?, taskTitle?, assigneeId? }
+
+## Multi-Turn Context
+When conversation history is provided before the current message:
+1. Resolve pronouns ("it", "that", "this") to the most recent entity (task, project, person) from prior messages.
+2. Carry forward entities from prior turns — if the user said "create a task called design review" and now says "actually make it high priority", extract intent=update_task with the previous task's title and priority=high.
+3. If the current message is a follow-up correction or refinement, use the original intent as context but classify the new intent independently.
 
 ## Rules
 1. Match project names fuzzily — "the marketing project" matches "Marketing Campaign".

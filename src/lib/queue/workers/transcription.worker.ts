@@ -60,6 +60,7 @@ const { worker, log } = createTypedWorker<TranscriptionJob>(
 
     await getAIProcessingQueue().add("process-transcript", aiJob, {
       priority: 1,
+      jobId: `ai-process:${transcript.id}`,
     });
 
     log.info(

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/utils/api-client";
 import { IntegrationCard } from "@/components/integrations/integration-card";
 import { Plug, Loader2 } from "lucide-react";
+import { ErrorState } from "@/components/shared/error-state";
 
 const PROVIDERS = [
   {
@@ -32,7 +33,7 @@ const PROVIDERS = [
 export function PageClient() {
   const queryClient = useQueryClient();
 
-  const { data: integrations, isLoading } = useQuery({
+  const { data: integrations, isLoading, isError, refetch } = useQuery({
     queryKey: ["integrations"],
     queryFn: async () => {
       const res = await apiClient("/api/integrations");
@@ -43,6 +44,7 @@ export function PageClient() {
         provider: string;
         providerAccountEmail: string | null;
         isActive: boolean;
+        tokenExpiresAt: string | null;
       }>;
     },
   });
@@ -67,19 +69,38 @@ export function PageClient() {
     );
   }
 
+  if (isError) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-6">
+        <div className="flex items-center gap-3">
+          <Plug className="size-6 text-violet-400" />
+          <div>
+            <h1 className="text-xl font-semibold text-foreground">Integrations</h1>
+          </div>
+        </div>
+        <ErrorState
+          message="Failed to load integrations."
+          onRetry={() => refetch()}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center gap-3">
         <Plug className="size-6 text-violet-400" />
         <div>
           <h1 className="text-xl font-semibold text-foreground">Integrations</h1>
-          <p className="text-sm text-muted-foreground">Connect your tools to let your PA work across platforms</p>
         </div>
       </div>
 
       <div className="grid gap-4">
         {PROVIDERS.map((provider) => {
           const connected = integrations?.find((i) => i.provider === provider.id && i.isActive);
+          const isExpired = connected?.tokenExpiresAt
+            ? new Date(connected.tokenExpiresAt) < new Date()
+            : false;
           return (
             <IntegrationCard
               key={provider.id}
@@ -90,6 +111,7 @@ export function PageClient() {
               authUrl={provider.authUrl}
               connectedEmail={connected?.providerAccountEmail ?? undefined}
               isConnected={!!connected}
+              isTokenExpired={isExpired}
               onDisconnect={connected ? () => disconnect.mutate(connected.id) : undefined}
               isDisconnecting={disconnect.isPending}
             />

@@ -6,8 +6,10 @@ import { getTasks, createTask } from "@/lib/db/queries/tasks";
 import { getProject, isProjectMember, isProjectLead } from "@/lib/db/queries/projects";
 import { logActivity } from "@/lib/db/queries/activity";
 import { notifyOnTaskAssignment } from "@/lib/notifications/task-notifications";
+import { createItem } from "@/lib/db/queries/items";
 import { rateLimit, rateLimitResponse } from "@/lib/utils/rate-limit";
 import { errorResponse } from "@/lib/utils/errors";
+import { getOrgMember } from "@/lib/db/queries/organizations";
 
 export async function GET(req: NextRequest) {
   try {
@@ -75,6 +77,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Validate assigneeId belongs to the org
+    if (parsed.data.assigneeId) {
+      const assigneeMember = await getOrgMember(auth.orgId, parsed.data.assigneeId);
+      if (!assigneeMember) {
+        return Response.json(
+          { error: "Assignee is not a member of this organization" },
+          { status: 400 }
+        );
+      }
+    }
+
     const task = await createTask({
       projectId: parsed.data.projectId,
       orgId: auth.orgId,
@@ -87,6 +100,19 @@ export async function POST(req: NextRequest) {
       dueDate: parsed.data.dueDate,
       estimatedMinutes: parsed.data.estimatedMinutes,
       parentTaskId: parsed.data.parentTaskId,
+    });
+
+    // Create corresponding items row for the item graph
+    await createItem({
+      orgId: auth.orgId,
+      projectId: task.projectId,
+      type: "task",
+      title: task.title,
+      ownerId: task.assigneeId ?? auth.userId,
+      status: task.status,
+      sourceId: task.id,
+    }).catch((err) => {
+      console.error("[items] failed to create item for task", task.id, err);
     });
 
     await logActivity({
@@ -108,6 +134,10 @@ export async function POST(req: NextRequest) {
         taskTitle: task.title,
       });
     }
+
+    // Enqueue embedding for semantic search
+    const { enqueueEmbedding } = await import("@/lib/queue/jobs");
+    enqueueEmbedding("task", task.id, `${task.title} ${task.description ?? ""}`, auth.orgId).catch(() => {});
 
     return Response.json({ data: task }, { status: 201 });
   } catch (error) {

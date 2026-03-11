@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Building2, User, Bot } from "lucide-react";
+import { Building2, User, Bot, Hexagon, CalendarCheck } from "lucide-react";
 
 const SETTINGS_NAV = [
   { label: "Organization", href: "/dashboard/settings", icon: Building2 },
   { label: "Profile", href: "/dashboard/settings/profile", icon: User },
   { label: "PA Assistant", href: "/dashboard/settings/pa", icon: Bot },
+  { label: "Bees", href: "/dashboard/settings/bees", icon: Hexagon },
+  { label: "Check-ins", href: "/dashboard/settings/checkins", icon: CalendarCheck },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {

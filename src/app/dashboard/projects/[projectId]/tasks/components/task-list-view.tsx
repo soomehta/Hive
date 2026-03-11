@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { formatDate } from "@/lib/utils/dates";
 import { getDueDateClassName, isOverdue } from "@/components/shared/due-date-styles";
 import { getUserDisplayName, getUserInitials } from "@/lib/utils/user-display";
-import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS } from "@/lib/utils/constants";
+import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS, PRIORITY_DOT_COLORS } from "@/lib/utils/constants";
 import type { Task } from "@/types";
 
 interface TaskListViewProps {
@@ -127,9 +127,3 @@ export function TaskListView({
   );
 }
 
-const PRIORITY_DOT_COLORS: Record<string, string> = {
-  urgent: "bg-red-500",
-  high: "bg-orange-500",
-  medium: "bg-yellow-500",
-  low: "bg-green-500",
-};

@@ -7,6 +7,7 @@ interface ClassificationContext {
   projects: Array<{ id: string; name: string }>;
   teamMembers: Array<{ id: string; name: string }>;
   recentTasks: Array<{ id: string; title: string; status: string }>;
+  conversationHistory?: Array<{ role: string; content: string }>;
 }
 
 interface ClassificationResult {
@@ -21,9 +22,18 @@ export async function classifyIntent(
 ): Promise<ClassificationResult> {
   const systemPrompt = getIntentClassificationPrompt(context);
 
+  // Include last 4 conversation messages for multi-turn context
+  const historyMessages = (context.conversationHistory ?? [])
+    .slice(-4)
+    .map((m) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    }));
+
   const content = await chatCompletion("classifier", {
     messages: [
       { role: "system", content: systemPrompt },
+      ...historyMessages,
       { role: "user", content: text },
     ],
     jsonMode: true,

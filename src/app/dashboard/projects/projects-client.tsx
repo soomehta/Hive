@@ -11,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Plus, FolderKanban } from "lucide-react";
 import { PROJECT_STATUS_LABELS } from "@/lib/utils/constants";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ErrorState } from "@/components/shared/error-state";
 
 const STATUS_TABS = ["all", "active", "paused", "completed", "archived"] as const;
 
@@ -18,7 +19,7 @@ export function PageClient() {
   const { orgId } = useOrg();
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const { data: projects, isLoading } = useProjectsQuery();
+  const { data: projects, isLoading, isError, refetch } = useProjectsQuery();
 
   const filteredProjects =
     statusFilter === "all"
@@ -44,9 +45,6 @@ export function PageClient() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Projects</h1>
-          <p className="text-muted-foreground text-sm">
-            Manage and organize your team projects
-          </p>
         </div>
         <Button asChild>
           <Link href="/dashboard/projects/new">
@@ -76,6 +74,11 @@ export function PageClient() {
                   <Skeleton key={i} className="h-40 rounded-xl" />
                 ))}
               </div>
+            ) : isError ? (
+              <ErrorState
+                message="Failed to load projects."
+                onRetry={() => refetch()}
+              />
             ) : !filteredProjects || filteredProjects.length === 0 ? (
               <div className="rounded-lg border border-dashed">
                 <EmptyState

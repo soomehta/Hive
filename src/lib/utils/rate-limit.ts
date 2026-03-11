@@ -59,6 +59,8 @@ export interface RateLimitResult {
   resetAt: number;
 }
 
+let _rateLimitBypassWarned = false;
+
 export async function rateLimit(
   key: string,
   limit: number,
@@ -66,8 +68,16 @@ export async function rateLimit(
 ): Promise<RateLimitResult> {
   const limiter = getLimiter(limit, windowMs);
 
-  // When Redis is not configured, allow all requests
+  // When Redis is not configured, block in production, warn in dev
   if (!limiter) {
+    if (process.env.NODE_ENV === "production") {
+      console.error("[rate-limit] Redis not configured in production — denying request for safety");
+      return { success: false, remaining: 0, resetAt: Date.now() + windowMs };
+    }
+    if (!_rateLimitBypassWarned) {
+      console.warn("[rate-limit] Redis not configured — rate limiting bypassed (dev only)");
+      _rateLimitBypassWarned = true;
+    }
     return { success: true, remaining: limit, resetAt: Date.now() + windowMs };
   }
 

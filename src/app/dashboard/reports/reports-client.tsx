@@ -30,6 +30,35 @@ const SUGGESTED_QUESTIONS = [
   "How has velocity changed?",
 ];
 
+const FOLLOW_UP_MAP: Record<string, string[]> = {
+  blocker: ["Who owns each blocker?", "How long have blockers been open?", "Show me resolved blockers this week"],
+  overdue: ["Which project has the most overdue tasks?", "Who has the most overdue items?", "Show me tasks due this week"],
+  velocity: ["Compare velocity by project", "Show me throughput trend", "What's the average cycle time?"],
+  risk: ["Show me tasks at risk of missing deadline", "Which projects are behind schedule?", "What's our burndown look like?"],
+  team: ["Show me workload by team member", "Who completed the most tasks this week?", "Are any team members idle?"],
+  completion: ["Break down completion by project", "Show me completion trend over time", "What's the average task age?"],
+  summary: ["Drill into the biggest project", "What changed since last week?", "Show me key wins this week"],
+};
+
+function getContextualFollowUps(lastResponse: string): string[] {
+  const lower = lastResponse.toLowerCase();
+  const matched: string[] = [];
+
+  for (const [keyword, questions] of Object.entries(FOLLOW_UP_MAP)) {
+    if (lower.includes(keyword)) {
+      matched.push(...questions);
+    }
+  }
+
+  // Deduplicate and limit to 4
+  const unique = [...new Set(matched)];
+  if (unique.length >= 4) return unique.slice(0, 4);
+
+  // Fill remaining slots with suggestions not yet asked
+  const remaining = SUGGESTED_QUESTIONS.filter((q) => !unique.includes(q));
+  return [...unique, ...remaining].slice(0, 4);
+}
+
 // ─── Page ───────────────────────────────────────────────
 
 export function PageClient() {
@@ -118,10 +147,6 @@ export function PageClient() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Reports</h1>
-            <p className="text-muted-foreground">
-              Ask questions about your team&apos;s progress and get AI-powered
-              insights
-            </p>
           </div>
           {lastAssistantMessage && (
             <ReportExport narrative={lastAssistantMessage.content} />
@@ -143,24 +168,31 @@ export function PageClient() {
               isLoading={reportMutation.isPending}
             />
             {/* Suggested follow-ups after messages */}
-            {!reportMutation.isPending && messages.length > 0 && (
-              <div className="px-4 pb-4">
-                <p className="mb-2 text-xs text-muted-foreground">
-                  Ask a follow-up:
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {SUGGESTED_QUESTIONS.slice(0, 4).map((q) => (
-                    <button
-                      key={q}
-                      onClick={() => handleSuggestionClick(q)}
-                      className="rounded-full border bg-background px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                    >
-                      {q}
-                    </button>
-                  ))}
+            {!reportMutation.isPending && messages.length > 0 && (() => {
+              const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+              const followUps = lastAssistant
+                ? getContextualFollowUps(lastAssistant.content)
+                : SUGGESTED_QUESTIONS.slice(0, 4);
+
+              return (
+                <div className="px-4 pb-4">
+                  <p className="mb-2 text-xs text-muted-foreground">
+                    Ask a follow-up:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {followUps.map((q) => (
+                      <button
+                        key={q}
+                        onClick={() => handleSuggestionClick(q)}
+                        className="rounded-full border bg-background px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </>
         )}
       </div>

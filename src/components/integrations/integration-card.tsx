@@ -14,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Check, ExternalLink, Loader2, X } from "lucide-react";
+import { AlertTriangle, Check, ExternalLink, Loader2, X } from "lucide-react";
 import { OAuthButton } from "./oauth-button";
 
 interface IntegrationCardProps {
@@ -25,6 +25,7 @@ interface IntegrationCardProps {
   authUrl: string;
   connectedEmail?: string;
   isConnected: boolean;
+  isTokenExpired?: boolean;
   onDisconnect?: () => void;
   isDisconnecting?: boolean;
 }
@@ -43,6 +44,7 @@ export function IntegrationCard({
   authUrl,
   connectedEmail,
   isConnected,
+  isTokenExpired,
   onDisconnect,
   isDisconnecting,
 }: IntegrationCardProps) {
@@ -55,7 +57,12 @@ export function IntegrationCard({
           <div className="flex-1 space-y-2">
             <div className="flex items-center gap-2">
               <h3 className="font-semibold text-foreground">{name}</h3>
-              {isConnected ? (
+              {isConnected && isTokenExpired ? (
+                <Badge variant="outline" className="gap-1 border-amber-500/30 text-amber-400 text-xs">
+                  <AlertTriangle className="size-3" aria-hidden="true" />
+                  Needs re-auth
+                </Badge>
+              ) : isConnected ? (
                 <Badge variant="outline" className="gap-1 border-green-500/30 text-green-400 text-xs">
                   <Check className="size-3" aria-hidden="true" />
                   Connected
@@ -79,8 +86,22 @@ export function IntegrationCard({
             </div>
           </div>
 
-          <div className="shrink-0">
-            {isConnected ? (
+          <div className="shrink-0 flex flex-col gap-2">
+            {isConnected && isTokenExpired ? (
+              <>
+                <OAuthButton authUrl={authUrl} provider={name} label="Reconnect" />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setConfirmOpen(true)}
+                  disabled={isDisconnecting}
+                  className="gap-1 border-border text-muted-foreground hover:border-red-500 hover:text-red-400"
+                >
+                  {isDisconnecting ? <Loader2 className="size-3 animate-spin" aria-hidden="true" /> : <X className="size-3" aria-hidden="true" />}
+                  Disconnect
+                </Button>
+              </>
+            ) : isConnected ? (
               <Button
                 variant="outline"
                 size="sm"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/utils/api-client";
 import {
@@ -10,6 +11,9 @@ import {
   Send,
   Plus,
   Trash2,
+  Loader2,
+  FileText,
+  Link2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,9 +86,11 @@ export function TaskDetailSheet({
   isDeleting,
   onNavigateToSubtask,
 }: TaskDetailSheetProps) {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [commentText, setCommentText] = useState("");
   const [subtaskTitle, setSubtaskTitle] = useState("");
+  const [activeTab, setActiveTab] = useState("comments");
 
   // Comments
   const { data: comments } = useQuery({
@@ -108,6 +114,32 @@ export function TaskDetailSheet({
       return json.data as ActivityLogEntry[];
     },
     enabled: !!task && open,
+  });
+
+  // Backlinks (best-effort: find task's item, then get backlinks)
+  const { data: taskBacklinks = [] } = useQuery({
+    queryKey: ["task-backlinks", task?.id],
+    queryFn: async () => {
+      // Find item matching this task's title + type
+      const itemsRes = await apiClient(`/api/items?type=task`);
+      if (!itemsRes.ok) return [];
+      const itemsJson = await itemsRes.json();
+      const items = itemsJson.data as Array<{ id: string; title: string; type: string }>;
+      const taskItem = items.find((i) => i.title === task!.title);
+      if (!taskItem) return [];
+
+      const blRes = await apiClient(`/api/items/${taskItem.id}/backlinks`);
+      if (!blRes.ok) return [];
+      const blJson = await blRes.json();
+      return blJson.data as Array<{
+        id: string;
+        fromItemId: string;
+        fromItemTitle?: string;
+        fromItemType?: string;
+        relationType: string;
+      }>;
+    },
+    enabled: !!task && open && activeTab === "backlinks",
   });
 
   // Subtasks
@@ -167,6 +199,29 @@ export function TaskDetailSheet({
     },
   });
 
+  const openAsPageMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiClient("/api/pages/from-task", {
+        method: "POST",
+        body: JSON.stringify({ taskId: task!.id }),
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || "Failed to create page");
+      }
+      const json = await res.json();
+      return json.data as { itemId: string };
+    },
+    onSuccess: (data) => {
+      onOpenChange(false);
+      router.push(`/dashboard/pages/${data.itemId}`);
+      toast.success("Opened as page");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to open as page");
+    },
+  });
+
   if (!task) return null;
 
   return (
@@ -177,6 +232,17 @@ export function TaskDetailSheet({
           <SheetDescription>Task details</SheetDescription>
         </SheetHeader>
         <div className="space-y-4 px-4 pb-4">
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => openAsPageMutation.mutate()}
+              disabled={openAsPageMutation.isPending}
+            >
+              <FileText className="h-3.5 w-3.5 mr-1.5" />
+              {openAsPageMutation.isPending ? "Opening…" : "Open as Page"}
+            </Button>
+          </div>
           <Separator />
 
           {/* Status selector */}
@@ -298,7 +364,7 @@ export function TaskDetailSheet({
           <Separator />
 
           {/* Comments & Activity Tabs */}
-          <Tabs defaultValue="comments">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="w-full">
               <TabsTrigger value="comments" className="flex-1 gap-1.5">
                 <MessageSquare className="h-3.5 w-3.5" />
@@ -307,6 +373,10 @@ export function TaskDetailSheet({
               <TabsTrigger value="activity" className="flex-1 gap-1.5">
                 <Activity className="h-3.5 w-3.5" />
                 Activity
+              </TabsTrigger>
+              <TabsTrigger value="backlinks" className="flex-1 gap-1.5">
+                <Link2 className="h-3.5 w-3.5" />
+                Links
               </TabsTrigger>
             </TabsList>
 
@@ -339,7 +409,7 @@ export function TaskDetailSheet({
                   onClick={() => commentText.trim() && addCommentMutation.mutate(commentText.trim())}
                   disabled={!commentText.trim() || addCommentMutation.isPending}
                 >
-                  <Send className="h-3.5 w-3.5" />
+                  {addCommentMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                 </Button>
               </div>
             </TabsContent>
@@ -366,6 +436,24 @@ export function TaskDetailSheet({
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground py-2">No activity yet.</p>
+              )}
+            </TabsContent>
+
+            <TabsContent value="backlinks" className="mt-3">
+              {taskBacklinks.length > 0 ? (
+                <div className="space-y-2">
+                  {taskBacklinks.map((bl) => (
+                    <div key={bl.id} className="flex items-center gap-2 py-1.5 text-sm">
+                      <Link2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span>{bl.fromItemTitle || bl.fromItemId}</span>
+                      <span className="text-xs text-muted-foreground capitalize">
+                        ({bl.relationType?.replace(/_/g, " ")})
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground py-2">No linked items yet.</p>
               )}
             </TabsContent>
           </Tabs>
@@ -423,7 +511,7 @@ export function TaskDetailSheet({
                 onClick={() => subtaskTitle.trim() && addSubtaskMutation.mutate(subtaskTitle.trim())}
                 disabled={!subtaskTitle.trim() || addSubtaskMutation.isPending}
               >
-                <Plus className="h-3.5 w-3.5" />
+                {addSubtaskMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
               </Button>
             </div>
           </div>

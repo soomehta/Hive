@@ -5,7 +5,7 @@ import { rateLimit, rateLimitResponse } from "@/lib/utils/rate-limit";
 import { classifyIntent } from "@/lib/ai/intent-classifier";
 import { planAction } from "@/lib/ai/action-planner";
 import { executeAction } from "@/lib/actions/executor";
-import { resolveActionTier, ACTION_REGISTRY } from "@/lib/actions/registry";
+import { resolveActionTier, ACTION_REGISTRY, normalizeIntent } from "@/lib/actions/registry";
 import { getOrCreatePaProfile, incrementInteractions } from "@/lib/db/queries/pa-profiles";
 import {
   createPaAction,
@@ -16,6 +16,8 @@ import {
   getChatSession,
 } from "@/lib/db/queries/pa-actions";
 import { getTasks } from "@/lib/db/queries/tasks";
+import { getChannels } from "@/lib/db/queries/chat";
+import { items as itemsTable } from "@/lib/db/schema";
 import { dispatch } from "@/lib/bees/dispatcher";
 import { createSwarmSession } from "@/lib/db/queries/swarm-sessions";
 import { getSwarmExecutionQueue } from "@/lib/queue";
@@ -27,6 +29,7 @@ import { createLogger } from "@/lib/logger";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getContextForPrompt } from "@/lib/ai/rag";
 import { errorResponse } from "@/lib/utils/errors";
+import { getCachedUserNames, setCachedUserNames } from "@/lib/cache/user-names";
 
 const log = createLogger("pa-chat");
 
@@ -75,23 +78,28 @@ export async function POST(req: NextRequest) {
       getRecentConversations(auth.userId, auth.orgId, 10),
     ]);
 
-    // Resolve display names for the current user and all org members
+    // Resolve display names for the current user and all org members (cached)
     const memberUserIds = members.map((m) => m.userId);
-    const userMetaResults = await Promise.all(
-      memberUserIds.map((uid) =>
-        supabaseAdmin.auth.admin.getUserById(uid).then((r) => r.data?.user ?? null)
-      )
-    );
+    let userNameMap = getCachedUserNames(auth.orgId);
 
-    const userNameMap = new Map<string, string>();
-    for (const u of userMetaResults) {
-      if (!u) continue;
-      const name =
-        u.user_metadata?.full_name ||
-        u.user_metadata?.display_name ||
-        u.email?.split("@")[0] ||
-        u.id.slice(0, 8);
-      userNameMap.set(u.id, name);
+    if (!userNameMap) {
+      const userMetaResults = await Promise.all(
+        memberUserIds.map((uid) =>
+          supabaseAdmin.auth.admin.getUserById(uid).then((r) => r.data?.user ?? null)
+        )
+      );
+
+      userNameMap = new Map<string, string>();
+      for (const u of userMetaResults) {
+        if (!u) continue;
+        const name =
+          u.user_metadata?.full_name ||
+          u.user_metadata?.display_name ||
+          u.email?.split("@")[0] ||
+          u.id.slice(0, 8);
+        userNameMap.set(u.id, name);
+      }
+      setCachedUserNames(auth.orgId, userNameMap);
     }
 
     const currentUserName = userNameMap.get(auth.userId) ?? auth.userId.slice(0, 8);
@@ -106,6 +114,11 @@ export async function POST(req: NextRequest) {
       metadata: voiceTranscriptId ? { voiceTranscriptId } : undefined,
     });
 
+    // Build conversation history for multi-turn context
+    const conversationHistory = recentMessages
+      .filter((m): m is typeof m & { role: string; content: string } => !!m.role && !!m.content)
+      .map((m) => ({ role: m.role, content: m.content }));
+
     // Classify intent
     const classification = await classifyIntent(message, {
       userName: currentUserName,
@@ -116,6 +129,7 @@ export async function POST(req: NextRequest) {
         title: t.title,
         status: t.status,
       })),
+      conversationHistory,
     });
 
     // ─── Bee Dispatcher: assess complexity and choose path ───
@@ -126,7 +140,7 @@ export async function POST(req: NextRequest) {
       orgId: auth.orgId,
     });
 
-    let responseMessage: string;
+    let responseMessage = "";
     let action = null;
     let swarmSessionId: string | null = null;
 
@@ -174,7 +188,9 @@ export async function POST(req: NextRequest) {
         formality: paProfile.formality,
       };
 
-      await getSwarmExecutionQueue().add("execute-swarm", swarmJob);
+      await getSwarmExecutionQueue().add("execute-swarm", swarmJob, {
+        jobId: `swarm-exec:${swarmSessionId}`,
+      });
 
       return Response.json({
         message: responseMessage,
@@ -187,11 +203,35 @@ export async function POST(req: NextRequest) {
       });
     } else {
       // ─── Direct path: existing PA pipeline ───
-      const registry = ACTION_REGISTRY[classification.intent];
+      // Normalize intent (handles hyphens, casing, typos)
+      const normalizedIntent = normalizeIntent(classification.intent);
+      const registry = normalizedIntent ? ACTION_REGISTRY[normalizedIntent] : undefined;
+
+      let skipPlanning = false;
 
       if (!registry) {
         responseMessage = "I'm not sure how to help with that. Could you rephrase your request?";
-      } else {
+        skipPlanning = true;
+      } else if (classification.confidence < 0.4) {
+        // Low confidence — ask for clarification instead of executing
+        responseMessage = "I'm not quite sure what you'd like me to do. Could you rephrase or provide more detail?";
+        log.info({ confidence: classification.confidence, intent: classification.intent }, "Low confidence, requesting clarification");
+        skipPlanning = true;
+      } else if (registry.requiresIntegration) {
+        // Check if user has the required integration connected
+        const { getUserIntegrations } = await import("@/lib/db/queries/integrations");
+        const userIntegrations = await getUserIntegrations(auth.userId, auth.orgId);
+        const requiredProvider = registry.requiresIntegration;
+        const hasIntegration = userIntegrations.some(
+          (i) => (i.provider === requiredProvider || i.provider === "microsoft") && i.isActive
+        );
+        if (!hasIntegration) {
+          responseMessage = `This action requires a ${requiredProvider === "google" ? "Google or Microsoft" : requiredProvider} integration. Connect it in Settings > Integrations to use this feature.`;
+          skipPlanning = true;
+        }
+      }
+
+      if (!skipPlanning && registry) {
         try {
           // Fetch relevant context from embeddings for richer action planning
           let ragContext: string | undefined;
@@ -203,15 +243,37 @@ export async function POST(req: NextRequest) {
             log.warn("RAG context retrieval failed, proceeding without context");
           }
 
-          const plan = await planAction(classification.intent, classification.entities, {
+          // Fetch channels and pages context for Phase 6 intents
+          let channelsCtx: Array<{ id: string; name: string; scope: string }> = [];
+          let pagesCtx: Array<{ itemId: string; title: string }> = [];
+          try {
+            const [channels, pageItems] = await Promise.all([
+              getChannels(auth.orgId),
+              db
+                .select({ itemId: itemsTable.id, title: itemsTable.title })
+                .from(itemsTable)
+                .where(eq(itemsTable.orgId, auth.orgId))
+                .limit(30),
+            ]);
+            channelsCtx = channels.map((c) => ({ id: c.id, name: c.name, scope: c.scope }));
+            pagesCtx = pageItems;
+          } catch {
+            log.warn("Failed to fetch channels/pages context for planner");
+          }
+
+          const plan = await planAction(normalizedIntent!, classification.entities, {
             userName: currentUserName,
             autonomyMode: paProfile.autonomyMode,
             verbosity: paProfile.verbosity,
             formality: paProfile.formality,
+            personalityTraits: paProfile.personalityTraits ?? undefined,
             ragContext,
+            conversationHistory,
+            channels: channelsCtx,
+            pages: pagesCtx,
           });
 
-          const tier = resolveActionTier(classification.intent, paProfile, {
+          const tier = resolveActionTier(normalizedIntent!, paProfile, {
             assigneeId: classification.entities.assigneeId,
             userId: auth.userId,
           });
@@ -220,7 +282,7 @@ export async function POST(req: NextRequest) {
             const paAction = await createPaAction({
               userId: auth.userId,
               orgId: auth.orgId,
-              actionType: classification.intent,
+              actionType: normalizedIntent!,
               tier,
               plannedPayload: plan.payload,
             });
@@ -242,7 +304,7 @@ export async function POST(req: NextRequest) {
             const paAction = await createPaAction({
               userId: auth.userId,
               orgId: auth.orgId,
-              actionType: classification.intent,
+              actionType: normalizedIntent!,
               tier,
               plannedPayload: plan.payload,
             });
@@ -255,7 +317,7 @@ export async function POST(req: NextRequest) {
             responseMessage = plan.confirmationMessage;
           }
         } catch (pipelineErr) {
-          log.error({ err: pipelineErr, intent: classification.intent }, "PA pipeline failed");
+          log.error({ err: pipelineErr, intent: normalizedIntent }, "PA pipeline failed");
           const errMsg = pipelineErr instanceof Error ? pipelineErr.message : "Unknown error";
 
           // Return a user-friendly error as a chat message instead of a 500
@@ -283,17 +345,70 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Update interaction stats
     await incrementInteractions(auth.userId, auth.orgId, classification.intent);
 
-    return Response.json({
-      message: responseMessage,
-      action,
-      sessionId,
-      swarmSessionId,
-      intent: classification.intent,
-      entities: classification.entities,
-      dispatchMode: dispatchResult.mode,
+    // Check if client wants streaming
+    const acceptsStream = req.headers.get("accept")?.includes("text/event-stream");
+
+    if (!acceptsStream) {
+      // Non-streaming response (backward compatible)
+      return Response.json({
+        message: responseMessage,
+        action,
+        sessionId,
+        swarmSessionId,
+        intent: classification.intent,
+        entities: classification.entities,
+        dispatchMode: dispatchResult.mode,
+      });
+    }
+
+    // Streaming response
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        // Stream text in chunks to simulate progressive rendering
+        const words = responseMessage.split(" ");
+        let accumulated = "";
+        const chunkSize = 3; // Send 3 words at a time
+
+        for (let i = 0; i < words.length; i += chunkSize) {
+          const chunk = words.slice(i, i + chunkSize).join(" ");
+          accumulated += (accumulated ? " " : "") + chunk;
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ type: "text", content: accumulated })}\n\n`)
+          );
+        }
+
+        // Stream action if present
+        if (action) {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ type: "action", action })}\n\n`)
+          );
+        }
+
+        // Stream metadata
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({
+            type: "done",
+            sessionId,
+            swarmSessionId,
+            intent: classification.intent,
+            entities: classification.entities,
+            dispatchMode: dispatchResult.mode,
+          })}\n\n`)
+        );
+
+        controller.close();
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
     });
   } catch (error) {
     return errorResponse(error);

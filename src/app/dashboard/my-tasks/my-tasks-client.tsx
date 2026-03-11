@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/utils/api-client";
 import { createClient } from "@/lib/supabase/client";
@@ -55,8 +56,11 @@ import {
   CalendarDays,
   ClipboardList,
   Trash2,
+  FileText,
 } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ErrorState } from "@/components/shared/error-state";
+import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { toast } from "sonner";
 
 // ─── Types ──────────────────────────────────────────────
@@ -267,6 +271,30 @@ function TaskDetailSheet({
   isUpdating: boolean;
   isDeleting: boolean;
 }) {
+  const router = useRouter();
+  const openAsPageMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiClient("/api/pages/from-task", {
+        method: "POST",
+        body: JSON.stringify({ taskId: task!.id }),
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || "Failed to create page");
+      }
+      const json = await res.json();
+      return json.data as { itemId: string };
+    },
+    onSuccess: (data) => {
+      onOpenChange(false);
+      router.push(`/dashboard/pages/${data.itemId}`);
+      toast.success("Opened as page");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to open as page");
+    },
+  });
+
   if (!task) return null;
 
   return (
@@ -277,6 +305,17 @@ function TaskDetailSheet({
           <SheetDescription>Task details</SheetDescription>
         </SheetHeader>
         <div className="space-y-4 px-4">
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => openAsPageMutation.mutate()}
+              disabled={openAsPageMutation.isPending}
+            >
+              <FileText className="h-3.5 w-3.5 mr-1.5" />
+              {openAsPageMutation.isPending ? "Opening…" : "Open as Page"}
+            </Button>
+          </div>
           <Separator />
 
           {/* Status selector */}
@@ -515,6 +554,7 @@ export function PageClient() {
     data: tasksData,
     isLoading,
     error,
+    refetch,
   } = useQuery({
     queryKey: ["my-tasks", orgId, userId],
     queryFn: async () => {
@@ -548,8 +588,18 @@ export function PageClient() {
       }
       return res.json();
     },
+    onMutate: async (variables) => {
+      await queryClient.cancelQueries({ queryKey: ["my-tasks", orgId, userId] });
+      const previous = queryClient.getQueryData<Task[]>(["my-tasks", orgId, userId]);
+      queryClient.setQueryData<Task[]>(["my-tasks", orgId, userId], (old) =>
+        old?.map((t) => (t.id === variables.taskId ? { ...t, ...variables.data } : t))
+      );
+      setSelectedTask((prev) =>
+        prev && prev.id === variables.taskId ? { ...prev, ...variables.data } : prev
+      );
+      return { previous };
+    },
     onSuccess: (_, variables) => {
-      // Show specific message when marking complete
       if (variables.data.status === "done") {
         toast.success("Task marked complete");
       } else {
@@ -557,15 +607,12 @@ export function PageClient() {
       }
       queryClient.invalidateQueries({ queryKey: ["my-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      // Sync selected task state with updated fields
-      setSelectedTask((prev) =>
-        prev && prev.id === variables.taskId
-          ? { ...prev, ...variables.data }
-          : prev
-      );
     },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to update task");
+    onError: (error: Error, _variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["my-tasks", orgId, userId], context.previous);
+      }
+      toast.error("Something went wrong. Please try again.");
     },
   });
 
@@ -602,9 +649,7 @@ export function PageClient() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">My Tasks</h1>
-          <p className="text-muted-foreground">
-            Tasks assigned to you across all projects
-          </p>
+
         </div>
         <MyTasksSkeleton />
       </div>
@@ -616,15 +661,12 @@ export function PageClient() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">My Tasks</h1>
-          <p className="text-muted-foreground">
-            Tasks assigned to you across all projects
-          </p>
+
         </div>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center">
-          <p className="text-sm text-destructive">
-            Failed to load tasks. Please try again later.
-          </p>
-        </div>
+        <ErrorState
+          message="Failed to load tasks. Please try again later."
+          onRetry={() => refetch()}
+        />
       </div>
     );
   }
@@ -635,11 +677,15 @@ export function PageClient() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: "Dashboard", href: "/dashboard" },
+          { label: "My Tasks" },
+        ]}
+      />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">My Tasks</h1>
-        <p className="text-muted-foreground">
-          Tasks assigned to you across all projects
-        </p>
+
       </div>
 
       {!hasAnyTasks ? (

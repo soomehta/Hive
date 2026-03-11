@@ -33,6 +33,7 @@ import { getUserDisplayName, getUserInitials } from "@/lib/utils/user-display";
 import {
   TASK_STATUS_LABELS,
   TASK_PRIORITY_LABELS,
+  PRIORITY_DOT_COLORS,
 } from "@/lib/utils/constants";
 import type { Task } from "@/types";
 
@@ -42,13 +43,6 @@ const STATUS_COLUMN_COLORS: Record<string, string> = {
   in_review: "border-t-purple-500",
   done: "border-t-green-500",
   cancelled: "border-t-red-400",
-};
-
-const PRIORITY_DOT_COLORS: Record<string, string> = {
-  urgent: "bg-red-500",
-  high: "bg-orange-500",
-  medium: "bg-yellow-500",
-  low: "bg-green-500",
 };
 
 export const KANBAN_STATUSES = ["todo", "in_progress", "in_review", "done"] as const;

@@ -4,34 +4,123 @@ import { create } from "zustand";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/utils/api-client";
 
-interface PAStore {
-  isOpen: boolean;
-  toggle: () => void;
-  open: () => void;
-  close: () => void;
+interface ChatOverlayStore {
+  overlayOpen: boolean;
+  activeSessionId: string | null;
+  pendingMessage: string | null;
+  pendingVoiceBlob: Blob | null;
+  streamingText: string | null;
+  isStreaming: boolean;
+  openOverlay: () => void;
+  openOverlayWithMessage: (message: string) => void;
+  openOverlayWithVoice: (blob: Blob) => void;
+  closeOverlay: () => void;
+  setActiveSessionId: (id: string | null) => void;
+  consumePendingMessage: () => string | null;
+  consumePendingVoiceBlob: () => Blob | null;
+  setStreamingText: (text: string | null) => void;
+  setIsStreaming: (streaming: boolean) => void;
 }
 
-export const usePAStore = create<PAStore>((set) => ({
-  isOpen: false,
-  toggle: () => set((s) => ({ isOpen: !s.isOpen })),
-  open: () => set({ isOpen: true }),
-  close: () => set({ isOpen: false }),
+export const useChatOverlayStore = create<ChatOverlayStore>((set, get) => ({
+  overlayOpen: false,
+  activeSessionId: null,
+  pendingMessage: null,
+  pendingVoiceBlob: null,
+  streamingText: null,
+  isStreaming: false,
+  openOverlay: () => set({ overlayOpen: true }),
+  openOverlayWithMessage: (message) => set({ overlayOpen: true, pendingMessage: message }),
+  openOverlayWithVoice: (blob) => set({ overlayOpen: true, pendingVoiceBlob: blob }),
+  closeOverlay: () => set({ overlayOpen: false, pendingMessage: null, pendingVoiceBlob: null }),
+  setActiveSessionId: (id) => set({ activeSessionId: id }),
+  consumePendingMessage: () => {
+    const msg = get().pendingMessage;
+    if (msg) set({ pendingMessage: null });
+    return msg;
+  },
+  consumePendingVoiceBlob: () => {
+    const blob = get().pendingVoiceBlob;
+    if (blob) set({ pendingVoiceBlob: null });
+    return blob;
+  },
+  setStreamingText: (text) => set({ streamingText: text }),
+  setIsStreaming: (streaming) => set({ isStreaming: streaming }),
 }));
+
 
 export function usePAChat() {
   const queryClient = useQueryClient();
 
   const sendMessage = useMutation({
     mutationFn: async ({ message, sessionId }: { message: string; sessionId?: string }) => {
-      const res = await apiClient("/api/pa/chat", {
-        method: "POST",
-        body: JSON.stringify({ message, sessionId }),
-      });
-      if (!res.ok) {
-        const json = await res.json().catch(() => null);
-        throw new Error(json?.error || "Failed to send message");
+      const { setStreamingText, setIsStreaming } = useChatOverlayStore.getState();
+
+      try {
+        setIsStreaming(true);
+        setStreamingText("");
+
+        const res = await apiClient("/api/pa/chat", {
+          method: "POST",
+          body: JSON.stringify({ message, sessionId }),
+          headers: {
+            Accept: "text/event-stream",
+          },
+        });
+
+        if (!res.ok) {
+          const json = await res.json().catch(() => null);
+          throw new Error(json?.error || "Failed to send message");
+        }
+
+        const contentType = res.headers.get("content-type") ?? "";
+
+        if (contentType.includes("text/event-stream")) {
+          // Streaming response
+          const reader = res.body?.getReader();
+          if (!reader) throw new Error("No stream reader");
+
+          const decoder = new TextDecoder();
+          let result: any = {};
+          let buffer = "";
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n\n");
+            buffer = lines.pop() ?? "";
+
+            for (const line of lines) {
+              if (!line.startsWith("data: ")) continue;
+              try {
+                const data = JSON.parse(line.slice(6));
+                if (data.type === "text") {
+                  setStreamingText(data.content);
+                } else if (data.type === "action") {
+                  result.action = data.action;
+                } else if (data.type === "done") {
+                  result = { ...result, ...data };
+                }
+              } catch {
+                // Skip malformed chunks
+              }
+            }
+          }
+
+          return {
+            message: useChatOverlayStore.getState().streamingText,
+            ...result,
+          };
+        } else {
+          // Fallback: non-streaming JSON response
+          return res.json();
+        }
+      } finally {
+        setIsStreaming(false);
+        setStreamingText(null);
       }
-      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pa-actions"] });

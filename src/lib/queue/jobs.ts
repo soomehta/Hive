@@ -118,3 +118,52 @@ export interface SwarmExecutionJob {
   /** PA profile formality setting, forwarded to the synthesis prompt */
   formality: string;
 }
+
+// ─── Phase 7: Agent Jobs ────────────────────────────────
+
+export interface AgentMentionJob {
+  orgId: string;
+  channelId: string;
+  messageId: string;
+  messageContent: string;
+  authorId: string;
+  beeInstanceId: string;
+}
+
+export interface AgentScheduleJob {
+  scheduleId: string;
+  orgId: string;
+  workspaceId: string;
+  beeInstanceId: string;
+  scheduleType: "daily_standup" | "weekly_report" | "checkin_sweep";
+}
+
+export interface AgentCheckinJob {
+  checkinId: string;
+  orgId: string;
+  workspaceId: string;
+  taskId: string;
+  assigneeUserId: string;
+  beeInstanceId: string;
+  channelId: string;
+}
+
+// ─── Embedding Helper ────────────────────────────────────
+
+/**
+ * Enqueue an embedding job. Best-effort — errors are logged but not thrown.
+ */
+export async function enqueueEmbedding(
+  sourceType: string,
+  sourceId: string,
+  content: string,
+  orgId: string
+): Promise<void> {
+  const { getEmbeddingQueue } = await import("@/lib/queue");
+  const queue = getEmbeddingQueue();
+  await queue.add(
+    "embed",
+    { orgId, sourceType, sourceId, content } satisfies EmbeddingJob,
+    { jobId: `embed:${sourceType}:${sourceId}` }
+  );
+}

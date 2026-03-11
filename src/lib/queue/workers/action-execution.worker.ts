@@ -79,7 +79,9 @@ const { worker, log } = createTypedWorker<ActionExecutionJob>(
         metadata: { actionId, actionType: action.actionType },
       };
 
-      await getNotificationQueue().add("action-executed", notificationJob);
+      await getNotificationQueue().add("action-executed", notificationJob, {
+        jobId: `notif:action-exec:${actionId}`,
+      });
 
       // 7. Enqueue learning job for profile updates
       const learningJob: LearningJob = {
@@ -91,7 +93,9 @@ const { worker, log } = createTypedWorker<ActionExecutionJob>(
         wasEdited: !!action.userEditedPayload,
       };
 
-      await getLearningQueue().add("learn-from-action", learningJob);
+      await getLearningQueue().add("learn-from-action", learningJob, {
+        jobId: `learn:${actionId}`,
+      });
 
       log.info({ actionId }, "Action executed successfully");
 

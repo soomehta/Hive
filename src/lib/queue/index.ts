@@ -73,6 +73,9 @@ export const QUEUE_NAMES = {
   LEARNING: "profile-learning",
   SWARM_EXECUTION: "swarm-execution",
   CALENDAR_SYNC: "calendar-sync",
+  AGENT_MENTION: "agent-mention",
+  AGENT_SCHEDULE: "agent-schedule",
+  AGENT_CHECKIN: "agent-checkin",
 } as const;
 
 // ─── Pre-defined Queues (lazy getters) ──────────────────
@@ -87,6 +90,9 @@ let _digestQueue: Queue | null = null;
 let _learningQueue: Queue | null = null;
 let _swarmExecutionQueue: Queue | null = null;
 let _calendarSyncQueue: Queue | null = null;
+let _agentMentionQueue: Queue | null = null;
+let _agentScheduleQueue: Queue | null = null;
+let _agentCheckinQueue: Queue | null = null;
 
 export function getTranscriptionQueue(): Queue {
   if (!_transcriptionQueue) {
@@ -158,6 +164,27 @@ export function getCalendarSyncQueue(): Queue {
   return _calendarSyncQueue;
 }
 
+export function getAgentMentionQueue(): Queue {
+  if (!_agentMentionQueue) {
+    _agentMentionQueue = createQueue(QUEUE_NAMES.AGENT_MENTION);
+  }
+  return _agentMentionQueue;
+}
+
+export function getAgentScheduleQueue(): Queue {
+  if (!_agentScheduleQueue) {
+    _agentScheduleQueue = createQueue(QUEUE_NAMES.AGENT_SCHEDULE);
+  }
+  return _agentScheduleQueue;
+}
+
+export function getAgentCheckinQueue(): Queue {
+  if (!_agentCheckinQueue) {
+    _agentCheckinQueue = createQueue(QUEUE_NAMES.AGENT_CHECKIN);
+  }
+  return _agentCheckinQueue;
+}
+
 // ─── Graceful Shutdown Helper ───────────────────────────
 
 export async function closeAllQueues(): Promise<void> {
@@ -172,6 +199,9 @@ export async function closeAllQueues(): Promise<void> {
     _learningQueue,
     _swarmExecutionQueue,
     _calendarSyncQueue,
+    _agentMentionQueue,
+    _agentScheduleQueue,
+    _agentCheckinQueue,
   ].filter(Boolean) as Queue[];
 
   await Promise.all(queues.map((q) => q.close()));

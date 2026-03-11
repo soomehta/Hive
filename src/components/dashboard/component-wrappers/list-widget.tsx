@@ -7,19 +7,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   TASK_STATUS_LABELS,
   TASK_PRIORITY_LABELS,
+  PRIORITY_DOT_COLORS,
 } from "@/lib/utils/constants";
 import { getUserInitials, getUserDisplayName } from "@/lib/utils/user-display";
 import { formatDate } from "@/lib/utils/dates";
 import type { WidgetProps } from "@/types/bees";
 import type { Task } from "@/types";
 import { List, CalendarDays } from "lucide-react";
-
-const PRIORITY_DOT: Record<string, string> = {
-  urgent: "bg-red-500",
-  high: "bg-orange-500",
-  medium: "bg-yellow-500",
-  low: "bg-green-500",
-};
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
   todo: "outline",
@@ -97,9 +91,9 @@ export function ListWidget({ orgId, projectId, isEditing }: WidgetProps) {
             className="grid grid-cols-[1rem_1fr_4rem] sm:grid-cols-[1rem_1fr_5rem_5rem_5.5rem_2rem] items-center gap-2 px-3 py-2 hover:bg-accent/40 transition-colors"
           >
             <span
-              className={`h-2.5 w-2.5 rounded-full ${PRIORITY_DOT[task.priority] ?? "bg-gray-400"}`}
+              className={`h-2.5 w-2.5 rounded-full ${PRIORITY_DOT_COLORS[task.priority] ?? "bg-gray-400"}`}
             />
-            <p className="truncate text-xs font-medium">{task.title}</p>
+            <p className="truncate text-xs font-medium" title={task.title}>{task.title}</p>
             <Badge variant={STATUS_VARIANT[task.status] ?? "outline"} className="hidden sm:inline-flex truncate text-[10px]">
               {TASK_STATUS_LABELS[task.status] ?? task.status}
             </Badge>

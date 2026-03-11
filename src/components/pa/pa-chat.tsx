@@ -1,24 +1,34 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { usePAChat, useChatSessionMessages } from "@/hooks/use-pa";
+import { usePAChat, useChatSessionMessages, useChatOverlayStore } from "@/hooks/use-pa";
 import { useQueryClient } from "@tanstack/react-query";
 import { PAMessage } from "./pa-message";
 import { PAInput } from "./pa-input";
 import { PAActionCard } from "./pa-action-card";
+import { RotateCcw } from "lucide-react";
 
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
   action?: any;
+  isTranscribing?: boolean;
+  failedText?: string;
 }
 
 const WELCOME_MESSAGE: ChatMessage = {
   id: "welcome",
   role: "assistant",
-  content: "Hi! I'm your Hive PA. Try asking me:\n\n• \"Create a task for design review by Friday\"\n• \"What's blocking the project?\"\n• \"Block my calendar for deep work tomorrow\"\n• \"How's the team doing this week?\"",
+  content: "Hey — what can I help you with?",
 };
+
+const SUGGESTIONS = [
+  "Create a task",
+  "What's blocking the project?",
+  "How's the team doing?",
+  "Schedule deep work",
+];
 
 interface PAChatProps {
   sessionId: string | null;
@@ -31,7 +41,7 @@ export function PAChat({ sessionId, onSessionCreated }: PAChatProps) {
   const { sendMessage, sendVoice } = usePAChat();
   const { data: sessionData } = useChatSessionMessages(sessionId);
   const queryClient = useQueryClient();
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollAnchorRef = useRef<HTMLDivElement>(null);
 
   // Load session messages when switching sessions
   useEffect(() => {
@@ -54,8 +64,9 @@ export function PAChat({ sessionId, onSessionCreated }: PAChatProps) {
     }
   }, [sessionId]);
 
+  // Scroll to bottom when messages change
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    scrollAnchorRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const handleSend = useCallback(async (text: string) => {
@@ -69,7 +80,6 @@ export function PAChat({ sessionId, onSessionCreated }: PAChatProps) {
     try {
       const result = await sendMessage.mutateAsync({ message: text, sessionId: sessionId ?? undefined });
 
-      // If this created a new session, notify parent
       if (!sessionId && result.sessionId) {
         onSessionCreated?.(result.sessionId);
       }
@@ -82,7 +92,6 @@ export function PAChat({ sessionId, onSessionCreated }: PAChatProps) {
       };
       setMessages((prev) => [...prev, assistantMsg]);
 
-      // Invalidate session messages cache
       if (result.sessionId) {
         queryClient.invalidateQueries({ queryKey: ["pa-session-messages", result.sessionId] });
       }
@@ -90,25 +99,29 @@ export function PAChat({ sessionId, onSessionCreated }: PAChatProps) {
       const errorMsg = err instanceof Error ? err.message : "Something went wrong";
       setMessages((prev) => [
         ...prev,
-        { id: `error-${Date.now()}`, role: "assistant", content: `Sorry, ${errorMsg}. Please try again.` },
+        { id: `error-${Date.now()}`, role: "assistant", content: `Sorry, ${errorMsg}. Please try again.`, failedText: text },
       ]);
     }
   }, [sendMessage, sessionId, onSessionCreated, queryClient]);
+
+  const consumePendingMessage = useChatOverlayStore((s) => s.consumePendingMessage);
+  const consumePendingVoiceBlob = useChatOverlayStore((s) => s.consumePendingVoiceBlob);
+  const pendingConsumedRef = useRef(false);
 
   const handleVoice = useCallback(async (blob: Blob) => {
     const userMsg: ChatMessage = {
       id: `voice-${Date.now()}`,
       role: "user",
-      content: "Voice message...",
+      content: "Transcribing your voice message...",
+      isTranscribing: true,
     };
     setMessages((prev) => [...prev, userMsg]);
 
     try {
       const result = await sendVoice.mutateAsync(blob);
-      // Update the voice message with transcript
       setMessages((prev) =>
         prev.map((m) =>
-          m.id === userMsg.id ? { ...m, content: result.transcription.transcript } : m
+          m.id === userMsg.id ? { ...m, content: result.transcription.transcript, isTranscribing: false } : m
         )
       );
       const assistantMsg: ChatMessage = {
@@ -126,28 +139,79 @@ export function PAChat({ sessionId, onSessionCreated }: PAChatProps) {
     }
   }, [sendVoice]);
 
+  // Auto-send pending message or voice blob from home input bar
+  useEffect(() => {
+    if (pendingConsumedRef.current) return;
+    const pending = consumePendingMessage();
+    if (pending) {
+      pendingConsumedRef.current = true;
+      handleSend(pending);
+      return;
+    }
+    const voiceBlob = consumePendingVoiceBlob();
+    if (voiceBlob) {
+      pendingConsumedRef.current = true;
+      handleVoice(voiceBlob);
+    }
+  }, [consumePendingMessage, consumePendingVoiceBlob, handleSend, handleVoice]);
+
+  const isWelcomeOnly = messages.length === 1 && messages[0].id === "welcome";
+  const isPending = sendMessage.isPending || sendVoice.isPending;
+
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3" aria-label="PA conversation" role="log" aria-live="polite">
+      <div className="flex-1 overflow-y-auto px-5 py-6 space-y-4" aria-label="PA conversation" role="log" aria-live="polite">
         {messages.map((msg) => (
           <div key={msg.id}>
-            <PAMessage role={msg.role} content={msg.content} />
+            <PAMessage role={msg.role} content={msg.content} isTranscribing={msg.isTranscribing} />
             {msg.action && msg.action.status === "pending" && (
               <PAActionCard action={msg.action} />
             )}
+            {msg.failedText && (
+              <button
+                onClick={() => handleSend(msg.failedText!)}
+                className="mt-1.5 ml-11 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <RotateCcw className="size-3" />
+                Retry
+              </button>
+            )}
           </div>
         ))}
-        {(sendMessage.isPending || sendVoice.isPending) && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
-            <div className="size-2 animate-pulse rounded-full bg-violet-400" aria-hidden="true" />
-            Thinking...
+
+        {/* Suggestion chips on welcome screen */}
+        {isWelcomeOnly && !isPending && (
+          <div className="flex flex-wrap gap-2 pl-11">
+            {SUGGESTIONS.map((s) => (
+              <button
+                key={s}
+                onClick={() => handleSend(s)}
+                className="neu-subtle rounded-xl bg-background px-3 py-1.5 text-xs text-muted-foreground transition-all hover:text-foreground hover:scale-[1.02] active:neu-pressed"
+              >
+                {s}
+              </button>
+            ))}
           </div>
         )}
+
+        {isPending && (
+          <div className="flex items-center gap-3 text-sm text-muted-foreground" role="status">
+            <div className="flex gap-1 ml-11">
+              <div className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:0ms]" />
+              <div className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:150ms]" />
+              <div className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:300ms]" />
+            </div>
+          </div>
+        )}
+
+        {/* Scroll anchor */}
+        <div ref={scrollAnchorRef} />
       </div>
       <PAInput
         onSend={handleSend}
         onVoice={handleVoice}
-        isLoading={sendMessage.isPending || sendVoice.isPending}
+        isLoading={isPending}
+        autoFocus
       />
     </div>
   );

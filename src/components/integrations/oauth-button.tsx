@@ -7,9 +7,10 @@ import { useOrg } from "@/hooks/use-org";
 interface OAuthButtonProps {
   authUrl: string;
   provider: string;
+  label?: string;
 }
 
-export function OAuthButton({ authUrl, provider }: OAuthButtonProps) {
+export function OAuthButton({ authUrl, provider, label }: OAuthButtonProps) {
   const { orgId } = useOrg();
 
   function handleConnect() {
@@ -27,7 +28,7 @@ export function OAuthButton({ authUrl, provider }: OAuthButtonProps) {
       className="gap-1 bg-violet-600 hover:bg-violet-700"
     >
       <ExternalLink className="size-3" />
-      Connect {provider}
+      {label ?? `Connect ${provider}`}
     </Button>
   );
 }
